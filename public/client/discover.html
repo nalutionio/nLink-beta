@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink (NalutionLink) - Swipe</title>
+</head>
+<body>
+  <!-- Swipe discovery app for NLink beta -->
+  <div class="app">
+    <header class="app-header">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <a class="ghost-button" href="../client/saved.html">Saved</a>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="filters" id="filters-panel" aria-hidden="false">
+        <div class="filter-row">
+          <div class="filter-field">
+            <label for="category">Service Category</label>
+            <select id="category">
+              <option value="all">All</option>
+            </select>
+          </div>
+        <div class="filter-field">
+          <label for="location-search">Location (ZIP or Town)</label>
+          <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken, NJ)" />
+          <datalist id="location-options"></datalist>
+        </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-field">
+            <label for="budget-min">Budget Min ($)</label>
+            <input type="number" id="budget-min" placeholder="50" min="0" />
+          </div>
+          <div class="filter-field">
+            <label for="budget-max">Budget Max ($)</label>
+            <input type="number" id="budget-max" placeholder="500" min="0" />
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-field">
+            <label for="rating-min">Min Rating</label>
+            <select id="rating-min">
+              <option value="0">Any</option>
+              <option value="3.5">3.5+</option>
+              <option value="4">4.0+</option>
+              <option value="4.5">4.5+</option>
+            </select>
+          </div>
+          <button class="primary-button" id="apply-filters">Apply Filters</button>
+        </div>
+        </section>
+
+        <section class="actions">
+          <button class="action-button pass" id="pass-button">❌ Pass</button>
+          <button class="action-button save" id="save-button">⭐ Save</button>
+        </section>
+      </aside>
+
+      <main class="card-stage">
+        <div class="card-stack" id="card-stack" aria-live="polite"></div>
+        <div class="empty-state" id="empty-state" hidden>
+          <h2>No matches</h2>
+          <p>Try widening your filters or resetting budget.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="profile-modal" aria-hidden="true" role="dialog" aria-modal="true"></div>
+  <div class="modal" id="cropper-modal" aria-hidden="true" role="dialog" aria-modal="true"></div>
+
+  <footer class="page-footer">
+    <div class="footer-links">
+      <a href="#">Cookie Policy</a>
+      <a href="#">Terms &amp; Conditions</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <p class="footer-meta">Contact: support@nalutionsolution.com</p>
+    <p class="footer-meta">© Nalution Properties LLC</p>
+  </footer>
+
+  <nav class="bottom-nav" id="client-nav" hidden>
+    <a href="../client/client-dashboard.html">Dashboard</a>
+    <a class="active" href="../client/discover.html">Discover</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-profile.html">Profile</a>
+  </nav>
+
+  <script src="../reviews.js"></script>
+  <script src="../swipe.js"></script>
+  <script src="../cropper.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/ui-labels.js"></script>
+  <script src="../app.js"></script>
+  <script>
+    (async () => {
+      const nav = document.getElementById("client-nav");
+      if (!nav) return;
+      nav.hidden = true;
+      const navSupabase = typeof window.getNlinkSupabaseClient === "function"
+        ? window.getNlinkSupabaseClient()
+        : null;
+      if (!navSupabase) return;
+      const { data } = await navSupabase.auth.getSession();
+      const metadata = data?.session?.user?.user_metadata || {};
+      const roles = [];
+      if (Array.isArray(metadata.roles)) roles.push(...metadata.roles);
+      if (typeof metadata.role === "string" && metadata.role) roles.push(metadata.role);
+      const normalizedRoles = [...new Set(roles.length ? roles : ["client"])];
+      if (data?.session?.user && normalizedRoles.includes("client")) {
+        nav.hidden = false;
+      }
+    })();
+  </script>
+</body>
+</html>

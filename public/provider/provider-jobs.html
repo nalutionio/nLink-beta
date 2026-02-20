@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Job Feed</title>
+</head>
+<body class="jobs-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Discover Jobs</p>
+        <h1>Open requests</h1>
+      </div>
+      <a class="ghost-button" href="../provider/dashboard.html">Dashboard</a>
+    </header>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Filter Jobs</h3>
+        <span class="badge">Beta</span>
+      </div>
+      <div class="filter-row">
+        <label class="input-field">
+          <span>Category</span>
+          <input type="text" id="filter-category" placeholder="Painting" />
+        </label>
+        <label class="input-field">
+          <span>Location</span>
+          <input type="text" id="filter-location" placeholder="Hoboken, NJ" />
+        </label>
+      </div>
+      <div class="filter-row">
+        <label class="input-field">
+          <span>Budget Min</span>
+          <input type="number" id="filter-budget-min" placeholder="300" />
+        </label>
+        <label class="input-field">
+          <span>Budget Max</span>
+          <input type="number" id="filter-budget-max" placeholder="900" />
+        </label>
+      </div>
+      <button class="primary-button" id="apply-filters">Apply Filters</button>
+    </section>
+
+    <section class="job-feed" id="job-feed"></section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../provider/dashboard.html">Dashboard</a>
+    <a class="active" href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Requests</a>
+    <a href="../provider/profile.html">Profile</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/jobs-provider.js"></script>
+</body>
+</html>

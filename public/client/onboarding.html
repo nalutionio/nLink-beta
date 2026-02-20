@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <title>NLink - Client Onboarding</title>
+</head>
+<body class="auth-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="../assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <p class="kicker">Client Setup</p>
+    </header>
+
+    <section class="auth-card auth-simple">
+      <h1>Set up your profile</h1>
+      <p class="muted">A few quick steps, then you can start swiping.</p>
+
+      <form id="client-onboarding-form" class="modal-form">
+        <div class="onboard-step" data-step="1">
+          <label class="input-field">
+            <span>What is your name?</span>
+            <input type="text" id="client-name" placeholder="Your name" required />
+          </label>
+        </div>
+
+        <div class="onboard-step hidden" data-step="2">
+          <label class="input-field">
+            <span>Where are you located?</span>
+            <input type="text" id="client-location" placeholder="City, State or ZIP" />
+          </label>
+        </div>
+
+        <div class="onboard-step hidden" data-step="3">
+          <label class="input-field">
+            <span>What services do you want first?</span>
+            <input type="text" id="client-interests" placeholder="Cleaning, Electrical, Photography..." />
+          </label>
+          <label class="input-field">
+            <span>Budget comfort range</span>
+            <input type="text" id="client-budget" placeholder="e.g. 100-500" />
+          </label>
+        </div>
+
+        <div class="auth-actions">
+          <button type="button" class="ghost-button" id="client-back" hidden>Back</button>
+          <button type="button" class="primary-button" id="client-next">Next</button>
+          <button type="submit" class="primary-button" id="client-finish" hidden>Finish</button>
+        </div>
+      </form>
+
+      <div class="auth-status" id="client-onboarding-status"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/client-onboarding.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/assets/logormbg.png" />
+  <title>NLink (NalutionLink) - Landing</title>
+</head>
+<body class="landing-page">
+  <!-- Landing page for NLink beta -->
+  <main class="landing">
+    <header class="landing-header">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="/assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="header-actions">
+        <a class="ghost-button" href="auth-choice.html">Sign In / Create Account</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Swipe-based business discovery</p>
+        <h1>Find the Right Business. Instantly.</h1>
+        <p class="hero-sub">
+          Discover trusted providers with a single swipe. Create your account, choose your portal,
+          complete your profile, and start booking or getting discovered.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-button" href="/client/discover.html">Swipe to Discover</a>
+          <a class="ghost-button" href="/shared/signup-provider.html">List Your Business</a>
+        </div>
+        <p class="muted">One account can support both Client and Provider roles.</p>
+      </div>
+      <div class="hero-carousel" id="hero-carousel" aria-label="Business profile carousel">
+        <article class="profile-card">
+          <img src="/images/scoopiwoopie.png" alt="Scoopie Woopie & GO" />
+          <div class="profile-card-body">
+            <h3>Scoopie Woopie & GO <span class="verified">✔</span></h3>
+            <p>Hassle-free dog waste cleanup so you can enjoy your yard again.</p>
+            <div class="profile-stats">
+              <span>★ 4.8</span>
+              <span>Bridgewater, NJ</span>
+              <button class="ghost-button">View</button>
+            </div>
+          </div>
+        </article>
+        <article class="profile-card">
+          <img src="/images/placeholder2.jpg" alt="Evoir Fitness" />
+          <div class="profile-card-body">
+            <h3>Evoir Fitness <span class="verified">✔</span></h3>
+            <p>Personal training rooted in sustainable fitness, recovery, and performance.</p>
+            <div class="profile-stats">
+              <span>★ 4.6</span>
+              <span>Short Hills, NJ</span>
+              <button class="ghost-button">View</button>
+            </div>
+          </div>
+        </article>
+        <article class="profile-card">
+          <img src="/images/placeholderoriaon.jpg" alt="Orion Home Improvement" />
+          <div class="profile-card-body">
+            <h3>Orion Home Improvement <span class="verified">✔</span></h3>
+            <p>Quality repairs, upgrades, and renovations for everyday homes.</p>
+            <div class="profile-stats">
+              <span>★ 4.9</span>
+              <span>Eatontown, NJ</span>
+              <button class="ghost-button">View</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="landing-grid">
+      <article>
+        <h3>Swipe to Decide</h3>
+        <p>Fast, intuitive browsing with left/right swipe decisions.</p>
+      </article>
+      <article>
+        <h3>Save the Best</h3>
+        <p>Bookmark providers in seconds and follow up later.</p>
+      </article>
+      <article>
+        <h3>Business Focused</h3>
+        <p>Designed for professional services</p>
+      </article>
+    </section>
+
+    <footer class="landing-footer">
+      <p>Beta experience • No payments or messaging in this version.</p>
+      <div class="footer-links">
+        <a href="#">Cookie Policy</a>
+        <a href="#">Terms &amp; Conditions</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+      <p class="footer-meta">Contact: support@nalutionsolution.com</p>
+      <p class="footer-meta">© 2026 Nalution Properties LLC</p>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/guard.js"></script>
+  <script>
+    redirectIfSignedIn();
+  </script>
+  <script src="/landing.js"></script>
+</body>
+</html>

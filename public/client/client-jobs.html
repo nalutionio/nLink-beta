@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Post a Job</title>
+</head>
+<body class="jobs-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/client-dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Jobs</p>
+        <h1>Post a job</h1>
+      </div>
+      <a class="ghost-button" href="../client/client-dashboard.html">Dashboard</a>
+    </header>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Job Details</h3>
+        <span class="badge">Client</span>
+      </div>
+      <form class="modal-form" id="job-form">
+        <label class="input-field">
+          <span>Job title</span>
+          <input type="text" id="job-title" placeholder="Paint kitchen + living room" required />
+        </label>
+        <label class="input-field">
+          <span>Category</span>
+          <input type="text" id="job-category" placeholder="Painting" required />
+        </label>
+        <label class="input-field">
+          <span>Description</span>
+          <textarea rows="4" id="job-description" placeholder="Share details about what you need." required></textarea>
+        </label>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Budget min</span>
+            <input type="number" id="job-budget-min" placeholder="300" min="0" required />
+          </label>
+          <label class="input-field">
+            <span>Budget max</span>
+            <input type="number" id="job-budget-max" placeholder="900" min="0" required />
+          </label>
+        </div>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Square footage</span>
+            <input type="number" id="job-sqft" placeholder="950" min="0" />
+          </label>
+          <label class="input-field">
+            <span>Timeline</span>
+            <input type="text" id="job-timeline" placeholder="Next 2 weeks" />
+          </label>
+        </div>
+        <label class="input-field">
+          <span>Location</span>
+          <input type="text" id="job-location" placeholder="Hoboken, NJ" required />
+        </label>
+        <label class="upload-field">
+          <span>Upload photos</span>
+          <input type="file" id="job-photos" accept="image/*" multiple />
+        </label>
+        <button type="submit" class="primary-button">Post Job</button>
+      </form>
+      <div class="auth-status" id="job-status"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>My Jobs</h3>
+        <span class="badge">Beta</span>
+      </div>
+      <div class="job-list" id="job-list"></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/client-dashboard.html">Dashboard</a>
+    <a href="../client/discover.html">Discover</a>
+    <a class="active" href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-profile.html">Profile</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/jobs-client.js"></script>
+</body>
+</html>

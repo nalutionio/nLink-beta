@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink (NalutionLink) - Profile</title>
+</head>
+<body class="profile-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Profile</p>
+        <h1>Account & Settings</h1>
+      </div>
+      <a class="ghost-button" href="../provider/dashboard.html">Dashboard</a>
+    </header>
+
+    <section class="account-card">
+      <div class="profile-avatar-lg">
+        <img src="../assets/nlinkiconblk.png" alt="Profile" id="provider-avatar" />
+      </div>
+      <div>
+        <h2 id="provider-name">Your business</h2>
+        <p class="muted" id="provider-email"></p>
+      </div>
+      <a class="primary-button" href="../provider/profile-edit.html">Edit Profile</a>
+    </section>
+
+    <section class="settings-group">
+      <h3>Account Settings</h3>
+      <div class="settings-list">
+        <a class="settings-item" href="../provider/account-information.html">Account Information</a>
+        <a class="settings-item" href="../provider/settings-notifications.html">Notifications</a>
+        <a class="settings-item" href="../provider/settings-security.html">Security</a>
+        <a class="settings-item" href="../provider/settings-billing.html">Billing</a>
+        <button class="settings-item danger" id="sign-out">Sign Out</button>
+      </div>
+    </section>
+
+    <div class="auth-status" id="profile-status"></div>
+
+    <section class="settings-group">
+      <h3>Support</h3>
+      <div class="settings-list">
+        <a class="settings-item" href="../provider/settings-support.html">Help Center</a>
+        <a class="settings-item" href="../provider/settings-support.html">Contact Support</a>
+        <a class="settings-item" href="../provider/settings-support.html">Privacy Policy</a>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../provider/dashboard.html">Dashboard</a>
+    <a href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Requests</a>
+    <a class="active" href="../provider/profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/signout.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/profile-provider.js"></script>
+</body>
+</html>

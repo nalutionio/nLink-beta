@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink (NalutionLink) - Edit Profile</title>
+</head>
+<body class="profile-edit-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Edit Profile</p>
+        <h1>Polish your profile card.</h1>
+      </div>
+      <a class="ghost-button" href="../provider/profile.html">Back</a>
+    </header>
+    <div class="auth-status" id="dashboard-status"></div>
+
+    <section class="fb-edit-shell">
+      <article class="panel fb-edit-header">
+        <div class="fb-cover">
+          <button class="ghost-button" type="button" onclick="document.getElementById('banner-upload').click()">Edit Cover Photo</button>
+        </div>
+        <div class="fb-avatar-wrap">
+          <div class="profile-avatar-lg fb-avatar-lg">
+            <img src="../assets/nlinkiconblk.png" alt="Logo preview" id="provider-avatar-header" />
+          </div>
+          <button class="ghost-button" type="button" onclick="document.getElementById('avatar-upload').click()">Edit Logo</button>
+        </div>
+        <div class="fb-header-meta">
+          <h2 id="provider-name-header">Business Profile</h2>
+          <p class="muted">This is how your profile appears to clients.</p>
+        </div>
+      </article>
+
+      <form id="profile-form" class="modal-form edit-form-single">
+        <article class="panel edit-section-card profile-readiness-card">
+          <div class="panel-header">
+            <h3>Profile Readiness</h3>
+            <span class="badge" id="profile-status-pill">Draft</span>
+          </div>
+          <p class="muted" id="profile-completion-text">0% complete</p>
+          <div class="completion-track" aria-hidden="true">
+            <span id="profile-completion-bar"></span>
+          </div>
+          <ul class="missing-list" id="profile-missing-list"></ul>
+          <div class="status-actions">
+            <button type="button" class="ghost-button" id="save-draft-btn">Save as Draft</button>
+            <button type="button" class="primary-button" id="publish-profile-btn">Publish Profile</button>
+            <button type="button" class="ghost-button" id="pause-profile-btn">Pause Listing</button>
+          </div>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Brand Media</h3></div>
+          <div class="upload-row">
+            <label class="upload-field">
+              <span>Banner image</span>
+              <input type="file" id="banner-upload" accept="image/*" />
+              <small class="muted" id="banner-upload-name">No image chosen</small>
+            </label>
+            <label class="upload-field">
+              <span>Logo image</span>
+              <input type="file" id="avatar-upload" accept="image/*" />
+              <small class="muted" id="avatar-upload-name">No image chosen</small>
+            </label>
+          </div>
+          <div class="upload-field">
+            <span>Or choose a preset banner color</span>
+            <div class="banner-presets" id="banner-presets">
+              <button type="button" class="color-swatch" data-banner-color="#0f172a" style="--swatch:#0f172a;" aria-label="Navy"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1f2937" style="--swatch:#1f2937;" aria-label="Charcoal"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1d4ed8" style="--swatch:#1d4ed8;" aria-label="Blue"></button>
+              <button type="button" class="color-swatch" data-banner-color="#0b8a6a" style="--swatch:#0b8a6a;" aria-label="Green"></button>
+              <button type="button" class="color-swatch" data-banner-color="#7c3aed" style="--swatch:#7c3aed;" aria-label="Indigo"></button>
+              <button type="button" class="color-swatch" data-banner-color="#b45309" style="--swatch:#b45309;" aria-label="Amber"></button>
+            </div>
+            <small class="muted">Preset saves instantly. Upload anytime to replace it.</small>
+          </div>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Business Identity</h3></div>
+          <label class="input-field">
+            <span>Business name</span>
+            <input type="text" id="profile-name" placeholder="Business name" required />
+          </label>
+          <label class="input-field">
+            <span>Service category</span>
+            <input type="text" id="profile-category" placeholder="Service category" required />
+          </label>
+          <label class="input-field">
+            <span>Headline</span>
+            <input type="text" id="profile-tagline" placeholder="What makes your business stand out?" />
+          </label>
+          <label class="input-field">
+            <span>About your business</span>
+            <textarea rows="4" id="profile-description" placeholder="Tell clients what you do, who you serve, and why they should book you."></textarea>
+          </label>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Service & Pricing</h3></div>
+          <label class="input-field">
+            <span>Location (City, State)</span>
+            <input type="text" id="profile-location" placeholder="Location" required />
+          </label>
+          <label class="input-field">
+            <span>Budget range</span>
+            <input type="text" id="profile-budget" placeholder="Budget range (e.g., 80-400)" required />
+          </label>
+          <label class="input-field">
+            <span>Services offered</span>
+            <input type="text" id="profile-services" placeholder="e.g. Deep Cleaning, Move-out, Recurring Service" />
+          </label>
+          <label class="input-field">
+            <span>Availability</span>
+            <input type="text" id="profile-availability" placeholder="e.g. Mon-Sat, 8am-6pm" />
+          </label>
+          <div class="social-links-grid">
+            <label class="input-field">
+              <span>Availability Days (optional)</span>
+              <input type="text" id="profile-availability-days" placeholder="e.g. Mon,Tue,Wed,Thu,Fri" />
+            </label>
+            <label class="input-field">
+              <span>Service Area ZIP (optional)</span>
+              <input type="text" id="profile-service-area-zip" placeholder="e.g. 07030" />
+            </label>
+            <label class="input-field">
+              <span>Available From (optional)</span>
+              <input type="time" id="profile-availability-start" />
+            </label>
+            <label class="input-field">
+              <span>Available Until (optional)</span>
+              <input type="time" id="profile-availability-end" />
+            </label>
+            <label class="input-field">
+              <span>Service Radius (miles, optional)</span>
+              <input type="number" id="profile-service-radius" min="1" max="200" step="1" placeholder="e.g. 25" />
+            </label>
+          </div>
+          <label class="input-field">
+            <span>Pricing details (optional)</span>
+            <textarea rows="3" id="profile-pricing-details" placeholder="e.g. Hourly rates, package tiers, minimum service fee"></textarea>
+          </label>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Contact & Links</h3></div>
+          <label class="input-field">
+            <span>Business phone</span>
+            <input type="text" id="profile-phone" placeholder="(555) 123-4567" />
+          </label>
+          <label class="input-field">
+            <span>Business website</span>
+            <input type="text" id="profile-website" placeholder="https://yourbusiness.com" />
+          </label>
+          <div class="social-links-grid">
+            <label class="input-field social-input">
+              <span><span class="social-icon">IG</span>Instagram</span>
+              <input type="text" id="profile-social-instagram" placeholder="https://instagram.com/yourbusiness" />
+            </label>
+            <label class="input-field social-input">
+              <span><span class="social-icon">FB</span>Facebook</span>
+              <input type="text" id="profile-social-facebook" placeholder="https://facebook.com/yourbusiness" />
+            </label>
+            <label class="input-field social-input">
+              <span><span class="social-icon">IN</span>LinkedIn</span>
+              <input type="text" id="profile-social-linkedin" placeholder="https://linkedin.com/company/yourbusiness" />
+            </label>
+            <label class="input-field social-input">
+              <span><span class="social-icon">TT</span>TikTok</span>
+              <input type="text" id="profile-social-tiktok" placeholder="https://tiktok.com/@yourbusiness" />
+            </label>
+          </div>
+          <label class="input-field">
+            <span>Business address</span>
+            <input type="text" id="profile-address" placeholder="Street, City, State, Zip" />
+          </label>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header">
+            <h3>Gallery Photos</h3>
+            <label class="ghost-button">
+              Upload Photos
+              <input type="file" id="gallery-upload" accept="image/*" multiple hidden />
+            </label>
+          </div>
+          <div class="gallery-grid" id="gallery-grid"></div>
+          <p class="muted" id="gallery-empty">No gallery photos yet.</p>
+        </article>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Profile Card Preview</h3></div>
+          <div id="profile-preview" class="preview-card preview-card-mobile"></div>
+        </article>
+
+        <div class="edit-savebar">
+          <button type="submit" class="primary-button">Save Changes</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../provider/dashboard.html">Dashboard</a>
+    <a href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Requests</a>
+    <a class="active" href="../provider/profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/ui-labels.js"></script>
+  <script src="../js/dashboard.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+</body>
+</html>

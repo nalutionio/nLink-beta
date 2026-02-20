@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>NLink - Email Confirmation</title>
+</head>
+<body class="auth-page" data-role="client" data-mode="email-confirm">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="auth-choice.html" aria-label="NLink home">
+        <img src="/assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <a class="ghost-button" href="auth-choice.html">Back</a>
+    </header>
+
+    <section class="auth-card auth-simple">
+      <span class="kicker">Email Verification</span>
+      <h1>Confirming Account</h1>
+      <p class="muted">Please wait while we validate your confirmation link.</p>
+      <div class="auth-status info" id="auth-status">Processing confirmation...</div>
+      <div class="auth-actions">
+        <a class="ghost-button" href="login-client.html">Client Login</a>
+        <a class="ghost-button" href="login-provider.html">Provider Login</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/auth-portal.js"></script>
+</body>
+</html>

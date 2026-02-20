@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Client Dashboard</title>
+</head>
+<body class="dashboard-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/client-dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Dashboard</p>
+        <h1>Welcome back.</h1>
+      </div>
+      <a class="ghost-button" href="../client/client-profile.html">Profile</a>
+    </header>
+
+    <section class="stat-grid">
+      <article class="stat-card">
+        <span class="stat-label">Businesses Saved</span>
+        <h2>12</h2>
+        <p class="stat-trend up">+3 this week</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Bookings</span>
+        <h2>4</h2>
+        <p class="stat-trend">0 this week</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Reviews Left</span>
+        <h2>2</h2>
+        <p class="stat-trend up">+1 this week</p>
+      </article>
+    </section>
+
+    <section class="dashboard-panels">
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Saved Shortlist</h3>
+          <a class="ghost-button" href="../client/saved.html">View All</a>
+        </div>
+        <p class="muted">Quick access to your favorite providers.</p>
+      </article>
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Post a Job</h3>
+          <a class="ghost-button" href="../client/client-jobs.html">Create</a>
+        </div>
+        <p class="muted">Share your project and invite providers to respond.</p>
+      </article>
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Next Steps</h3>
+          <span class="badge">Beta</span>
+        </div>
+        <p class="muted">Message providers and track requests here soon.</p>
+      </article>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a class="active" href="../client/client-dashboard.html">Dashboard</a>
+    <a href="../client/discover.html">Discover</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-profile.html">Profile</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+</body>
+</html>

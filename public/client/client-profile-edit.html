@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Edit Client Profile</title>
+</head>
+<body class="profile-edit-page">
+  <main class="screen client-profile-edit">
+    <header class="topbar minimal">
+      <a class="ghost-button" href="../client/client-profile.html">Back</a>
+      <div class="topbar-title">
+        <p class="kicker">Edit profile</p>
+        <h1>Edit profile</h1>
+      </div>
+      <span></span>
+    </header>
+
+    <section class="panel edit-panel">
+      <form class="modal-form" id="client-profile-form">
+        <label class="input-field">
+          <span>Full name</span>
+          <input type="text" id="client-full-name" placeholder="Full name" />
+        </label>
+        <label class="input-field">
+          <span>Nick name</span>
+          <input type="text" id="client-nick-name" placeholder="Nick name" />
+        </label>
+        <label class="input-field">
+          <span>Email</span>
+          <input type="email" id="client-email" placeholder="you@email.com" />
+        </label>
+        <label class="input-field phone-field">
+          <span>Phone number</span>
+          <div class="phone-input">
+            <span class="flag">🇺🇸</span>
+            <input type="tel" id="client-phone" placeholder="123-456-7890" />
+          </div>
+        </label>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Country</span>
+            <select id="client-country">
+              <option>United States</option>
+              <option>Canada</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Gender</span>
+            <select id="client-gender">
+              <option>Female</option>
+              <option>Male</option>
+              <option>Other</option>
+            </select>
+          </label>
+        </div>
+        <label class="input-field">
+          <span>Address</span>
+          <input type="text" id="client-address" placeholder="45 New Avenue, New York" />
+        </label>
+        <button class="primary-button" type="submit">Submit</button>
+      </form>
+      <div class="auth-status" id="client-profile-status"></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/client-dashboard.html">Dashboard</a>
+    <a href="../client/discover.html">Discover</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a class="active" href="../client/client-profile.html">Profile</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/profile-client-edit.js"></script>
+</body>
+</html>

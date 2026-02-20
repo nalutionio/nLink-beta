@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>NLink (NalutionLink) - Login Choice</title>
+</head>
+<body class="auth-page auth-choice-page" data-auth-flow="login">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="/assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <a class="ghost-button" href="auth-choice.html">Back</a>
+    </header>
+
+    <section class="panel auth-choice">
+      <span class="kicker">Log In</span>
+      <h1>How are you using NLink?</h1>
+      <p class="muted">Choose your portal. You can switch roles after login if your account has both.</p>
+      <p class="muted" id="auth-choice-recent" hidden></p>
+
+      <div class="choice-grid">
+        <a class="choice-card" data-role="client" href="login-client.html">
+          <h3>I'm a Client</h3>
+          <p class="muted">Discover businesses and save favorites.</p>
+        </a>
+        <a class="choice-card" data-role="provider" href="login-provider.html">
+          <h3>I'm a Provider</h3>
+          <p class="muted">Manage your profile and get booked.</p>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/guard.js"></script>
+  <script src="/js/auth-flow-choice.js"></script>
+  <script>
+    redirectIfSignedIn();
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/favicon.ico" />
+  <title>NLink - Client Sign Up</title>
+</head>
+<body class="auth-page" data-role="client" data-mode="signup">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="auth-choice.html" aria-label="NLink home">
+        <img src="/assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <a class="ghost-button" href="signup-choice.html">Back</a>
+    </header>
+
+    <section class="auth-card auth-simple">
+      <span class="kicker">Client Portal</span>
+      <h1>Create Account</h1>
+      <p class="muted">Sign up to save and follow your favorite providers.</p>
+
+      <form id="auth-form" class="modal-form">
+        <label class="input-field">
+          <span>Email address</span>
+          <input type="email" id="auth-email" placeholder="you@email.com" required />
+        </label>
+        <label class="input-field">
+          <span>Mobile number</span>
+          <input type="tel" id="auth-phone" placeholder="(555) 123-4567" />
+        </label>
+
+        <div class="password-field">
+          <label class="input-field">
+            <span>Password</span>
+            <input type="password" id="auth-password" placeholder="Create password" required />
+          </label>
+          <button type="button" class="toggle-password is-hidden" data-target="auth-password" aria-label="Show password">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5c5.05 0 9.27 3.11 11 7-1.73 3.89-5.95 7-11 7S2.73 15.89 1 12c1.73-3.89 5.95-7 11-7zm0 2C7.92 7 4.5 9.45 3.07 12 4.5 14.55 7.92 17 12 17s7.5-2.45 8.93-5C19.5 9.45 16.08 7 12 7zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>
+              <line class="slash" x1="4" y1="4" x2="20" y2="20" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="password-field" id="confirm-wrap">
+          <label class="input-field">
+            <span>Confirm password</span>
+            <input type="password" id="auth-confirm" placeholder="Re-enter password" required />
+          </label>
+          <button type="button" class="toggle-password is-hidden" data-target="auth-confirm" aria-label="Show password confirmation">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5c5.05 0 9.27 3.11 11 7-1.73 3.89-5.95 7-11 7S2.73 15.89 1 12c1.73-3.89 5.95-7 11-7zm0 2C7.92 7 4.5 9.45 3.07 12 4.5 14.55 7.92 17 12 17s7.5-2.45 8.93-5C19.5 9.45 16.08 7 12 7zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>
+              <line class="slash" x1="4" y1="4" x2="20" y2="20" />
+            </svg>
+          </button>
+        </div>
+
+        <button type="submit" class="primary-button" id="auth-submit">Create Account</button>
+      </form>
+
+      <div class="auth-status" id="auth-status"></div>
+
+      <p class="muted auth-foot">Already have an account? <a href="login-client.html">Login</a></p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/auth-portal.js"></script>
+</body>
+</html>

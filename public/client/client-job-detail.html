@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Job Detail</title>
+</head>
+<body class="jobs-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/client-jobs.html" aria-label="NLink jobs">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Job Detail</p>
+        <h1 id="job-title">Job</h1>
+      </div>
+      <a class="ghost-button" href="../client/client-jobs.html">Back</a>
+    </header>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Status</h3>
+        <span class="pill" id="job-status">Open</span>
+      </div>
+      <p class="muted" id="job-meta"></p>
+      <p id="job-description"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Photos</h3>
+      </div>
+      <div class="job-gallery" id="job-gallery"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Requests</h3>
+        <span class="badge">Beta</span>
+      </div>
+      <div class="job-list" id="job-requests"></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/client-dashboard.html">Dashboard</a>
+    <a href="../client/discover.html">Discover</a>
+    <a class="active" href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-profile.html">Profile</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/job-detail-client.js"></script>
+</body>
+</html>

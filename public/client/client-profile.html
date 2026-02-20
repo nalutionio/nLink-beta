@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Client Profile</title>
+</head>
+<body class="profile-page">
+  <main class="screen client-profile">
+    <header class="topbar minimal">
+      <button class="icon-button" aria-label="Notifications">
+        <img src="../icons/bell.svg" alt="" />
+      </button>
+      <div class="topbar-title">
+        <p class="kicker">Profile</p>
+        <h1>Account</h1>
+      </div>
+      <div class="icon-row">
+        <button class="icon-button" aria-label="Refresh">
+          <img src="../icons/refresh.svg" alt="" />
+        </button>
+        <button class="icon-button" aria-label="Menu">
+          <img src="../icons/menu.svg" alt="" />
+        </button>
+      </div>
+    </header>
+
+    <section class="client-hero">
+      <div class="client-hero-bg"></div>
+      <div class="client-avatar-wrap">
+        <img src="../assets/nlinkiconblk.png" alt="Profile" id="client-avatar" />
+        <a class="avatar-edit" href="../client/client-profile-edit.html" aria-label="Edit profile">✎</a>
+      </div>
+      <div class="client-info">
+        <h2 id="client-name">Client Name</h2>
+        <p class="muted" id="client-meta">client@email.com</p>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h3>Account Settings</h3>
+      <div class="settings-list list-cards">
+        <a class="settings-item" href="../client/client-profile-edit.html">Edit profile information</a>
+        <a class="settings-item" href="../provider/settings-notifications.html">Notifications <span class="pill">ON</span></a>
+        <a class="settings-item" href="../provider/settings-support.html">Language <span class="pill link">English</span></a>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h3>Security</h3>
+      <div class="settings-list list-cards">
+        <a class="settings-item" href="../provider/settings-security.html">Security</a>
+        <a class="settings-item" href="../provider/settings-support.html">Theme <span class="pill link">Light mode</span></a>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h3>Support</h3>
+      <div class="settings-list list-cards">
+        <a class="settings-item" href="../provider/settings-support.html">Help &amp; Support</a>
+        <a class="settings-item" href="../provider/settings-support.html">Contact us</a>
+        <a class="settings-item" href="../provider/settings-support.html">Privacy policy</a>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <div class="settings-list">
+        <button class="settings-item danger" id="sign-out">Sign Out</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/client-dashboard.html">Dashboard</a>
+    <a href="../client/discover.html">Discover</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a class="active" href="../client/client-profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/signout.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/profile-client.js"></script>
+</body>
+</html>

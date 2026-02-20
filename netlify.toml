@@ -1,0 +1,17 @@
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/"
+  to = "/landing.html"
+  status = 301
+
+[[redirects]]
+  from = "/discover"
+  to = "/client/discover.html"
+  status = 301
+
+[[redirects]]
+  from = "/saved"
+  to = "/client/saved.html"
+  status = 301

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <title>NLink - Provider Onboarding</title>
+</head>
+<body class="auth-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="../assets/nlinkblack.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <p class="kicker">Provider Setup</p>
+    </header>
+
+    <section class="auth-card auth-simple">
+      <h1>Create your business profile</h1>
+      <p class="muted">Complete this once. You can edit details anytime.</p>
+
+      <form id="provider-onboarding-form" class="modal-form">
+        <div class="onboard-step" data-step="1">
+          <label class="input-field">
+            <span>Business name</span>
+            <input type="text" id="provider-name" placeholder="Your business name" required />
+          </label>
+          <label class="input-field">
+            <span>Service category</span>
+            <input type="text" id="provider-category" placeholder="Cleaning, Barber, Photography..." required />
+          </label>
+        </div>
+
+        <div class="onboard-step hidden" data-step="2">
+          <label class="input-field">
+            <span>Business location</span>
+            <input type="text" id="provider-location" placeholder="City, State" required />
+          </label>
+          <label class="input-field">
+            <span>Budget range</span>
+            <input type="text" id="provider-budget" placeholder="e.g. 100-500" required />
+          </label>
+        </div>
+
+        <div class="onboard-step hidden" data-step="3">
+          <label class="input-field">
+            <span>Short bio</span>
+            <textarea id="provider-description" rows="4" placeholder="Tell clients what you do." required></textarea>
+          </label>
+        </div>
+
+        <div class="onboard-step hidden" data-step="4">
+          <label class="upload-field">
+            <span>Preset banner color (optional)</span>
+            <div class="banner-presets" id="provider-onboarding-banner-presets">
+              <button type="button" class="color-swatch" data-banner-color="#0f172a" style="--swatch:#0f172a;" aria-label="Navy"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1f2937" style="--swatch:#1f2937;" aria-label="Charcoal"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1d4ed8" style="--swatch:#1d4ed8;" aria-label="Blue"></button>
+              <button type="button" class="color-swatch" data-banner-color="#0b8a6a" style="--swatch:#0b8a6a;" aria-label="Green"></button>
+              <button type="button" class="color-swatch" data-banner-color="#7c3aed" style="--swatch:#7c3aed;" aria-label="Indigo"></button>
+              <button type="button" class="color-swatch" data-banner-color="#b45309" style="--swatch:#b45309;" aria-label="Amber"></button>
+            </div>
+            <small class="muted">If no banner is uploaded, this color will be used.</small>
+          </label>
+          <label class="upload-field">
+            <span>Business logo</span>
+            <input type="file" id="provider-logo-upload" accept="image/*" />
+            <small class="muted" id="provider-logo-upload-name">No image chosen</small>
+          </label>
+          <label class="upload-field">
+            <span>Business banner</span>
+            <input type="file" id="provider-banner-upload" accept="image/*" />
+            <small class="muted" id="provider-banner-upload-name">No image chosen</small>
+          </label>
+          <label class="upload-field">
+            <span>Business photos (up to 3, minimum 2 total uploads)</span>
+            <input type="file" id="provider-gallery-upload" accept="image/*" multiple />
+            <small class="muted" id="provider-gallery-upload-name">No images chosen</small>
+          </label>
+        </div>
+
+        <div class="auth-actions">
+          <button type="button" class="ghost-button" id="provider-back" hidden>Back</button>
+          <button type="button" class="primary-button" id="provider-next">Next</button>
+          <button type="submit" class="primary-button" id="provider-finish" hidden>Finish</button>
+        </div>
+      </form>
+
+      <div class="auth-status" id="provider-onboarding-status"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/provider-onboarding.js"></script>
+</body>
+</html>

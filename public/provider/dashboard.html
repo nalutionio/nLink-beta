@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink (NalutionLink) - Dashboard</title>
+</head>
+<body class="dashboard-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Dashboard</p>
+        <div class="topbar-headline">
+          <h1>Good morning, Provider.</h1>
+          <span class="badge badge-muted" id="dashboard-listing-status">Draft</span>
+        </div>
+      </div>
+      <a class="ghost-button" href="../provider/profile.html">Profile</a>
+    </header>
+    <div class="auth-status" id="dashboard-status"></div>
+
+    <section class="stat-grid">
+      <article class="stat-card">
+        <span class="stat-label">Profile Views</span>
+        <h2 id="stat-profile-views">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Saves</span>
+        <h2 id="stat-saves">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Requests</span>
+        <h2 id="stat-requests">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Contact Clicks</span>
+        <h2 id="stat-contact-clicks">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Booking Clicks</span>
+        <h2 id="stat-booking-clicks">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+    </section>
+
+    <section class="dashboard-panels">
+      <article class="panel rating-panel">
+        <div class="panel-header">
+          <h3>Service Rating</h3>
+          <span class="badge">Beta</span>
+        </div>
+        <div class="rating-score">
+          <div>
+            <h2 id="service-rating-value">Unrated</h2>
+            <p class="muted" id="service-rating-count">No reviews yet</p>
+          </div>
+          <div class="rating-stars" id="service-rating-stars">☆☆☆☆☆</div>
+        </div>
+      </article>
+
+      <article class="panel preview-panel">
+        <div class="panel-header">
+          <h3>Profile Card Preview</h3>
+          <div class="header-actions">
+            <button class="ghost-button" id="view-full-profile" type="button">Full Profile</button>
+            <a class="ghost-button" href="../provider/profile-edit.html">Edit</a>
+          </div>
+        </div>
+        <div id="profile-preview" class="preview-card"></div>
+      </article>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a class="active" href="../provider/dashboard.html">Dashboard</a>
+    <a href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Requests</a>
+    <a href="../provider/profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/ui-labels.js"></script>
+  <script src="../js/dashboard.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+</body>
+</html>

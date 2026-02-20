@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink (NalutionLink) - Saved</title>
+</head>
+<body class="saved-page">
+  <div class="app">
+    <header class="app-header">
+      <a class="brand-link" href="../landing.html" aria-label="NLink home">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <a class="ghost-button" href="../client/discover.html">Back</a>
+    </header>
+
+    <section class="saved-list" id="saved-list"></section>
+    <div class="empty-state" id="saved-empty" hidden>
+      <h2>No saved businesses yet</h2>
+      <p>Swipe right or tap ⭐ Save to build your list.</p>
+    </div>
+  </div>
+
+  <div class="modal" id="profile-modal" aria-hidden="true" role="dialog" aria-modal="true"></div>
+  <div class="modal" id="cropper-modal" aria-hidden="true" role="dialog" aria-modal="true"></div>
+
+  <footer class="page-footer">
+    <div class="footer-links">
+      <a href="#">Cookie Policy</a>
+      <a href="#">Terms &amp; Conditions</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <p class="footer-meta">Contact: support@nalutionsolution.com</p>
+    <p class="footer-meta">© Nalution Properties LLC</p>
+  </footer>
+
+  <script src="../reviews.js"></script>
+  <script src="../cropper.js"></script>
+  <script src="../js/ui-labels.js"></script>
+  <script src="../app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+</body>
+</html>
