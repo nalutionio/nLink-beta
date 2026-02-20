@@ -71,6 +71,15 @@ const requireAuth = async (redirectTo = "/landing.html") => {
     return;
   }
 
+  const isClientOnboardingPage = path.includes("/client/onboarding.html");
+  if (isClientArea && roles.includes("client") && !isClientOnboardingPage) {
+    const clientOnboardingDone = data.session.user.user_metadata?.onboarding_client_complete === true;
+    if (!clientOnboardingDone) {
+      window.location.href = "/client/onboarding.html";
+      return;
+    }
+  }
+
   const currentRole = isProviderArea ? "provider" : "client";
   localStorage.setItem("nlink_last_role", currentRole);
   injectRoleSwitch(roles, path);

@@ -1,6 +1,6 @@
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = window.NLINK_SUPABASE || {};
-const clientReady = Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
-const supabase = clientReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = typeof window.getNlinkSupabaseClient === "function"
+  ? window.getNlinkSupabaseClient()
+  : null;
 
 const nameEl = document.getElementById("client-name");
 const metaEl = document.getElementById("client-meta");
@@ -16,7 +16,7 @@ const loadClientProfile = async () => {
 
   const { data, error } = await supabase
     .from("clients")
-    .select("id,full_name,nick_name,email,phone,avatar_url")
+    .select("id,full_name,nick_name,email,phone,avatar_url,location")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -24,29 +24,19 @@ const loadClientProfile = async () => {
     return;
   }
 
-  let profile = data;
-  if (!profile) {
-    const { data: inserted } = await supabase
-      .from("clients")
-      .insert({
-        user_id: user.id,
-        email: user.email,
-        full_name: fallbackName(user.email),
-      })
-      .select("id,full_name,nick_name,email,phone,avatar_url")
-      .maybeSingle();
-    profile = inserted;
-  }
-
-  if (!profile) return;
-
-  if (nameEl) nameEl.textContent = profile.full_name || fallbackName(profile.email);
+  const meta = user.user_metadata || {};
+  const displayName = data?.full_name || meta.client_name || fallbackName(user.email);
+  if (nameEl) nameEl.textContent = displayName;
   if (metaEl) {
-    const bits = [profile.email || user.email, profile.phone].filter(Boolean);
+    const bits = [
+      data?.email || user.email || "",
+      data?.phone || "",
+      data?.location || meta.client_location || "",
+    ].filter(Boolean);
     metaEl.textContent = bits.join(" • ");
   }
-  if (avatarEl && profile.avatar_url) {
-    avatarEl.src = profile.avatar_url;
+  if (avatarEl && data?.avatar_url) {
+    avatarEl.src = `${data.avatar_url}${data.avatar_url.includes("?") ? "&" : "?"}v=${Date.now()}`;
   }
 };
 

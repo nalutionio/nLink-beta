@@ -19,6 +19,18 @@ let providerReviewsTableAvailable = false;
 let providerProfilesLifecycleAvailable = true;
 let providerEventsTableAvailable = true;
 
+const getRolesFromMetadata = (metadata) => {
+  const roles = [];
+  if (Array.isArray(metadata?.roles)) {
+    metadata.roles.forEach((role) => {
+      if (typeof role === "string" && role) roles.push(role);
+    });
+  }
+  if (typeof metadata?.role === "string" && metadata.role) roles.push(metadata.role);
+  if (!roles.length) roles.push("client");
+  return Array.from(new Set(roles));
+};
+
 const getSaved = () => {
   try {
     return JSON.parse(localStorage.getItem(storageKey)) || [];
@@ -54,6 +66,99 @@ const fetchProviderPhotos = async (providerId) => {
     .order("created_at", { ascending: false });
   if (error || !Array.isArray(data)) return { photos: [], error };
   return { photos: data.map((row) => ({ url: row.url })), error: null };
+};
+
+const hydrateSavedProviders = async (savedProviders) => {
+  if (!supabase || !Array.isArray(savedProviders) || savedProviders.length === 0) return savedProviders;
+  const ids = Array.from(new Set(savedProviders.map((item) => item.id).filter(Boolean)));
+  if (!ids.length) return savedProviders;
+
+  const { data: providerRows, error: providerError } = await supabase
+    .from("providers")
+    .select("id,name,category,location,budget_min,budget_max,description,hero_url,banner_url,avatar_url")
+    .in("id", ids);
+  if (providerError || !Array.isArray(providerRows)) return savedProviders;
+
+  const profilesByProviderId = {};
+  const photosByProviderId = {};
+  const { data: profileRows } = await supabase
+    .from("provider_profiles")
+    .select("provider_id,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
+    .in("provider_id", ids);
+  if (Array.isArray(profileRows)) {
+    profileRows.forEach((row) => {
+      profilesByProviderId[row.provider_id] = normalizeProfileMeta(row);
+    });
+  }
+
+  const { data: photoRows } = await supabase
+    .from("provider_photos")
+    .select("provider_id,url,created_at")
+    .in("provider_id", ids)
+    .order("created_at", { ascending: false });
+  if (Array.isArray(photoRows)) {
+    photoRows.forEach((row) => {
+      if (!photosByProviderId[row.provider_id]) photosByProviderId[row.provider_id] = [];
+      photosByProviderId[row.provider_id].push({ url: row.url });
+    });
+  }
+
+  const byId = {};
+  providerRows.forEach((row) => {
+    const meta = profilesByProviderId[row.id] || normalizeProfileMeta(null);
+    byId[row.id] = {
+      ...meta,
+      id: row.id,
+      name: row.name || "",
+      category: row.category || "",
+      budgetMin: row.budget_min ?? 0,
+      budgetMax: row.budget_max ?? 0,
+      location: row.location || "Unknown",
+      zip: meta.serviceAreaZip || "",
+      rating: 0,
+      reviewCount: 0,
+      heroImage: row.hero_url || "../assets/nlinkblack.png",
+      bannerImage: row.banner_url || row.hero_url || "../assets/nlinkblack.png",
+      avatar: row.avatar_url || row.hero_url || "../assets/nlinkiconblk.png",
+      description: row.description || "",
+      services: meta.services || [],
+      availability: meta.availability || "",
+      availabilityDays: meta.availabilityDays || "",
+      availabilityStart: meta.availabilityStart || "",
+      availabilityEnd: meta.availabilityEnd || "",
+      serviceAreaZip: meta.serviceAreaZip || "",
+      serviceRadiusMiles: meta.serviceRadiusMiles || "",
+      pricing: {
+        model: labelPricing.quote || "Custom quote",
+        startingAt: row.budget_min ?? 0,
+        details: labelPricing.details || "Request a quote for final pricing.",
+      },
+      pricingDetails: meta.pricingDetails || "",
+      address: meta.address || "",
+      directionsUrl: "",
+      contact: {
+        phone: meta.phone || "",
+        email: "",
+      },
+      website: meta.website || "",
+      socialInstagram: meta.socialInstagram || "",
+      socialFacebook: meta.socialFacebook || "",
+      socialLinkedin: meta.socialLinkedin || "",
+      socialTiktok: meta.socialTiktok || "",
+      listingStatus: meta.listingStatus || "published",
+      profileCompletion: Number(meta.profileCompletion || 0),
+      reviews: [],
+      galleryPhotos: photosByProviderId[row.id] || [],
+      monetization: {
+        sponsored: false,
+        featured: false,
+        tier: "basic",
+        payPerLead: false,
+      },
+    };
+  });
+
+  return savedProviders.map((item) => byId[item.id] || item);
 };
 
 const isMissingColumnError = (error) => (
@@ -898,6 +1003,14 @@ const initSwipePage = () => {
   const initData = async () => {
     state.user = await getSessionUser();
     state.isGuest = !state.user;
+    if (state.user) {
+      const roles = getRolesFromMetadata(state.user.user_metadata);
+      const clientOnboardingDone = state.user.user_metadata?.onboarding_client_complete === true;
+      if (roles.includes("client") && !clientOnboardingDone) {
+        window.location.href = "/client/onboarding.html";
+        return;
+      }
+    }
     if (state.user) localStorage.setItem("nlink_last_role", "client");
     setupGuestUi();
     const remoteProviders = await loadSupabaseProviders();
@@ -927,18 +1040,25 @@ const initSavedPage = () => {
   const savedEmpty = document.getElementById("saved-empty");
   if (!savedList) return;
 
-  const renderSaved = () => {
+  let renderVersion = 0;
+  const renderSaved = async () => {
+    const version = ++renderVersion;
     const saved = getSaved();
+    const hydrated = await hydrateSavedProviders(saved);
+    if (version !== renderVersion) return;
+    if (Array.isArray(hydrated) && hydrated.length > 0) {
+      setSaved(hydrated);
+    }
     savedList.innerHTML = "";
 
-    if (saved.length === 0) {
+    if (hydrated.length === 0) {
       savedEmpty.hidden = false;
       return;
     }
 
     savedEmpty.hidden = true;
 
-    saved.forEach((provider) => {
+    hydrated.forEach((provider) => {
       const card = document.createElement("article");
       card.className = "saved-card";
       card.innerHTML = createSavedMarkup(provider);
@@ -958,7 +1078,20 @@ const initSavedPage = () => {
     });
   };
 
-  renderSaved();
+  const bootstrapSaved = async () => {
+    const user = await getSessionUser();
+    if (user) {
+      const roles = getRolesFromMetadata(user.user_metadata);
+      const clientOnboardingDone = user.user_metadata?.onboarding_client_complete === true;
+      if (roles.includes("client") && !clientOnboardingDone) {
+        window.location.href = "/client/onboarding.html";
+        return;
+      }
+    }
+    renderSaved();
+  };
+
+  bootstrapSaved();
 
   window.addEventListener("nlink:images-updated", () => {
     renderSaved();

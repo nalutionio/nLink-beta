@@ -26,18 +26,18 @@
     <section class="stat-grid">
       <article class="stat-card">
         <span class="stat-label">Businesses Saved</span>
-        <h2>12</h2>
-        <p class="stat-trend up">+3 this week</p>
+        <h2 id="client-stat-saved">0</h2>
+        <p class="stat-trend" id="client-stat-saved-trend">Synced from your saved list</p>
       </article>
       <article class="stat-card">
         <span class="stat-label">Bookings</span>
-        <h2>4</h2>
-        <p class="stat-trend">0 this week</p>
+        <h2 id="client-stat-bookings">0</h2>
+        <p class="stat-trend" id="client-stat-bookings-trend">Beta placeholder</p>
       </article>
       <article class="stat-card">
         <span class="stat-label">Reviews Left</span>
-        <h2>2</h2>
-        <p class="stat-trend up">+1 this week</p>
+        <h2 id="client-stat-reviews">0</h2>
+        <p class="stat-trend" id="client-stat-reviews-trend">Beta placeholder</p>
       </article>
     </section>
 
@@ -74,6 +74,7 @@
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/client-dashboard.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
 </body>

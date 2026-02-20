@@ -18,6 +18,12 @@ const getDashboardForUser = (user) => {
   const roles = getRolesFromMetadata(user?.user_metadata);
   const lastRole = localStorage.getItem("nlink_last_role");
   const role = (lastRole && roles.includes(lastRole)) ? lastRole : roles[0];
+  const onboardingComplete = user?.user_metadata?.[`onboarding_${role}_complete`] === true;
+  if (!onboardingComplete) {
+    return role === "provider"
+      ? "/provider/onboarding.html"
+      : "/client/onboarding.html";
+  }
   return role === "provider"
     ? "/provider/dashboard.html"
     : "/client/discover.html";

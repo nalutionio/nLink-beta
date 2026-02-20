@@ -1,6 +1,6 @@
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = window.NLINK_SUPABASE || {};
-const clientReady = Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
-const supabase = clientReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = typeof window.getNlinkSupabaseClient === "function"
+  ? window.getNlinkSupabaseClient()
+  : null;
 
 const form = document.getElementById("client-profile-form");
 const statusEl = document.getElementById("client-profile-status");
@@ -49,6 +49,11 @@ form?.addEventListener("submit", async (event) => {
   const user = sessionData?.session?.user;
   if (!user) return;
 
+  if (!fullNameInput.value.trim()) {
+    setStatus("Full name is required.", "error");
+    return;
+  }
+
   setStatus("Saving...", "info");
 
   const payload = {
@@ -71,7 +76,21 @@ form?.addEventListener("submit", async (event) => {
     return;
   }
 
+  const metadata = {
+    ...(user.user_metadata || {}),
+    client_name: fullNameInput.value.trim(),
+    client_location: addressInput.value.trim() || user.user_metadata?.client_location || "",
+  };
+  const { error: metadataError } = await supabase.auth.updateUser({ data: metadata });
+  if (metadataError) {
+    setStatus(metadataError.message || "Saved profile, but could not update account metadata.", "error");
+    return;
+  }
+
   setStatus("Profile saved.", "success");
+  window.setTimeout(() => {
+    window.location.href = "/client/client-profile.html";
+  }, 600);
 });
 
 loadProfile();
