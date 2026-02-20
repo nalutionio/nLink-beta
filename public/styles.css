@@ -1252,6 +1252,21 @@ a {
   backdrop-filter: blur(10px);
 }
 
+.guest-swipe-counter {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(121, 184, 0, 0.14);
+  color: #355300;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.guest-swipe-counter.locked {
+  background: rgba(185, 28, 28, 0.12);
+  color: #8a1e1e;
+}
+
 .filter-row {
   display: grid;
   gap: 12px;
@@ -1354,7 +1369,7 @@ a {
 .card-photo-hit {
   position: absolute;
   top: 0;
-  bottom: 0;
+  height: clamp(180px, 62%, 360px);
   width: 42%;
   border: none;
   background: transparent;
@@ -1375,6 +1390,7 @@ a {
   left: 14px;
   right: 14px;
   bottom: 14px;
+  z-index: 4;
   padding: 12px 12px 10px;
   display: grid;
   gap: 10px;

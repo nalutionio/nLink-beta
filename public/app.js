@@ -188,7 +188,7 @@ const getDisplayImages = (provider) => {
 const getCardPhotos = (provider) => {
   const images = getDisplayImages(provider);
   const gallery = Array.isArray(provider?.galleryPhotos) ? provider.galleryPhotos.map((item) => item.url).filter(Boolean) : [];
-  return Array.from(new Set([images.avatar, ...gallery].filter(Boolean)));
+  return Array.from(new Set([images.avatar, ...gallery].filter(Boolean))).slice(0, 4);
 };
 
 const renderPhotoProgress = (count, activeIndex) => (
@@ -517,6 +517,7 @@ const initSwipePage = () => {
   const budgetMinInput = document.getElementById("budget-min");
   const budgetMaxInput = document.getElementById("budget-max");
   const ratingMinSelect = document.getElementById("rating-min");
+  const filtersPanel = document.getElementById("filters-panel");
 
   const state = {
     providers: [],
@@ -536,6 +537,31 @@ const initSwipePage = () => {
       topActionLink.textContent = "Saved";
       topActionLink.href = "../client/saved.html";
     }
+    renderGuestCounter();
+  };
+
+  const renderGuestCounter = () => {
+    const existing = document.getElementById("guest-swipe-counter");
+    if (!state.isGuest) {
+      existing?.remove();
+      return;
+    }
+    const remaining = Math.max(0, GUEST_SWIPE_LIMIT - state.swipesUsed);
+    const copy = remaining > 0
+      ? `${remaining} guest swipe${remaining === 1 ? "" : "s"} left`
+      : "Guest swipe limit reached";
+    if (existing) {
+      existing.textContent = copy;
+      existing.classList.toggle("locked", remaining === 0);
+      return;
+    }
+    if (!filtersPanel) return;
+    const counter = document.createElement("p");
+    counter.id = "guest-swipe-counter";
+    counter.className = "guest-swipe-counter";
+    counter.textContent = copy;
+    if (remaining === 0) counter.classList.add("locked");
+    filtersPanel.prepend(counter);
   };
 
   const isSwipeLocked = () => state.isGuest && state.swipesUsed >= GUEST_SWIPE_LIMIT;
@@ -733,6 +759,7 @@ const initSwipePage = () => {
   };
 
   const renderStack = () => {
+    renderGuestCounter();
     cardStack.innerHTML = "";
     emptyState.innerHTML = `
       <h2>No matches</h2>
@@ -837,6 +864,7 @@ const initSwipePage = () => {
     setTimeout(() => {
       state.swipesUsed += 1;
       state.currentIndex += 1;
+      renderGuestCounter();
       if (isSwipeLocked()) {
         openGuestGateModal("keep swiping");
       }
