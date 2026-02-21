@@ -13,7 +13,6 @@ const applyFiltersButton = document.getElementById("apply-filters");
 let jobsCache = [];
 let providerId = null;
 const requestStatusByJobId = {};
-const clientProfileById = {};
 
 if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
@@ -45,30 +44,16 @@ const loadProviderId = async () => {
 
 const fetchJobs = async () => {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id")
-    .eq("status", "open")
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return data;
-};
-
-const fetchClients = async (clientIds) => {
-  if (!supabase || !Array.isArray(clientIds) || !clientIds.length) return [];
-  const ids = Array.from(new Set(clientIds.filter(Boolean)));
-  if (!ids.length) return [];
-  const tries = [
-    "user_id,full_name,avatar_url,location,address,created_at,email_verified",
-    "user_id,full_name,avatar_url,location,address,created_at",
-    "user_id,full_name,avatar_url,location,created_at",
-    "user_id,full_name,avatar_url,created_at",
+  const queries = [
+    "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id,client_name,client_avatar_url,client_location_public,client_email_verified",
+    "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id",
   ];
-  for (let i = 0; i < tries.length; i += 1) {
+  for (let i = 0; i < queries.length; i += 1) {
     const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .in("user_id", ids);
+      .from("jobs")
+      .select(queries[i])
+      .eq("status", "open")
+      .order("created_at", { ascending: false });
     if (!error && Array.isArray(data)) return data;
     if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return [];
   }
@@ -132,12 +117,11 @@ const renderJobs = async () => {
   filtered.forEach((job) => {
     const photo = photos.find((item) => item.job_id === job.id);
     const thumb = photo?.url || "../assets/nlinkiconblk.png";
-    const client = clientProfileById[job.client_id] || null;
-    const clientName = client?.full_name || "Client";
-    const clientAvatar = client?.avatar_url || "../assets/nlinkiconblk.png";
-    const clientVerified = client?.email_verified === true;
-    const clientLocation = toPublicLocation(client?.location || client?.address || job.location || "");
-    const clientMember = formatMemberSince(client?.created_at);
+    const clientName = job.client_name || "Client";
+    const clientAvatar = job.client_avatar_url || "../assets/nlinkiconblk.png";
+    const clientVerified = job.client_email_verified === true;
+    const clientLocation = toPublicLocation(job.client_location_public || job.location || "");
+    const clientMember = formatMemberSince(job.created_at);
     const card = document.createElement("div");
     card.className = "job-card job-link-card";
     card.dataset.href = `../provider/job-detail.html?id=${job.id}`;
@@ -227,10 +211,6 @@ const init = async () => {
   providerId = await loadProviderId();
   await fetchProviderRequests();
   jobsCache = await fetchJobs();
-  const clients = await fetchClients(jobsCache.map((job) => job.client_id));
-  clients.forEach((client) => {
-    if (client?.user_id) clientProfileById[client.user_id] = client;
-  });
   await renderJobs();
 };
 

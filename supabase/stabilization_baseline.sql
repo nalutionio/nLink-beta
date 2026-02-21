@@ -98,6 +98,10 @@ alter table if exists public.jobs
   add column if not exists category text,
   add column if not exists timeline text,
   add column if not exists sqft integer,
+  add column if not exists client_name text,
+  add column if not exists client_avatar_url text,
+  add column if not exists client_location_public text,
+  add column if not exists client_email_verified boolean not null default false,
   add column if not exists status text not null default 'open',
   add column if not exists created_at timestamptz not null default now();
 

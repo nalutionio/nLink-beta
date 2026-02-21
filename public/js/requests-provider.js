@@ -22,27 +22,6 @@ const loadProviderId = async () => {
   return data?.id || null;
 };
 
-const fetchClients = async (clientIds) => {
-  if (!supabase || !Array.isArray(clientIds) || !clientIds.length) return [];
-  const ids = Array.from(new Set(clientIds.filter(Boolean)));
-  if (!ids.length) return [];
-  const tries = [
-    "user_id,full_name,avatar_url,location,address,created_at,email_verified",
-    "user_id,full_name,avatar_url,location,address,created_at",
-    "user_id,full_name,avatar_url,location,created_at",
-    "user_id,full_name,avatar_url,created_at",
-  ];
-  for (let i = 0; i < tries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .in("user_id", ids);
-    if (!error && Array.isArray(data)) return data;
-    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return [];
-  }
-  return [];
-};
-
 const toPublicLocation = (value) => {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -63,18 +42,28 @@ const renderRequests = async () => {
   const providerId = await loadProviderId();
   if (!providerId) return;
 
-  const { data } = await supabase
-    .from("job_requests")
-    .select("id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id)")
-    .eq("provider_id", providerId)
-    .order("created_at", { ascending: false });
+  const queries = [
+    "id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at)",
+    "id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id,created_at)",
+  ];
+  let data = [];
+  for (let i = 0; i < queries.length; i += 1) {
+    const result = await supabase
+      .from("job_requests")
+      .select(queries[i])
+      .eq("provider_id", providerId)
+      .order("created_at", { ascending: false });
+    if (!result.error && Array.isArray(result.data)) {
+      data = result.data;
+      break;
+    }
+    if (!(result.error?.code === "42703" || result.error?.code === "PGRST204" || result.error?.code === "PGRST205")) {
+      data = [];
+      break;
+    }
+  }
 
   const requests = data || [];
-  const clients = await fetchClients(requests.map((req) => req.jobs?.client_id));
-  const clientById = {};
-  clients.forEach((client) => {
-    if (client?.user_id) clientById[client.user_id] = client;
-  });
   const pending = requests.filter((req) => (req.status || "pending") === "pending");
   const active = requests.filter((req) => req.status === "accepted");
   const closed = requests.filter((req) => req.status === "closed" || req.status === "declined");
@@ -85,10 +74,9 @@ const renderRequests = async () => {
       pendingEl.innerHTML = "<p class='muted'>No requests yet.</p>";
     } else {
       [...pending, ...active].forEach((req) => {
-        const client = clientById[req.jobs?.client_id] || null;
-        const clientName = client?.full_name || "Client";
-        const clientAvatar = client?.avatar_url || "../assets/nlinkiconblk.png";
-        const clientLocation = toPublicLocation(client?.location || client?.address || req.jobs?.location || "");
+        const clientName = req.jobs?.client_name || "Client";
+        const clientAvatar = req.jobs?.client_avatar_url || "../assets/nlinkiconblk.png";
+        const clientLocation = toPublicLocation(req.jobs?.client_location_public || req.jobs?.location || "");
         const card = document.createElement("article");
         card.className = "job-card";
         card.innerHTML = `
@@ -99,8 +87,8 @@ const renderRequests = async () => {
             <div class="mini-client">
               <img src="${clientAvatar}" alt="${clientName}" />
               <div>
-                <p class="muted">${clientName} • ${formatMemberSince(client?.created_at)}</p>
-                <p class="muted">${clientLocation || "Location private"} ${client?.email_verified === true ? "• Email verified" : ""}</p>
+                <p class="muted">${clientName} • ${formatMemberSince(req.jobs?.created_at)}</p>
+                <p class="muted">${clientLocation || "Location private"} ${req.jobs?.client_email_verified === true ? "• Email verified" : ""}</p>
               </div>
             </div>
           </div>
@@ -120,10 +108,9 @@ const renderRequests = async () => {
       closedEl.innerHTML = "<p class='muted'>No closed requests.</p>";
     } else {
       closed.forEach((req) => {
-        const client = clientById[req.jobs?.client_id] || null;
-        const clientName = client?.full_name || "Client";
-        const clientAvatar = client?.avatar_url || "../assets/nlinkiconblk.png";
-        const clientLocation = toPublicLocation(client?.location || client?.address || req.jobs?.location || "");
+        const clientName = req.jobs?.client_name || "Client";
+        const clientAvatar = req.jobs?.client_avatar_url || "../assets/nlinkiconblk.png";
+        const clientLocation = toPublicLocation(req.jobs?.client_location_public || req.jobs?.location || "");
         const card = document.createElement("article");
         card.className = "job-card";
         card.innerHTML = `
@@ -133,8 +120,8 @@ const renderRequests = async () => {
             <div class="mini-client">
               <img src="${clientAvatar}" alt="${clientName}" />
               <div>
-                <p class="muted">${clientName} • ${formatMemberSince(client?.created_at)}</p>
-                <p class="muted">${clientLocation || "Location private"} ${client?.email_verified === true ? "• Email verified" : ""}</p>
+                <p class="muted">${clientName} • ${formatMemberSince(req.jobs?.created_at)}</p>
+                <p class="muted">${clientLocation || "Location private"} ${req.jobs?.client_email_verified === true ? "• Email verified" : ""}</p>
               </div>
             </div>
           </div>

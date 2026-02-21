@@ -64,6 +64,17 @@ const toPublicLocation = (value) => {
   return raw;
 };
 
+const getClientSnapshot = async (user) => {
+  const profile = await selectClientProfile(user.id);
+  const meta = user.user_metadata || {};
+  return {
+    client_name: profile?.full_name || meta.client_name || user.email?.split("@")[0] || "Client",
+    client_avatar_url: profile?.avatar_url || meta.client_avatar_url || fallbackAvatar,
+    client_location_public: toPublicLocation(profile?.location || profile?.address || meta.client_location || ""),
+    client_email_verified: Boolean(profile?.email_verified ?? meta.client_email_verified ?? user.email_confirmed_at),
+  };
+};
+
 if (window.NLINK_SERVICE_TAGS && categoryTagsEl && categoryInput) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
     container: categoryTagsEl,
@@ -184,6 +195,7 @@ form?.addEventListener("submit", async (event) => {
     timeline: timelineInput.value.trim(),
     location,
     status: "open",
+    ...(await getClientSnapshot(user)),
   };
 
   const { data: inserted, error } = await supabase

@@ -75,6 +75,10 @@ You can also serve the folder with any static server.
    - `public.job_requests.status`
    - `public.provider_profiles.listing_status`
 
+### Patch After Baseline (Client Identity On Jobs)
+If you already ran the baseline before commit `4159565`, run this too:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_client_identity_snapshot.sql`
+
 ## Smoke Test Checklist (Before Every Push)
 1. Auth flow:
    - Client signup/login redirects to `/client/discover.html`.

@@ -17,7 +17,6 @@ const clientLocationNoteEl = document.getElementById("job-client-location-note")
 
 let providerId = null;
 let jobId = null;
-let jobClientId = null;
 
 const setStatus = (message, type = "") => {
   if (!requestStatus) return;
@@ -44,27 +43,15 @@ const loadProviderId = async () => {
 
 const loadJob = async () => {
   if (!supabase || !jobId) return null;
-  const { data } = await supabase
-    .from("jobs")
-    .select("title,location,budget_min,budget_max,sqft,timeline,description,status,client_id")
-    .eq("id", jobId)
-    .maybeSingle();
-  return data;
-};
-
-const loadClient = async (clientId) => {
-  if (!supabase || !clientId) return null;
-  const tries = [
-    "user_id,full_name,avatar_url,location,address,created_at,email_verified",
-    "user_id,full_name,avatar_url,location,address,created_at",
-    "user_id,full_name,avatar_url,location,created_at",
-    "user_id,full_name,avatar_url,created_at",
+  const queries = [
+    "title,location,budget_min,budget_max,sqft,timeline,description,status,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at",
+    "title,location,budget_min,budget_max,sqft,timeline,description,status,client_id,created_at",
   ];
-  for (let i = 0; i < tries.length; i += 1) {
+  for (let i = 0; i < queries.length; i += 1) {
     const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .eq("user_id", clientId)
+      .from("jobs")
+      .select(queries[i])
+      .eq("id", jobId)
       .maybeSingle();
     if (!error) return data || null;
     if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return null;
@@ -99,7 +86,6 @@ const loadPhotos = async () => {
 const renderJob = async () => {
   const job = await loadJob();
   if (!job) return;
-  jobClientId = job.client_id || null;
 
   if (titleEl) titleEl.textContent = job.title;
   if (statusEl) statusEl.textContent = job.status || "open";
@@ -114,18 +100,17 @@ const renderJob = async () => {
   }
   if (descriptionEl) descriptionEl.textContent = job.description || "";
 
-  const client = await loadClient(jobClientId);
   if (clientAvatarEl) {
-    clientAvatarEl.src = client?.avatar_url || "../assets/nlinkiconblk.png";
+    clientAvatarEl.src = job.client_avatar_url || "../assets/nlinkiconblk.png";
   }
   if (clientNameEl) {
-    clientNameEl.textContent = client?.full_name || "Client";
+    clientNameEl.textContent = job.client_name || "Client";
   }
   if (clientMetaEl) {
     const bits = [
-      formatMemberSince(client?.created_at),
-      client?.email_verified === true ? "Email verified" : "Email unverified",
-      toPublicLocation(client?.location || client?.address || job.location || ""),
+      formatMemberSince(job.created_at),
+      job.client_email_verified === true ? "Email verified" : "Email unverified",
+      toPublicLocation(job.client_location_public || job.location || ""),
     ].filter(Boolean);
     clientMetaEl.textContent = bits.join(" • ");
   }
