@@ -56,6 +56,7 @@ const saveDraftButton = document.getElementById("save-draft-btn");
 const publishProfileButton = document.getElementById("publish-profile-btn");
 const pauseProfileButton = document.getElementById("pause-profile-btn");
 const dashboardListingStatusEl = document.getElementById("dashboard-listing-status");
+const dashboardHeadlineEl = document.querySelector(".topbar-headline h1");
 const labels = window.NLINK_UI_LABELS || {};
 const labelCommon = labels.common || {};
 const labelRating = labels.rating || {};
@@ -893,6 +894,7 @@ const uploadFile = async (file, path) => {
 const updatePreview = () => {
   const provider = state.provider;
   if (!provider) {
+    if (dashboardHeadlineEl) dashboardHeadlineEl.textContent = "Good morning.";
     if (providerNameHeaderEl) providerNameHeaderEl.textContent = "Business Profile";
     if (previewEl) {
       previewEl.innerHTML = `<p class='muted'>${labelProfile.noProfileFound || "No provider profile found."}</p>`;
@@ -904,6 +906,9 @@ const updatePreview = () => {
   const metadataBanner = state.user?.user_metadata?.provider_banner_url || "";
   const bannerSrc = provider.banner_url || provider.hero_url || metadataBanner || "../assets/nlinkblack.png";
   const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/nlinkiconblk.png";
+  if (dashboardHeadlineEl) {
+    dashboardHeadlineEl.textContent = `Good morning, ${provider.name || "Provider"}.`;
+  }
   if (providerNameHeaderEl) providerNameHeaderEl.textContent = provider.name || (labelCommon.unavailable || "Not provided");
   if (providerAvatarHeaderEl) providerAvatarHeaderEl.src = avatarSrc;
   if (fbCoverEl) {

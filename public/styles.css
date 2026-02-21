@@ -832,6 +832,29 @@ a {
   z-index: -1;
 }
 
+.client-edit-preview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  margin-top: 8px;
+  padding-top: 12px;
+  padding-bottom: 14px;
+}
+
+.client-edit-preview .client-hero-bg {
+  top: 0;
+  z-index: 0;
+}
+
+.client-edit-preview .client-avatar-wrap,
+.client-edit-preview .client-info {
+  position: relative;
+  z-index: 1;
+}
+
+
 .client-avatar-wrap {
   position: relative;
   width: 112px;
@@ -887,6 +910,50 @@ a {
 
 .pill.link {
   color: var(--accent-strong);
+}
+
+.verified-badge {
+  background: rgba(121, 184, 0, 0.2);
+  color: #426400;
+  border: 1px solid rgba(121, 184, 0, 0.35);
+}
+
+.client-public-card {
+  display: grid;
+  gap: 10px;
+}
+
+.mini-client {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mini-client.large {
+  align-items: flex-start;
+}
+
+.mini-client img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  background: #e9eeef;
+}
+
+.mini-client.large img {
+  width: 56px;
+  height: 56px;
+}
+
+.mini-client h4 {
+  margin: 0;
+}
+
+.mini-client .muted {
+  margin: 2px 0 0;
 }
 
 .edit-panel {
@@ -1032,14 +1099,26 @@ a {
 .job-gallery {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .job-gallery img {
   width: 100%;
-  height: 120px;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  max-height: 220px;
   border-radius: 14px;
   object-fit: cover;
+}
+
+@media (min-width: 768px) {
+  .job-gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .job-gallery img {
+    max-height: 260px;
+  }
 }
 
 .job-notes {

@@ -13,25 +13,16 @@
 <body class="profile-page">
   <main class="screen client-profile">
     <header class="topbar minimal">
-      <button class="icon-button" aria-label="Notifications">
-        <img src="../icons/bell.svg" alt="" />
-      </button>
+      <span></span>
       <div class="topbar-title">
         <p class="kicker">Profile</p>
         <h1>Account</h1>
       </div>
-      <div class="icon-row">
-        <button class="icon-button" aria-label="Refresh">
-          <img src="../icons/refresh.svg" alt="" />
-        </button>
-        <button class="icon-button" aria-label="Menu">
-          <img src="../icons/menu.svg" alt="" />
-        </button>
-      </div>
+      <span></span>
     </header>
 
     <section class="client-hero">
-      <div class="client-hero-bg"></div>
+      <div class="client-hero-bg" id="client-hero-bg"></div>
       <div class="client-avatar-wrap">
         <img src="../assets/nlinkiconblk.png" alt="Profile" id="client-avatar" />
         <a class="avatar-edit" href="../client/client-profile-edit.html" aria-label="Edit profile">✎</a>
@@ -40,6 +31,24 @@
         <h2 id="client-name">Client Name</h2>
         <p class="muted" id="client-meta">client@email.com</p>
       </div>
+    </section>
+
+    <section class="settings-group">
+      <h3>Public Client Card</h3>
+      <article class="settings-item client-public-card">
+        <div class="mini-client">
+          <img src="../assets/nlinkiconblk.png" alt="Client profile" id="client-public-avatar" />
+          <div>
+            <h4 id="client-public-name">Client Name</h4>
+            <p class="muted" id="client-public-member">Member since --</p>
+          </div>
+        </div>
+        <div class="tag-list">
+          <span class="pill verified-badge" id="client-public-verified">Email unverified</span>
+          <span class="pill" id="client-public-location">Location not set</span>
+        </div>
+        <p class="muted">Street address stays private unless you choose to share it during booking.</p>
+      </article>
     </section>
 
     <section class="settings-group">

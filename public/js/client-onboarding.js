@@ -117,6 +117,7 @@ form?.addEventListener("submit", async (event) => {
       .upsert({
         user_id: user.id,
         email: user.email,
+        email_verified: Boolean(user.email_confirmed_at),
         full_name: nameInput.value.trim(),
         location: locationInput.value.trim(),
         interests: interestTags,
@@ -132,6 +133,7 @@ form?.addEventListener("submit", async (event) => {
         .upsert({
           user_id: user.id,
           email: user.email,
+          email_verified: Boolean(user.email_confirmed_at),
           full_name: nameInput.value.trim(),
         }, { onConflict: "user_id" });
       if (fallbackError) throw fallbackError;

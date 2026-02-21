@@ -1,6 +1,6 @@
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = window.NLINK_SUPABASE || {};
-const clientReady = Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
-const supabase = clientReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = typeof window.getNlinkSupabaseClient === "function"
+  ? window.getNlinkSupabaseClient()
+  : null;
 
 const titleEl = document.getElementById("job-title");
 const statusEl = document.getElementById("job-status");
@@ -10,9 +10,14 @@ const galleryEl = document.getElementById("job-gallery");
 const notesEl = document.getElementById("job-notes");
 const requestButton = document.getElementById("request-quote");
 const requestStatus = document.getElementById("request-status");
+const clientAvatarEl = document.getElementById("job-client-avatar");
+const clientNameEl = document.getElementById("job-client-name");
+const clientMetaEl = document.getElementById("job-client-meta");
+const clientLocationNoteEl = document.getElementById("job-client-location-note");
 
 let providerId = null;
 let jobId = null;
+let jobClientId = null;
 
 const setStatus = (message, type = "") => {
   if (!requestStatus) return;
@@ -41,10 +46,45 @@ const loadJob = async () => {
   if (!supabase || !jobId) return null;
   const { data } = await supabase
     .from("jobs")
-    .select("title,location,budget_min,budget_max,sqft,timeline,description,status")
+    .select("title,location,budget_min,budget_max,sqft,timeline,description,status,client_id")
     .eq("id", jobId)
     .maybeSingle();
   return data;
+};
+
+const loadClient = async (clientId) => {
+  if (!supabase || !clientId) return null;
+  const tries = [
+    "user_id,full_name,avatar_url,location,address,created_at,email_verified",
+    "user_id,full_name,avatar_url,location,address,created_at",
+    "user_id,full_name,avatar_url,location,created_at",
+    "user_id,full_name,avatar_url,created_at",
+  ];
+  for (let i = 0; i < tries.length; i += 1) {
+    const { data, error } = await supabase
+      .from("clients")
+      .select(tries[i])
+      .eq("user_id", clientId)
+      .maybeSingle();
+    if (!error) return data || null;
+    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return null;
+  }
+  return null;
+};
+
+const toPublicLocation = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  return raw;
+};
+
+const formatMemberSince = (value) => {
+  if (!value) return "Member";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Member";
+  return `Member since ${date.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
 };
 
 const loadPhotos = async () => {
@@ -59,6 +99,7 @@ const loadPhotos = async () => {
 const renderJob = async () => {
   const job = await loadJob();
   if (!job) return;
+  jobClientId = job.client_id || null;
 
   if (titleEl) titleEl.textContent = job.title;
   if (statusEl) statusEl.textContent = job.status || "open";
@@ -72,6 +113,25 @@ const renderJob = async () => {
     metaEl.textContent = bits.join(" • ");
   }
   if (descriptionEl) descriptionEl.textContent = job.description || "";
+
+  const client = await loadClient(jobClientId);
+  if (clientAvatarEl) {
+    clientAvatarEl.src = client?.avatar_url || "../assets/nlinkiconblk.png";
+  }
+  if (clientNameEl) {
+    clientNameEl.textContent = client?.full_name || "Client";
+  }
+  if (clientMetaEl) {
+    const bits = [
+      formatMemberSince(client?.created_at),
+      client?.email_verified === true ? "Email verified" : "Email unverified",
+      toPublicLocation(client?.location || client?.address || job.location || ""),
+    ].filter(Boolean);
+    clientMetaEl.textContent = bits.join(" • ");
+  }
+  if (clientLocationNoteEl) {
+    clientLocationNoteEl.textContent = "Street address remains private until the client chooses to share it.";
+  }
 
   if (notesEl) {
     notesEl.innerHTML = "";
@@ -112,12 +172,14 @@ const requestQuote = async () => {
 
   const { data: existing } = await supabase
     .from("job_requests")
-    .select("id")
+    .select("id,status")
     .eq("job_id", jobId)
     .eq("provider_id", providerId)
     .maybeSingle();
 
   if (existing) {
+    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Requested";
+    requestButton.disabled = true;
     setStatus("Request already sent.", "success");
     return;
   }
@@ -134,6 +196,8 @@ const requestQuote = async () => {
   }
 
   setStatus("Request sent.", "success");
+  requestButton.textContent = "Requested";
+  requestButton.disabled = true;
 };
 
 const init = async () => {
@@ -142,6 +206,17 @@ const init = async () => {
   if (!jobId) return;
   providerId = await loadProviderId();
   await renderJob();
+  if (!providerId || !jobId) return;
+  const { data: existing } = await supabase
+    .from("job_requests")
+    .select("id,status")
+    .eq("job_id", jobId)
+    .eq("provider_id", providerId)
+    .maybeSingle();
+  if (existing) {
+    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Requested";
+    requestButton.disabled = true;
+  }
 };
 
 requestButton?.addEventListener("click", requestQuote);

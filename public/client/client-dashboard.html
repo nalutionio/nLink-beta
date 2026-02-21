@@ -20,7 +20,7 @@
         <p class="kicker">Dashboard</p>
         <h1>Welcome back.</h1>
       </div>
-      <a class="ghost-button" href="../client/client-profile.html">Profile</a>
+      <span></span>
     </header>
 
     <section class="stat-grid">
@@ -30,14 +30,14 @@
         <p class="stat-trend" id="client-stat-saved-trend">Synced from your saved list</p>
       </article>
       <article class="stat-card">
-        <span class="stat-label">Bookings</span>
+        <span class="stat-label">Accepted Quotes</span>
         <h2 id="client-stat-bookings">0</h2>
-        <p class="stat-trend" id="client-stat-bookings-trend">Beta placeholder</p>
+        <p class="stat-trend" id="client-stat-bookings-trend">From your posted jobs</p>
       </article>
       <article class="stat-card">
-        <span class="stat-label">Reviews Left</span>
+        <span class="stat-label">Open Jobs</span>
         <h2 id="client-stat-reviews">0</h2>
-        <p class="stat-trend" id="client-stat-reviews-trend">Beta placeholder</p>
+        <p class="stat-trend" id="client-stat-reviews-trend">Waiting for provider responses</p>
       </article>
     </section>
 
@@ -47,21 +47,28 @@
           <h3>Saved Shortlist</h3>
           <a class="ghost-button" href="../client/saved.html">View All</a>
         </div>
-        <p class="muted">Quick access to your favorite providers.</p>
+        <p class="muted" id="dashboard-saved-summary">Quick access to your favorite providers.</p>
       </article>
       <article class="panel">
         <div class="panel-header">
-          <h3>Post a Job</h3>
-          <a class="ghost-button" href="../client/client-jobs.html">Create</a>
+          <h3>Previous Providers Used</h3>
+          <a class="ghost-button" href="../client/client-jobs.html">View Jobs</a>
         </div>
-        <p class="muted">Share your project and invite providers to respond.</p>
+        <div class="settings-list" id="dashboard-previous-providers">
+          <p class="muted">No completed providers yet.</p>
+        </div>
       </article>
       <article class="panel">
         <div class="panel-header">
-          <h3>Next Steps</h3>
-          <span class="badge">Beta</span>
+          <h3>Job Status</h3>
+          <a class="ghost-button" href="../client/client-jobs.html">Manage</a>
         </div>
-        <p class="muted">Message providers and track requests here soon.</p>
+        <div class="settings-list">
+          <div class="settings-item"><span>Open jobs</span><span class="pill" id="dashboard-open-jobs">0</span></div>
+          <div class="settings-item"><span>In progress</span><span class="pill" id="dashboard-in-progress-jobs">0</span></div>
+          <div class="settings-item"><span>Completed</span><span class="pill" id="dashboard-completed-jobs">0</span></div>
+          <div class="settings-item"><span>Pending requests</span><span class="pill" id="dashboard-pending-requests">0</span></div>
+        </div>
       </article>
     </section>
   </main>

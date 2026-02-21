@@ -1,6 +1,6 @@
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = window.NLINK_SUPABASE || {};
-const clientReady = Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
-const supabase = clientReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = typeof window.getNlinkSupabaseClient === "function"
+  ? window.getNlinkSupabaseClient()
+  : null;
 
 const titleEl = document.getElementById("job-title");
 const statusEl = document.getElementById("job-status");
@@ -8,6 +8,8 @@ const metaEl = document.getElementById("job-meta");
 const descriptionEl = document.getElementById("job-description");
 const galleryEl = document.getElementById("job-gallery");
 const requestsEl = document.getElementById("job-requests");
+const closeButton = document.getElementById("job-close-btn");
+const reopenButton = document.getElementById("job-reopen-btn");
 
 let jobId = null;
 
@@ -39,10 +41,39 @@ const loadPhotos = async () => {
 const loadRequests = async () => {
   const { data } = await supabase
     .from("job_requests")
-    .select("id,status,created_at,providers(name)")
+    .select("id,status,created_at,provider_id,providers(name)")
     .eq("job_id", jobId)
     .order("created_at", { ascending: false });
   return data || [];
+};
+
+const updateJobStatus = async (nextStatus) => {
+  if (!supabase || !jobId) return;
+  const user = await getSessionUser();
+  if (!user) return;
+  await supabase
+    .from("jobs")
+    .update({ status: nextStatus })
+    .eq("id", jobId)
+    .eq("client_id", user.id);
+  await render();
+};
+
+const updateRequestStatus = async (requestId, nextStatus) => {
+  if (!supabase || !jobId || !requestId) return;
+  await supabase
+    .from("job_requests")
+    .update({ status: nextStatus })
+    .eq("id", requestId)
+    .eq("job_id", jobId);
+
+  if (nextStatus === "accepted") {
+    await supabase
+      .from("jobs")
+      .update({ status: "in_progress" })
+      .eq("id", jobId);
+  }
+  await render();
 };
 
 const render = async () => {
@@ -53,7 +84,10 @@ const render = async () => {
   if (!job) return;
 
   if (titleEl) titleEl.textContent = job.title;
-  if (statusEl) statusEl.textContent = job.status || "open";
+  const jobStatus = job.status || "open";
+  if (statusEl) statusEl.textContent = jobStatus;
+  if (closeButton) closeButton.disabled = jobStatus === "closed";
+  if (reopenButton) reopenButton.disabled = jobStatus === "open" || jobStatus === "in_progress";
   if (metaEl) {
     const bits = [
       job.location,
@@ -88,14 +122,33 @@ const render = async () => {
       requests.forEach((request) => {
         const card = document.createElement("article");
         card.className = "job-card";
+        const isPending = (request.status || "pending") === "pending";
+        const isAccepted = request.status === "accepted";
         card.innerHTML = `
           <div class="job-card-body">
             <h4>${request.providers?.name || "Provider"}</h4>
             <p class="muted">${new Date(request.created_at).toLocaleDateString()}</p>
           </div>
-          <span class="pill">${request.status || "pending"}</span>
+          <div class="job-actions">
+            <span class="pill">${request.status || "pending"}</span>
+            ${isPending ? `
+              <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline</button>
+              <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept</button>
+            ` : ""}
+            ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Closed</button>` : ""}
+          </div>
         `;
         requestsEl.appendChild(card);
+      });
+      requestsEl.querySelectorAll("button[data-request-action]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const requestId = button.dataset.requestId;
+          const action = button.dataset.requestAction;
+          if (!requestId || !action) return;
+          if (action === "accept") await updateRequestStatus(requestId, "accepted");
+          if (action === "decline") await updateRequestStatus(requestId, "declined");
+          if (action === "close") await updateRequestStatus(requestId, "closed");
+        });
       });
     }
   }
@@ -109,3 +162,11 @@ const init = () => {
 };
 
 init();
+
+closeButton?.addEventListener("click", async () => {
+  await updateJobStatus("closed");
+});
+
+reopenButton?.addEventListener("click", async () => {
+  await updateJobStatus("open");
+});

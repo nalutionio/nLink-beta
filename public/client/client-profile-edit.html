@@ -23,6 +23,39 @@
 
     <section class="panel edit-panel">
       <form class="modal-form" id="client-profile-form">
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Profile Media</h3></div>
+          <div class="upload-row">
+            <label class="upload-field">
+              <span>Banner image</span>
+              <input type="file" id="client-banner-upload" accept="image/*" />
+              <small class="muted" id="client-banner-upload-name">No image chosen</small>
+            </label>
+            <label class="upload-field">
+              <span>Profile image</span>
+              <input type="file" id="client-avatar-upload" accept="image/*" />
+              <small class="muted" id="client-avatar-upload-name">No image chosen</small>
+            </label>
+          </div>
+          <div class="upload-field">
+            <span>Or choose a preset banner color</span>
+            <div class="banner-presets" id="client-banner-presets">
+              <button type="button" class="color-swatch" data-banner-color="#0f172a" style="--swatch:#0f172a;" aria-label="Navy"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1f2937" style="--swatch:#1f2937;" aria-label="Charcoal"></button>
+              <button type="button" class="color-swatch" data-banner-color="#1d4ed8" style="--swatch:#1d4ed8;" aria-label="Blue"></button>
+              <button type="button" class="color-swatch" data-banner-color="#0b8a6a" style="--swatch:#0b8a6a;" aria-label="Green"></button>
+              <button type="button" class="color-swatch" data-banner-color="#7c3aed" style="--swatch:#7c3aed;" aria-label="Indigo"></button>
+              <button type="button" class="color-swatch" data-banner-color="#b45309" style="--swatch:#b45309;" aria-label="Amber"></button>
+            </div>
+          </div>
+          <div class="client-hero client-edit-preview">
+            <div class="client-hero-bg" id="client-edit-hero-bg"></div>
+            <div class="client-avatar-wrap">
+              <img src="../assets/nlinkiconblk.png" alt="Profile preview" id="client-edit-avatar-preview" />
+            </div>
+          </div>
+        </article>
+
         <label class="input-field">
           <span>Full name</span>
           <input type="text" id="client-full-name" placeholder="Full name" />
@@ -77,6 +110,7 @@
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/image-cropper.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/profile-client-edit.js"></script>
