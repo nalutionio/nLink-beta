@@ -15,6 +15,7 @@ const sqftInput = document.getElementById("job-sqft");
 const timelineInput = document.getElementById("job-timeline");
 const locationInput = document.getElementById("job-location");
 const photosInput = document.getElementById("job-photos");
+const categoryTagsEl = document.getElementById("job-category-tags");
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
@@ -62,6 +63,15 @@ const toPublicLocation = (value) => {
   if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
   return raw;
 };
+
+if (window.NLINK_SERVICE_TAGS && categoryTagsEl && categoryInput) {
+  window.NLINK_SERVICE_TAGS.renderTagPicker({
+    container: categoryTagsEl,
+    input: categoryInput,
+    options: window.NLINK_SERVICE_TAGS.allServiceTags,
+    multiple: false,
+  });
+}
 
 const normalizeJobStatus = (status) => {
   if (status === "accepted") return "in_progress";

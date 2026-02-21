@@ -31,7 +31,10 @@
       <div class="filter-row">
         <label class="input-field">
           <span>Category</span>
-          <input type="text" id="filter-category" placeholder="Painting" />
+          <input type="hidden" id="filter-category" value="all" />
+          <div class="tag-picker-wrap">
+            <div id="filter-category-tags" class="tag-picker"></div>
+          </div>
         </label>
         <label class="input-field">
           <span>Location</span>
@@ -62,6 +65,7 @@
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/service-tags.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/jobs-provider.js"></script>

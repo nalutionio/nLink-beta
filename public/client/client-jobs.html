@@ -35,7 +35,10 @@
         </label>
         <label class="input-field">
           <span>Category</span>
-          <input type="text" id="job-category" placeholder="Painting" required />
+          <input type="hidden" id="job-category" />
+          <div class="tag-picker-wrap">
+            <div id="job-category-tags" class="tag-picker"></div>
+          </div>
         </label>
         <label class="input-field">
           <span>Description</span>
@@ -91,6 +94,7 @@
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/service-tags.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/jobs-client.js"></script>

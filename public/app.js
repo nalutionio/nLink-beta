@@ -204,7 +204,7 @@ const openPhotoGalleryModal = async (provider) => {
       </div>
       <div class="gallery-grid">
         ${photos.length
-          ? photos.map((photo) => `<img src="${photo.url}" alt="${provider?.name || "Business"} photo" style="width:100%;height:130px;object-fit:cover;border-radius:12px;" />`).join("")
+          ? photos.map((photo) => `<img class="gallery-photo-frame" src="${photo.url}" alt="${provider?.name || "Business"} photo" />`).join("")
           : `<p class="muted">${
             liveError
               ? `Could not load photos (${liveError.message || "read blocked"})`
@@ -703,7 +703,10 @@ const initSwipePage = () => {
     if (categorySelect) {
       categorySelect.innerHTML = '<option value="all">All</option>';
     }
-    buildOptions(categorySelect, state.providers.map((p) => p.category));
+    const canonicalCategories = window.NLINK_SERVICE_TAGS?.allServiceTags || [];
+    const providerCategories = state.providers.map((p) => p.category).filter(Boolean);
+    const mergedCategories = [...canonicalCategories, ...providerCategories];
+    buildOptions(categorySelect, mergedCategories);
     buildLocationOptions([
       ...state.providers.map((p) => p.location),
       ...state.providers.map((p) => p.zip).filter(Boolean),

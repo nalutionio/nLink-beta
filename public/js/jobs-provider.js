@@ -4,6 +4,7 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const feedEl = document.getElementById("job-feed");
 const filterCategory = document.getElementById("filter-category");
+const filterCategoryTags = document.getElementById("filter-category-tags");
 const filterLocation = document.getElementById("filter-location");
 const filterBudgetMin = document.getElementById("filter-budget-min");
 const filterBudgetMax = document.getElementById("filter-budget-max");
@@ -13,6 +14,17 @@ let jobsCache = [];
 let providerId = null;
 const requestStatusByJobId = {};
 const clientProfileById = {};
+
+if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
+  window.NLINK_SERVICE_TAGS.renderTagPicker({
+    container: filterCategoryTags,
+    input: filterCategory,
+    options: window.NLINK_SERVICE_TAGS.allServiceTags,
+    multiple: false,
+    allowAll: true,
+    allLabel: "All",
+  });
+}
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -84,12 +96,12 @@ const fetchPhotos = async (jobIds) => {
 };
 
 const matchesFilters = (job) => {
-  const category = filterCategory.value.trim().toLowerCase();
+  const category = filterCategory.value.trim();
   const location = filterLocation.value.trim().toLowerCase();
   const minBudget = Number(filterBudgetMin.value) || 0;
   const maxBudget = Number(filterBudgetMax.value) || Number.POSITIVE_INFINITY;
 
-  const matchesCategory = !category || job.title.toLowerCase().includes(category) || job.category?.toLowerCase().includes(category);
+  const matchesCategory = !category || category === "all" || (job.category || "") === category;
   const matchesLocation = !location || job.location.toLowerCase().includes(location);
   const matchesBudget = job.budget_max >= minBudget && job.budget_min <= maxBudget;
 

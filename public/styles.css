@@ -653,6 +653,36 @@ a {
   color: var(--muted);
 }
 
+.tag-picker-wrap {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-chip.active {
+  border-color: rgba(121, 184, 0, 0.6);
+  background: rgba(121, 184, 0, 0.2);
+  color: #355200;
+}
+
 .banner-presets {
   display: flex;
   flex-wrap: wrap;
@@ -712,7 +742,9 @@ a {
 
 .gallery-card img {
   width: 100%;
-  height: 140px;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  max-height: 220px;
   object-fit: cover;
 }
 
@@ -1111,12 +1143,27 @@ a {
   object-fit: cover;
 }
 
+.gallery-photo-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 14px;
+  display: block;
+}
+
 @media (min-width: 768px) {
   .job-gallery {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .job-gallery img {
+    max-height: 260px;
+  }
+
+  .gallery-photo-frame,
+  .gallery-card img {
     max-height: 260px;
   }
 }
@@ -1361,6 +1408,7 @@ a {
 .filter-field input,
 .filter-field select,
 .modal-form input,
+.modal-form select,
 .modal-form textarea {
   padding: 10px 12px;
   border-radius: 12px;
@@ -1374,10 +1422,15 @@ a {
 .filter-field input:focus,
 .filter-field select:focus,
 .modal-form input:focus,
+.modal-form select:focus,
 .modal-form textarea:focus {
   outline: none;
   border-color: rgba(30, 122, 250, 0.5);
   box-shadow: 0 0 0 3px rgba(30, 122, 250, 0.15);
+}
+
+.services-select {
+  min-height: 170px;
 }
 
 .card-stage {

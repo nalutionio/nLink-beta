@@ -64,6 +64,29 @@ const labelProfile = labels.profile || {};
 const labelPricing = labels.pricing || {};
 const labelActions = labels.actions || {};
 const labelBeta = labels.beta || {};
+const serviceTagOptions = window.NLINK_SERVICE_TAGS?.allServiceTags || [];
+
+if (categoryInput && serviceTagOptions.length) {
+  const existing = new Set(Array.from(categoryInput.options).map((option) => option.value));
+  serviceTagOptions.forEach((tag) => {
+    if (existing.has(tag)) return;
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = tag;
+    categoryInput.appendChild(option);
+  });
+}
+
+if (servicesInput && serviceTagOptions.length) {
+  const existing = new Set(Array.from(servicesInput.options).map((option) => option.value));
+  serviceTagOptions.forEach((tag) => {
+    if (existing.has(tag)) return;
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = tag;
+    servicesInput.appendChild(option);
+  });
+}
 
 const state = {
   user: null,
@@ -239,6 +262,40 @@ const normalizeServices = (value) => value
   .filter(Boolean)
   .slice(0, 12);
 
+const getSelectedServiceTags = () => {
+  if (!servicesInput) return [];
+  if (servicesInput.tagName === "SELECT" && servicesInput.multiple) {
+    return Array.from(servicesInput.selectedOptions)
+      .map((option) => option.value)
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+  return normalizeServices(servicesInput.value || "");
+};
+
+const setSelectedServiceTags = (values) => {
+  if (!servicesInput) return;
+  const normalized = Array.isArray(values) ? values : normalizeServices(values || "");
+  if (servicesInput.tagName === "SELECT" && servicesInput.multiple) {
+    const selected = new Set(normalized);
+    Array.from(servicesInput.options).forEach((option) => {
+      option.selected = selected.has(option.value);
+    });
+    return;
+  }
+  servicesInput.value = normalized.join(", ");
+};
+
+const ensureSelectHasOption = (select, value) => {
+  if (!select || !value) return;
+  const exists = Array.from(select.options).some((option) => option.value === value);
+  if (exists) return;
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = value;
+  select.appendChild(option);
+};
+
 const renderStars = (rating) => {
   const fullStars = Math.floor(rating);
   const hasHalf = rating - fullStars >= 0.5;
@@ -249,7 +306,7 @@ const renderStars = (rating) => {
 const syncMetaFromInputs = () => {
   state.meta = {
     tagline: taglineInput?.value.trim() || "",
-    services: normalizeServices(servicesInput?.value || ""),
+    services: getSelectedServiceTags(),
     availability: availabilityInput?.value.trim() || "",
     availabilityDays: availabilityDaysInput?.value.trim() || "",
     availabilityStart: availabilityStartInput?.value || "",
@@ -269,7 +326,7 @@ const syncMetaFromInputs = () => {
 
 const applyMetaToInputs = () => {
   if (taglineInput) taglineInput.value = state.meta.tagline || "";
-  if (servicesInput) servicesInput.value = (state.meta.services || []).join(", ");
+  setSelectedServiceTags(state.meta.services || []);
   if (availabilityInput) availabilityInput.value = state.meta.availability || "";
   if (availabilityDaysInput) availabilityDaysInput.value = state.meta.availabilityDays || "";
   if (availabilityStartInput) availabilityStartInput.value = state.meta.availabilityStart || "";
@@ -1565,7 +1622,10 @@ const init = async () => {
     state.provider = resolvedProvider;
     localStorage.setItem(primaryProviderKey, resolvedProvider.id);
     if (nameInput) nameInput.value = resolvedProvider.name || "";
-    if (categoryInput) categoryInput.value = resolvedProvider.category || "";
+    if (categoryInput) {
+      ensureSelectHasOption(categoryInput, resolvedProvider.category || "");
+      categoryInput.value = resolvedProvider.category || "";
+    }
     if (locationInput) locationInput.value = resolvedProvider.location || "";
     if (budgetInput) budgetInput.value = `${resolvedProvider.budget_min || 0}-${resolvedProvider.budget_max || 0}`;
     if (descriptionInput) descriptionInput.value = resolvedProvider.description || "";

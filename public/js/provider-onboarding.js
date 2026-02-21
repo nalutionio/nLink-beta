@@ -28,6 +28,16 @@ const MAX_UPLOAD_SIZE_MB = 10;
 const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
+if (window.NLINK_SERVICE_TAGS && categoryInput) {
+  const tags = window.NLINK_SERVICE_TAGS.allServiceTags || [];
+  tags.forEach((tag) => {
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = tag;
+    categoryInput.appendChild(option);
+  });
+}
+
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
   statusEl.textContent = message;

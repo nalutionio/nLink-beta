@@ -95,7 +95,9 @@
           </label>
           <label class="input-field">
             <span>Service category</span>
-            <input type="text" id="profile-category" placeholder="Service category" required />
+            <select id="profile-category" required>
+              <option value="">Select a category</option>
+            </select>
           </label>
           <label class="input-field">
             <span>Headline</span>
@@ -119,7 +121,8 @@
           </label>
           <label class="input-field">
             <span>Services offered</span>
-            <input type="text" id="profile-services" placeholder="e.g. Deep Cleaning, Move-out, Recurring Service" />
+            <select id="profile-services" multiple size="8" class="services-select"></select>
+            <small class="muted">Select up to 8 service tags.</small>
           </label>
           <label class="input-field">
             <span>Availability</span>
@@ -221,6 +224,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/ui-labels.js"></script>
+  <script src="../js/service-tags.js"></script>
   <script src="../js/dashboard.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
