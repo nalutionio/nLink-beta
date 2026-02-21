@@ -3,9 +3,9 @@
 Mobile-first swipe-based business discovery marketplace (beta).
 
 ## Quick Start
-- Open `index.html` to land on the marketing page.
-- Click “Start Swiping” to enter the swipe experience.
-- Saved businesses live at `public/saved.html`.
+- Run `./serve.sh` from project root.
+- Open `http://localhost:5173/shared/auth-choice.html`.
+- Use hard refresh (`Cmd+Shift+R`) after frontend changes.
 
 You can also serve the folder with any static server.
 
@@ -63,3 +63,34 @@ You can also serve the folder with any static server.
    - `public.provider_events`
    - Unique owner index on `public.providers(owner_id)`
 4. Then restart local server and test provider edit/profile flows.
+
+## Stabilization Baseline (Run Next)
+1. In Supabase SQL Editor, run:
+   - `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/stabilization_baseline.sql`
+2. Verify no SQL errors.
+3. Confirm key tables/fields exist and are queryable:
+   - `public.clients.avatar_url`
+   - `public.clients.banner_url`
+   - `public.jobs.status`
+   - `public.job_requests.status`
+   - `public.provider_profiles.listing_status`
+
+## Smoke Test Checklist (Before Every Push)
+1. Auth flow:
+   - Client signup/login redirects to `/client/discover.html`.
+   - Provider signup/login redirects to `/provider/dashboard.html`.
+2. Client media:
+   - `/client/client-profile-edit.html` upload avatar + banner + submit.
+   - Reload `/client/client-profile.html` and confirm persistence.
+3. Provider media/profile:
+   - `/provider/profile-edit.html` save category/services, upload logo/banner, save.
+   - Reload `/provider/dashboard.html` and confirm business name + listing status.
+4. Jobs flow:
+   - Client posts a job on `/client/client-jobs.html`.
+   - Provider sees job on `/provider/provider-jobs.html` and requests quote.
+   - Client accepts/declines in job detail; statuses update correctly.
+5. Discovery/saved:
+   - `/client/discover.html` filters return results.
+   - Save provider, then verify `/client/saved.html`.
+6. No console blockers:
+   - Open browser devtools and confirm no new fatal errors on touched pages.
