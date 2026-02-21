@@ -79,6 +79,10 @@ You can also serve the folder with any static server.
 If you already ran the baseline before commit `4159565`, run this too:
 - `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_client_identity_snapshot.sql`
 
+### Patch For Job Funnel Tracking
+Run this to enable job/request analytics events:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_funnel_events.sql`
+
 ## Smoke Test Checklist (Before Every Push)
 1. Auth flow:
    - Client signup/login redirects to `/client/discover.html`.

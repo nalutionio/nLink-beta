@@ -20,6 +20,7 @@ const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const fallbackAvatar = "../assets/nlinkiconblk.png";
+let jobEventsTableAvailable = true;
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
@@ -31,6 +32,32 @@ const getSessionUser = async () => {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data?.session?.user || null;
+};
+
+const isMissingTableError = (error) => Boolean(error)
+  && (
+    error.code === "42P01"
+    || error.code === "PGRST205"
+    || error.status === 404
+  );
+
+const logJobEvent = async (jobId, eventType, metadata = {}) => {
+  if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  try {
+    const user = await getSessionUser();
+    const { error } = await supabase
+      .from("job_events")
+      .insert({
+        job_id: jobId,
+        actor_user_id: user?.id || null,
+        actor_role: "client",
+        event_type: eventType,
+        metadata,
+      });
+    if (isMissingTableError(error)) jobEventsTableAvailable = false;
+  } catch (_error) {
+    jobEventsTableAvailable = false;
+  }
 };
 
 const isMissingColumnError = (error) => Boolean(error)
@@ -208,6 +235,8 @@ form?.addEventListener("submit", async (event) => {
     setStatus(error?.message || "Could not post job.", "error");
     return;
   }
+
+  await logJobEvent(inserted.id, "job_created", { source: "client_jobs_form" });
 
   const files = Array.from(photosInput.files || []).slice(0, MAX_JOB_PHOTOS);
   if (files.length) {

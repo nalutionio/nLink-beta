@@ -17,6 +17,7 @@ const clientLocationNoteEl = document.getElementById("job-client-location-note")
 
 let providerId = null;
 let jobId = null;
+let jobEventsTableAvailable = true;
 
 const setStatus = (message, type = "") => {
   if (!requestStatus) return;
@@ -28,6 +29,32 @@ const getSessionUser = async () => {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data?.session?.user || null;
+};
+
+const isMissingTableError = (error) => Boolean(error)
+  && (
+    error.code === "42P01"
+    || error.code === "PGRST205"
+    || error.status === 404
+  );
+
+const logJobEvent = async (eventType, metadata = {}) => {
+  if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  try {
+    const user = await getSessionUser();
+    const { error } = await supabase
+      .from("job_events")
+      .insert({
+        job_id: jobId,
+        actor_user_id: user?.id || null,
+        actor_role: "provider",
+        event_type: eventType,
+        metadata,
+      });
+    if (isMissingTableError(error)) jobEventsTableAvailable = false;
+  } catch (_error) {
+    jobEventsTableAvailable = false;
+  }
 };
 
 const loadProviderId = async () => {
@@ -183,6 +210,7 @@ const requestQuote = async () => {
   setStatus("Request sent.", "success");
   requestButton.textContent = "Requested";
   requestButton.disabled = true;
+  await logJobEvent("request_sent", { source: "provider_job_detail" });
 };
 
 const init = async () => {

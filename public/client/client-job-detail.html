@@ -26,10 +26,56 @@
     <section class="panel">
       <div class="panel-header">
         <h3>Status</h3>
-        <span class="pill" id="job-status">Open</span>
+        <div class="header-actions">
+          <span class="pill" id="job-status">Open</span>
+          <button class="ghost-button" id="job-edit-toggle" type="button">Edit</button>
+        </div>
       </div>
       <p class="muted" id="job-meta"></p>
       <p id="job-description"></p>
+      <div class="modal-form hidden" id="job-inline-edit">
+        <label class="input-field">
+          <span>Job title</span>
+          <input type="text" id="edit-job-title" required />
+        </label>
+        <label class="input-field">
+          <span>Category</span>
+          <input type="text" id="edit-job-category" required />
+        </label>
+        <label class="input-field">
+          <span>Description</span>
+          <textarea rows="4" id="edit-job-description" required></textarea>
+        </label>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Budget min</span>
+            <input type="number" id="edit-job-budget-min" min="0" required />
+          </label>
+          <label class="input-field">
+            <span>Budget max</span>
+            <input type="number" id="edit-job-budget-max" min="0" required />
+          </label>
+        </div>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Square footage</span>
+            <input type="number" id="edit-job-sqft" min="0" />
+          </label>
+          <label class="input-field">
+            <span>Timeline</span>
+            <input type="text" id="edit-job-timeline" />
+          </label>
+        </div>
+        <label class="input-field">
+          <span>Location</span>
+          <input type="text" id="edit-job-location" required />
+        </label>
+      </div>
+      <div class="auth-status" id="job-edit-status"></div>
+      <div class="job-actions hidden" id="job-edit-actions">
+        <button class="ghost-button" id="job-edit-cancel" type="button">Cancel</button>
+        <button class="primary-button" id="job-edit-save" type="button">Save Changes</button>
+      </div>
       <div class="job-actions">
         <button class="ghost-button" id="job-reopen-btn" type="button">Reopen Job</button>
         <button class="primary-button" id="job-close-btn" type="button">Close Job</button>
@@ -39,8 +85,13 @@
     <section class="panel">
       <div class="panel-header">
         <h3>Photos</h3>
+        <label class="ghost-button hidden" id="job-photo-upload-wrap">
+          Add Photos
+          <input type="file" id="job-photo-upload" accept="image/*" multiple hidden />
+        </label>
       </div>
       <div class="job-gallery" id="job-gallery"></div>
+      <div class="auth-status" id="job-photo-status"></div>
     </section>
 
     <section class="panel">

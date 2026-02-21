@@ -13,6 +13,7 @@ const applyFiltersButton = document.getElementById("apply-filters");
 let jobsCache = [];
 let providerId = null;
 const requestStatusByJobId = {};
+let jobEventsTableAvailable = true;
 
 if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
@@ -29,6 +30,32 @@ const getSessionUser = async () => {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data?.session?.user || null;
+};
+
+const isMissingTableError = (error) => Boolean(error)
+  && (
+    error.code === "42P01"
+    || error.code === "PGRST205"
+    || error.status === 404
+  );
+
+const logJobEvent = async (jobId, eventType, metadata = {}) => {
+  if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  try {
+    const user = await getSessionUser();
+    const { error } = await supabase
+      .from("job_events")
+      .insert({
+        job_id: jobId,
+        actor_user_id: user?.id || null,
+        actor_role: "provider",
+        event_type: eventType,
+        metadata,
+      });
+    if (isMissingTableError(error)) jobEventsTableAvailable = false;
+  } catch (_error) {
+    jobEventsTableAvailable = false;
+  }
 };
 
 const loadProviderId = async () => {
@@ -204,6 +231,7 @@ const requestQuote = async (jobId, button) => {
   requestStatusByJobId[jobId] = "pending";
   button.textContent = "Requested";
   button.disabled = true;
+  await logJobEvent(jobId, "request_sent", { source: "provider_jobs_feed" });
 };
 
 const init = async () => {
