@@ -83,6 +83,10 @@ If you already ran the baseline before commit `4159565`, run this too:
 Run this to enable job/request analytics events:
 - `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_funnel_events.sql`
 
+### Patch For Ratings/Reviews
+Run this to enable two-way job-based reviews:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_reviews.sql`
+
 ## Smoke Test Checklist (Before Every Push)
 1. Auth flow:
    - Client signup/login redirects to `/client/discover.html`.

@@ -39,7 +39,7 @@
         <p class="stat-trend">Live data</p>
       </article>
       <article class="stat-card">
-        <span class="stat-label">Requests</span>
+        <span class="stat-label">Proposals</span>
         <h2 id="stat-requests">—</h2>
         <p class="stat-trend">Live data</p>
       </article>
@@ -70,6 +70,16 @@
         </div>
       </article>
 
+      <article class="panel comments-panel">
+        <div class="panel-header">
+          <h3>Recent Comments</h3>
+          <button class="ghost-button hidden" id="service-comments-more" type="button">See More</button>
+        </div>
+        <div id="service-comments-list">
+          <p class="muted">No comments yet.</p>
+        </div>
+      </article>
+
       <article class="panel preview-panel">
         <div class="panel-header">
           <h3>Profile Card Preview</h3>
@@ -86,14 +96,14 @@
   <nav class="bottom-nav">
     <a class="active" href="../provider/dashboard.html">Dashboard</a>
     <a href="../provider/provider-jobs.html">Discover</a>
-    <a href="../provider/provider-requests.html">Requests</a>
+    <a href="../provider/provider-requests.html">Proposals</a>
     <a href="../provider/profile.html">Profile</a>
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/ui-labels.js"></script>
-  <script src="../js/dashboard.js"></script>
+  <script src="../js/dashboard.js?v=20260222i"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
 </body>

@@ -14,10 +14,23 @@ const clientAvatarEl = document.getElementById("job-client-avatar");
 const clientNameEl = document.getElementById("job-client-name");
 const clientMetaEl = document.getElementById("job-client-meta");
 const clientLocationNoteEl = document.getElementById("job-client-location-note");
+const reviewToggleWrap = document.getElementById("provider-review-toggle-wrap");
+const reviewToggleButton = document.getElementById("provider-review-toggle");
+const reviewFormWrap = document.getElementById("provider-review-form-wrap");
+const reviewTitleEl = document.getElementById("provider-review-title");
+const reviewRatingInput = document.getElementById("provider-review-rating");
+const reviewTextInput = document.getElementById("provider-review-text");
+const reviewCancelButton = document.getElementById("provider-review-cancel");
+const reviewSubmitButton = document.getElementById("provider-review-submit");
+const reviewStatusEl = document.getElementById("provider-review-status");
 
 let providerId = null;
 let jobId = null;
 let jobEventsTableAvailable = true;
+let jobReviewsTableAvailable = true;
+let providerUserId = null;
+let currentJob = null;
+let canRateClient = false;
 
 const setStatus = (message, type = "") => {
   if (!requestStatus) return;
@@ -57,15 +70,49 @@ const logJobEvent = async (eventType, metadata = {}) => {
   }
 };
 
+const setReviewStatus = (message, type = "") => {
+  if (!reviewStatusEl) return;
+  reviewStatusEl.textContent = message;
+  reviewStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const setReviewMode = (enabled) => {
+  reviewFormWrap?.classList.toggle("hidden", !enabled);
+  reviewToggleWrap?.classList.toggle("hidden", !canRateClient && !enabled);
+  if (!enabled) {
+    if (reviewRatingInput) reviewRatingInput.value = "5";
+    if (reviewTextInput) reviewTextInput.value = "";
+    setReviewStatus("");
+  }
+};
+
 const loadProviderId = async () => {
   const user = await getSessionUser();
   if (!user) return null;
+  providerUserId = user.id;
   const { data } = await supabase
     .from("providers")
     .select("id")
     .eq("owner_id", user.id)
     .maybeSingle();
   return data?.id || null;
+};
+
+const loadMyReview = async () => {
+  if (!supabase || !jobId || !providerUserId || !jobReviewsTableAvailable) return null;
+  const { data, error } = await supabase
+    .from("job_reviews")
+    .select("id")
+    .eq("job_id", jobId)
+    .eq("reviewer_user_id", providerUserId)
+    .eq("reviewer_role", "provider")
+    .maybeSingle();
+  if (!error) return data || null;
+  if (isMissingTableError(error)) {
+    jobReviewsTableAvailable = false;
+    return null;
+  }
+  return null;
 };
 
 const loadJob = async () => {
@@ -113,6 +160,7 @@ const loadPhotos = async () => {
 const renderJob = async () => {
   const job = await loadJob();
   if (!job) return;
+  currentJob = job;
 
   if (titleEl) titleEl.textContent = job.title;
   if (statusEl) statusEl.textContent = job.status || "open";
@@ -178,9 +226,65 @@ const renderJob = async () => {
   }
 };
 
+const refreshReviewEligibility = async () => {
+  if (!supabase || !providerId || !jobId) return;
+  const { data: requestRow } = await supabase
+    .from("job_requests")
+    .select("id,status")
+    .eq("job_id", jobId)
+    .eq("provider_id", providerId)
+    .maybeSingle();
+  const hasCompletedRelationship = requestRow && (requestRow.status === "accepted" || requestRow.status === "closed");
+  const myReview = await loadMyReview();
+  canRateClient = Boolean(hasCompletedRelationship && !myReview && currentJob?.client_id);
+  if (reviewToggleWrap) reviewToggleWrap.classList.toggle("hidden", !canRateClient);
+  if (!canRateClient) setReviewMode(false);
+};
+
+const submitProviderReview = async () => {
+  if (!supabase || !jobId || !providerId || !providerUserId || !currentJob?.client_id) return;
+  if (!jobReviewsTableAvailable) {
+    setReviewStatus("Reviews are not enabled yet.", "error");
+    return;
+  }
+  const rating = Number(reviewRatingInput?.value || 0);
+  const reviewText = reviewTextInput?.value.trim() || "";
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    setReviewStatus("Select a rating between 1 and 5.", "error");
+    return;
+  }
+
+  setReviewStatus("Submitting review...", "info");
+  const { error } = await supabase
+    .from("job_reviews")
+    .insert({
+      job_id: jobId,
+      provider_id: providerId,
+      client_id: currentJob.client_id,
+      reviewer_user_id: providerUserId,
+      reviewer_role: "provider",
+      reviewee_user_id: currentJob.client_id,
+      reviewee_role: "client",
+      rating,
+      review_text: reviewText,
+    });
+  if (error) {
+    if (isMissingTableError(error)) {
+      jobReviewsTableAvailable = false;
+      setReviewStatus("Reviews table is unavailable.", "error");
+      return;
+    }
+    setReviewStatus(error.message || "Could not submit review.", "error");
+    return;
+  }
+  setReviewStatus("Review submitted.", "success");
+  setReviewMode(false);
+  await refreshReviewEligibility();
+};
+
 const requestQuote = async () => {
   if (!supabase || !providerId || !jobId) return;
-  setStatus("Submitting request...", "info");
+  setStatus("Submitting proposal...", "info");
 
   const { data: existing } = await supabase
     .from("job_requests")
@@ -190,9 +294,9 @@ const requestQuote = async () => {
     .maybeSingle();
 
   if (existing) {
-    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Requested";
+    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Proposal Sent";
     requestButton.disabled = true;
-    setStatus("Request already sent.", "success");
+    setStatus("Proposal already sent.", "success");
     return;
   }
 
@@ -203,12 +307,12 @@ const requestQuote = async () => {
   });
 
   if (error) {
-    setStatus(error.message || "Could not send request.", "error");
+    setStatus(error.message || "Could not send proposal.", "error");
     return;
   }
 
-  setStatus("Request sent.", "success");
-  requestButton.textContent = "Requested";
+  setStatus("Proposal sent.", "success");
+  requestButton.textContent = "Proposal Sent";
   requestButton.disabled = true;
   await logJobEvent("request_sent", { source: "provider_job_detail" });
 };
@@ -227,11 +331,19 @@ const init = async () => {
     .eq("provider_id", providerId)
     .maybeSingle();
   if (existing) {
-    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Requested";
+    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Proposal Sent";
     requestButton.disabled = true;
   }
+  await refreshReviewEligibility();
 };
 
 requestButton?.addEventListener("click", requestQuote);
+reviewToggleButton?.addEventListener("click", () => {
+  if (!canRateClient) return;
+  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${currentJob?.client_name || "Client"}`;
+  setReviewMode(true);
+});
+reviewCancelButton?.addEventListener("click", () => setReviewMode(false));
+reviewSubmitButton?.addEventListener("click", submitProviderReview);
 
 init();

@@ -15,7 +15,7 @@ const labelActions = labels.actions || {};
 const labelBeta = labels.beta || {};
 const clientLoginUrl = "/shared/login-choice.html?preferred=client";
 const clientSignupUrl = "/shared/signup-choice.html?preferred=client";
-let providerReviewsTableAvailable = false;
+let providerReviewsTableAvailable = true;
 let providerProfilesLifecycleAvailable = true;
 let providerEventsTableAvailable = true;
 
@@ -771,7 +771,7 @@ const initSwipePage = () => {
         .from("provider_reviews")
         .select("*")
         .in("provider_id", providerIds);
-      if (!reviewError && Array.isArray(reviewRows)) {
+      if (!reviewError && Array.isArray(reviewRows) && reviewRows.length > 0) {
         reviewRows.forEach((row) => {
           if (!reviewsByProviderId[row.provider_id]) reviewsByProviderId[row.provider_id] = [];
           reviewsByProviderId[row.provider_id].push({
@@ -780,8 +780,32 @@ const initSwipePage = () => {
             text: row.text || row.comment || row.body || "",
           });
         });
-      } else if (reviewError?.code === "42P01" || reviewError?.code === "PGRST205" || reviewError?.status === 404) {
-        providerReviewsTableAvailable = false;
+      } else {
+        const fallbackToJobReviews = (
+          !reviewError
+          || reviewError?.code === "42P01"
+          || reviewError?.code === "PGRST205"
+          || reviewError?.status === 404
+        );
+        if (fallbackToJobReviews) {
+          const { data: jobReviewRows, error: jobReviewError } = await supabase
+            .from("job_reviews")
+            .select("provider_id,rating,review_text,reviewer_role")
+            .in("provider_id", providerIds)
+            .eq("reviewee_role", "provider");
+          if (!jobReviewError && Array.isArray(jobReviewRows)) {
+            jobReviewRows.forEach((row) => {
+              if (!reviewsByProviderId[row.provider_id]) reviewsByProviderId[row.provider_id] = [];
+              reviewsByProviderId[row.provider_id].push({
+                name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+                rating: Number(row.rating) || 0,
+                text: row.review_text || "",
+              });
+            });
+          } else if (jobReviewError?.code === "42P01" || jobReviewError?.code === "PGRST205" || jobReviewError?.status === 404) {
+            providerReviewsTableAvailable = false;
+          }
+        }
       }
     }
 

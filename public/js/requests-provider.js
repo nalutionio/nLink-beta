@@ -71,7 +71,7 @@ const renderRequests = async () => {
   if (pendingEl) {
     pendingEl.innerHTML = "";
     if (pending.length === 0 && active.length === 0) {
-      pendingEl.innerHTML = "<p class='muted'>No requests yet.</p>";
+      pendingEl.innerHTML = "<p class='muted'>No proposals yet.</p>";
     } else {
       [...pending, ...active].forEach((req) => {
         const clientName = req.jobs?.client_name || "Client";
@@ -83,7 +83,7 @@ const renderRequests = async () => {
           <div class="job-card-body">
             <h4>${req.jobs?.title || "Job"}</h4>
             <p class="muted">${req.jobs?.location || ""} • $${req.jobs?.budget_min || 0} - $${req.jobs?.budget_max || 0}</p>
-            <p class="muted">Requested ${new Date(req.created_at).toLocaleDateString()}</p>
+            <p class="muted">Proposed ${new Date(req.created_at).toLocaleDateString()}</p>
             <div class="mini-client">
               <img src="${clientAvatar}" alt="${clientName}" />
               <div>
@@ -105,7 +105,7 @@ const renderRequests = async () => {
   if (closedEl) {
     closedEl.innerHTML = "";
     if (closed.length === 0) {
-      closedEl.innerHTML = "<p class='muted'>No closed requests.</p>";
+      closedEl.innerHTML = "<p class='muted'>No closed proposals.</p>";
     } else {
       closed.forEach((req) => {
         const clientName = req.jobs?.client_name || "Client";

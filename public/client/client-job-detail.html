@@ -96,10 +96,32 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h3>Requests</h3>
+        <h3>Proposals</h3>
         <span class="badge">Beta</span>
       </div>
       <div class="job-list" id="job-requests"></div>
+      <div class="modal-form hidden" id="client-review-form-wrap">
+        <h4 id="client-review-title">Rate Provider</h4>
+        <label class="input-field">
+          <span>Rating</span>
+          <select id="client-review-rating">
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Good</option>
+            <option value="3">3 - Okay</option>
+            <option value="2">2 - Poor</option>
+            <option value="1">1 - Very poor</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Review (optional)</span>
+          <textarea id="client-review-text" rows="3" placeholder="Share your experience"></textarea>
+        </label>
+        <div class="job-actions">
+          <button class="ghost-button" id="client-review-cancel" type="button">Cancel</button>
+          <button class="primary-button" id="client-review-submit" type="button">Submit Review</button>
+        </div>
+        <div class="auth-status" id="client-review-status"></div>
+      </div>
     </section>
   </main>
 

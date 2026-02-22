@@ -48,6 +48,8 @@ const statBookingClicksEl = document.getElementById("stat-booking-clicks");
 const ratingValueEl = document.getElementById("service-rating-value");
 const ratingCountEl = document.getElementById("service-rating-count");
 const ratingStarsEl = document.getElementById("service-rating-stars");
+const commentsListEl = document.getElementById("service-comments-list");
+const commentsMoreButton = document.getElementById("service-comments-more");
 const profileStatusPillEl = document.getElementById("profile-status-pill");
 const profileCompletionTextEl = document.getElementById("profile-completion-text");
 const profileCompletionBarEl = document.getElementById("profile-completion-bar");
@@ -135,9 +137,9 @@ const providerListingStatusGlobalKey = "nlink_provider_listing_status_active";
 let profileMetaBackendAvailable = true;
 let providerEventsTableAvailable = true;
 const providerMetricsTablesAvailable = {
-  reviews: false,
-  views: false,
-  saves: false,
+  reviews: true,
+  views: true,
+  saves: true,
 };
 
 const isMissingTableError = (error) => (
@@ -301,6 +303,76 @@ const renderStars = (rating) => {
   const hasHalf = rating - fullStars >= 0.5;
   const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
   return "★".repeat(fullStars) + (hasHalf ? "☆" : "") + "✩".repeat(emptyStars);
+};
+
+const createReviewCard = (review) => {
+  const card = document.createElement("article");
+  card.className = "review-card";
+
+  const nameEl = document.createElement("strong");
+  nameEl.textContent = review.name || "Anonymous";
+  const ratingEl = document.createElement("div");
+  const ratingValue = Number(review.rating) || 0;
+  ratingEl.textContent = `${renderStars(ratingValue)} ${ratingValue.toFixed(1)}`;
+  const textEl = document.createElement("p");
+  textEl.textContent = (review.text || "").trim() || "No comment text provided.";
+
+  card.append(nameEl, ratingEl, textEl);
+  return card;
+};
+
+const closeCommentsModal = () => {
+  document.getElementById("service-comments-modal")?.remove();
+};
+
+const openCommentsModal = () => {
+  const reviews = Array.isArray(state.metrics.reviews) ? state.metrics.reviews : [];
+  if (reviews.length <= 2) return;
+  closeCommentsModal();
+
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "service-comments-modal";
+  modal.setAttribute("aria-hidden", "false");
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>All Comments (${reviews.length})</h3>
+        <button class="ghost-button" type="button" data-action="close">Close</button>
+      </div>
+      <div class="comments-list"></div>
+    </div>
+  `;
+  const list = modal.querySelector(".comments-list");
+  reviews.forEach((review) => {
+    list?.appendChild(createReviewCard(review));
+  });
+  document.body.appendChild(modal);
+  modal.querySelector("[data-action='close']")?.addEventListener("click", closeCommentsModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeCommentsModal();
+  });
+};
+
+const renderDashboardComments = () => {
+  if (!commentsListEl) return;
+  commentsListEl.innerHTML = "";
+  const reviews = Array.isArray(state.metrics.reviews) ? state.metrics.reviews : [];
+  if (!reviews.length) {
+    commentsListEl.innerHTML = `<p class="muted">${labelRating.noReviews || "No reviews yet"}</p>`;
+    commentsMoreButton?.classList.add("hidden");
+    return;
+  }
+
+  reviews.slice(0, 2).forEach((review) => {
+    commentsListEl.appendChild(createReviewCard(review));
+  });
+
+  if (commentsMoreButton) {
+    const hasMore = reviews.length > 2;
+    commentsMoreButton.classList.toggle("hidden", !hasMore);
+    commentsMoreButton.textContent = hasMore ? `See More (${reviews.length - 2})` : "See More";
+  }
 };
 
 const syncMetaFromInputs = () => {
@@ -559,6 +631,7 @@ const updateMetricsUi = () => {
       ? renderStars(state.metrics.ratingAverage)
       : "☆☆☆☆☆";
   }
+  renderDashboardComments();
 };
 
 const loadProviderMetrics = async () => {
@@ -575,11 +648,49 @@ const loadProviderMetrics = async () => {
     state.metrics.requests = requestCount || 0;
   }
 
+  let reviewProviderIds = [state.provider.id];
+  if (state.user?.id) {
+    const { data: ownedProviderRows, error: ownedProvidersError } = await supabase
+      .from("providers")
+      .select("id")
+      .eq("owner_id", state.user.id);
+    if (!ownedProvidersError && Array.isArray(ownedProviderRows) && ownedProviderRows.length > 0) {
+      reviewProviderIds = Array.from(new Set([
+        state.provider.id,
+        ...ownedProviderRows.map((row) => row.id).filter(Boolean),
+      ]));
+    }
+  }
+
   if (providerMetricsTablesAvailable.reviews) {
-    const { data: reviewRows, error: reviewError } = await supabase
+    let reviewRows = [];
+    let reviewError = null;
+
+    const providerReviewsResult = await supabase
       .from("provider_reviews")
       .select("*")
-      .eq("provider_id", state.provider.id);
+      .in("provider_id", reviewProviderIds);
+    const providerReviewRows = Array.isArray(providerReviewsResult.data) ? providerReviewsResult.data : [];
+    if (!providerReviewsResult.error && providerReviewRows.length > 0) {
+      reviewRows = providerReviewRows;
+    } else {
+      const jobReviewsResult = await supabase
+        .from("job_reviews")
+        .select("rating,review_text,reviewer_role,reviewee_user_id")
+        .eq("reviewee_role", "provider")
+        .eq("reviewee_user_id", state.user.id);
+      if (!jobReviewsResult.error && Array.isArray(jobReviewsResult.data)) {
+        reviewRows = jobReviewsResult.data.map((row) => ({
+          rating: row.rating,
+          text: row.review_text || "",
+          reviewer_name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+        }));
+        reviewError = null;
+      } else {
+        reviewError = jobReviewsResult.error || providerReviewsResult.error;
+      }
+    }
+
     if (!reviewError && Array.isArray(reviewRows)) {
       state.metrics.reviews = reviewRows.map((row) => ({
         name: row.reviewer_name || row.name || "Anonymous",
@@ -1343,6 +1454,17 @@ const renderFullProfileMarkup = () => {
     { key: "linkedin", label: "LinkedIn", url: state.meta.socialLinkedin, icon: "IN" },
     { key: "tiktok", label: "TikTok", url: state.meta.socialTiktok, icon: "TT" },
   ].filter((item) => item.url);
+  const commentsMarkup = state.metrics.reviews.length
+    ? state.metrics.reviews
+      .slice(0, 5)
+      .map((review) => `
+        <article class="review-card">
+          <strong>${review.name || "Anonymous"}</strong>
+          <div>${renderStars(Number(review.rating) || 0)} ${(Number(review.rating) || 0).toFixed(1)}</div>
+          <p>${(review.text || "").trim() || "No comment text provided."}</p>
+        </article>
+      `).join("")
+    : `<p class="muted">${labelRating.noReviews || "No reviews yet"}</p>`;
 
   const metadataAvatar = state.user?.user_metadata?.provider_avatar_url || "";
   const metadataBanner = state.user?.user_metadata?.provider_banner_url || "";
@@ -1407,6 +1529,12 @@ const renderFullProfileMarkup = () => {
           `).join("")}
         </div>
       ` : ""}
+      <section class="comments-section">
+        <h4>Comments</h4>
+        <div class="comments-list">
+          ${commentsMarkup}
+        </div>
+      </section>
       <div class="cta-row">
         <button type="button">${labelActions.book || "Book"}</button>
         <button type="button">${labelActions.contact || "Contact"}</button>
@@ -1913,6 +2041,8 @@ fullProfileButton?.addEventListener("click", () => {
     openFullProfileModal();
   }
 });
+
+commentsMoreButton?.addEventListener("click", openCommentsModal);
 
 saveDraftButton?.addEventListener("click", async () => {
   await saveProfile({ desiredStatus: "draft", redirectAfterSave: false });

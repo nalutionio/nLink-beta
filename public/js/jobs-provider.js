@@ -171,8 +171,8 @@ const renderJobs = async () => {
         <span class="pill">Open</span>
         <button class="primary-button" data-job-id="${job.id}">${
           requestStatusByJobId[job.id]
-            ? (requestStatusByJobId[job.id] === "accepted" ? "Accepted" : "Requested")
-            : "Request to Quote"
+            ? (requestStatusByJobId[job.id] === "accepted" ? "Accepted" : "Proposal Sent")
+            : "Send Proposal"
         }</button>
       </div>
     `;
@@ -196,7 +196,7 @@ const renderJobs = async () => {
 const requestQuote = async (jobId, button) => {
   if (!supabase) return;
   if (!providerId) {
-    alert("Create your provider profile before requesting jobs.");
+    alert("Create your provider profile before sending proposals.");
     return;
   }
 
@@ -211,7 +211,7 @@ const requestQuote = async (jobId, button) => {
   if (existing) {
     const status = existing.status || "pending";
     requestStatusByJobId[jobId] = status;
-    button.textContent = status === "accepted" ? "Accepted" : "Requested";
+    button.textContent = status === "accepted" ? "Accepted" : "Proposal Sent";
     button.disabled = true;
     return;
   }
@@ -223,13 +223,13 @@ const requestQuote = async (jobId, button) => {
   });
 
   if (error) {
-    alert(error.message || "Could not request this job.");
+    alert(error.message || "Could not send proposal.");
     button.disabled = false;
     return;
   }
 
   requestStatusByJobId[jobId] = "pending";
-  button.textContent = "Requested";
+  button.textContent = "Proposal Sent";
   button.disabled = true;
   await logJobEvent(jobId, "request_sent", { source: "provider_jobs_feed" });
 };

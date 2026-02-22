@@ -58,15 +58,40 @@
         <h3>Client Notes</h3>
       </div>
       <ul class="job-notes" id="job-notes"></ul>
-      <button class="primary-button" id="request-quote">Request to Quote</button>
+      <button class="primary-button" id="request-quote">Send Proposal</button>
       <div class="auth-status" id="request-status"></div>
+      <div class="job-actions hidden" id="provider-review-toggle-wrap">
+        <button class="ghost-button" id="provider-review-toggle" type="button">Rate Client</button>
+      </div>
+      <div class="modal-form hidden" id="provider-review-form-wrap">
+        <h4 id="provider-review-title">Rate Client</h4>
+        <label class="input-field">
+          <span>Rating</span>
+          <select id="provider-review-rating">
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Good</option>
+            <option value="3">3 - Okay</option>
+            <option value="2">2 - Poor</option>
+            <option value="1">1 - Very poor</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Review (optional)</span>
+          <textarea id="provider-review-text" rows="3" placeholder="Share your experience"></textarea>
+        </label>
+        <div class="job-actions">
+          <button class="ghost-button" id="provider-review-cancel" type="button">Cancel</button>
+          <button class="primary-button" id="provider-review-submit" type="button">Submit Review</button>
+        </div>
+        <div class="auth-status" id="provider-review-status"></div>
+      </div>
     </section>
   </main>
 
   <nav class="bottom-nav">
     <a href="../provider/dashboard.html">Dashboard</a>
     <a class="active" href="../provider/provider-jobs.html">Discover</a>
-    <a href="../provider/provider-requests.html">Requests</a>
+    <a href="../provider/provider-requests.html">Proposals</a>
     <a href="../provider/profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

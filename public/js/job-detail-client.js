@@ -19,6 +19,13 @@ const inlineEditWrap = document.getElementById("job-inline-edit");
 const inlineEditActions = document.getElementById("job-edit-actions");
 const photoUploadWrap = document.getElementById("job-photo-upload-wrap");
 const photoUploadInput = document.getElementById("job-photo-upload");
+const reviewWrap = document.getElementById("client-review-form-wrap");
+const reviewTitleEl = document.getElementById("client-review-title");
+const reviewRatingInput = document.getElementById("client-review-rating");
+const reviewTextInput = document.getElementById("client-review-text");
+const reviewCancelButton = document.getElementById("client-review-cancel");
+const reviewSubmitButton = document.getElementById("client-review-submit");
+const reviewStatusEl = document.getElementById("client-review-status");
 const editTitleInput = document.getElementById("edit-job-title");
 const editCategoryInput = document.getElementById("edit-job-category");
 const editDescriptionInput = document.getElementById("edit-job-description");
@@ -33,6 +40,8 @@ let currentJob = null;
 let currentPhotos = [];
 let editMode = false;
 let jobEventsTableAvailable = true;
+let jobReviewsTableAvailable = true;
+let reviewTarget = null;
 
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
@@ -80,6 +89,28 @@ const setPhotoStatus = (message, type = "") => {
   if (!photoStatusEl) return;
   photoStatusEl.textContent = message;
   photoStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const setReviewStatus = (message, type = "") => {
+  if (!reviewStatusEl) return;
+  reviewStatusEl.textContent = message;
+  reviewStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const setReviewMode = (target = null) => {
+  reviewTarget = target;
+  reviewWrap?.classList.toggle("hidden", !target);
+  if (!target) {
+    if (reviewTitleEl) reviewTitleEl.textContent = "Rate Provider";
+    if (reviewRatingInput) reviewRatingInput.value = "5";
+    if (reviewTextInput) reviewTextInput.value = "";
+    setReviewStatus("");
+    return;
+  }
+  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${target.providerName || "Provider"}`;
+  if (reviewRatingInput) reviewRatingInput.value = "5";
+  if (reviewTextInput) reviewTextInput.value = "";
+  setReviewStatus("");
 };
 
 const setEditMode = (enabled) => {
@@ -137,10 +168,26 @@ const loadPhotos = async () => {
 const loadRequests = async () => {
   const { data } = await supabase
     .from("job_requests")
-    .select("id,status,created_at,provider_id,providers(name)")
+    .select("id,status,created_at,provider_id,providers(name,owner_id)")
     .eq("job_id", jobId)
     .order("created_at", { ascending: false });
   return data || [];
+};
+
+const loadMyReviews = async (userId) => {
+  if (!supabase || !jobReviewsTableAvailable || !jobId || !userId) return [];
+  const { data, error } = await supabase
+    .from("job_reviews")
+    .select("id,provider_id")
+    .eq("job_id", jobId)
+    .eq("reviewer_user_id", userId)
+    .eq("reviewer_role", "client");
+  if (!error && Array.isArray(data)) return data;
+  if (isMissingTableError(error)) {
+    jobReviewsTableAvailable = false;
+    return [];
+  }
+  return [];
 };
 
 const updateJobStatus = async (nextStatus) => {
@@ -275,6 +322,55 @@ const saveInlineEdit = async () => {
   await render();
 };
 
+const submitClientReview = async () => {
+  if (!supabase || !jobId || !reviewTarget) return;
+  const user = await getSessionUser();
+  if (!user) return;
+  if (!jobReviewsTableAvailable) {
+    setReviewStatus("Reviews are not enabled yet.", "error");
+    return;
+  }
+
+  const rating = Number(reviewRatingInput?.value || 0);
+  const reviewText = reviewTextInput?.value.trim() || "";
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    setReviewStatus("Select a rating between 1 and 5.", "error");
+    return;
+  }
+  if (!reviewTarget.providerUserId) {
+    setReviewStatus("This provider cannot be reviewed yet.", "error");
+    return;
+  }
+
+  setReviewStatus("Submitting review...", "info");
+  const { error } = await supabase.from("job_reviews").insert({
+    job_id: jobId,
+    job_request_id: reviewTarget.requestId || null,
+    provider_id: reviewTarget.providerId,
+    client_id: user.id,
+    reviewer_user_id: user.id,
+    reviewer_role: "client",
+    reviewee_user_id: reviewTarget.providerUserId,
+    reviewee_role: "provider",
+    rating,
+    review_text: reviewText,
+  });
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      jobReviewsTableAvailable = false;
+      setReviewStatus("Reviews table is unavailable.", "error");
+      return;
+    }
+    setReviewStatus(error.message || "Could not submit review.", "error");
+    return;
+  }
+
+  setReviewStatus("Review submitted.", "success");
+  setReviewMode(null);
+  await render();
+};
+
 const render = async () => {
   if (!supabase) return;
   const user = await getSessionUser();
@@ -285,6 +381,7 @@ const render = async () => {
   currentJob = job;
   hydrateEditForm(job);
   if (!editMode) setEditMode(false);
+  setReviewMode(null);
 
   if (titleEl) titleEl.textContent = job.title;
   const jobStatus = job.status || "open";
@@ -307,15 +404,22 @@ const render = async () => {
 
   if (requestsEl) {
     const requests = await loadRequests();
+    const myReviews = await loadMyReviews(user.id);
+    const reviewedProviderIds = new Set(myReviews.map((row) => row.provider_id).filter(Boolean));
     requestsEl.innerHTML = "";
     if (requests.length === 0) {
-      requestsEl.innerHTML = "<p class='muted'>No requests yet.</p>";
+      requestsEl.innerHTML = "<p class='muted'>No proposals yet.</p>";
     } else {
       requests.forEach((request) => {
         const card = document.createElement("article");
         card.className = "job-card";
         const isPending = (request.status || "pending") === "pending";
         const isAccepted = request.status === "accepted";
+        const isClosed = request.status === "closed";
+        const canRate = (isAccepted || isClosed)
+          && Boolean(request.provider_id)
+          && Boolean(request.providers?.owner_id)
+          && !reviewedProviderIds.has(request.provider_id);
         card.innerHTML = `
           <div class="job-card-body">
             <h4>${request.providers?.name || "Provider"}</h4>
@@ -324,10 +428,11 @@ const render = async () => {
           <div class="job-actions">
             <span class="pill">${request.status || "pending"}</span>
             ${isPending ? `
-              <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline</button>
-              <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept</button>
+              <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline Proposal</button>
+              <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
             ` : ""}
             ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Closed</button>` : ""}
+            ${canRate ? `<button class="ghost-button" data-request-action="rate" data-request-id="${request.id}">Rate</button>` : ""}
           </div>
         `;
         requestsEl.appendChild(card);
@@ -340,6 +445,16 @@ const render = async () => {
           if (action === "accept") await updateRequestStatus(requestId, "accepted");
           if (action === "decline") await updateRequestStatus(requestId, "declined");
           if (action === "close") await updateRequestStatus(requestId, "closed");
+          if (action === "rate") {
+            const request = requests.find((row) => row.id === requestId);
+            if (!request?.provider_id) return;
+            setReviewMode({
+              requestId: request.id,
+              providerId: request.provider_id,
+              providerUserId: request.providers?.owner_id || null,
+              providerName: request.providers?.name || "Provider",
+            });
+          }
         });
       });
     }
@@ -425,3 +540,6 @@ photoUploadInput?.addEventListener("change", async (event) => {
     if (photoUploadInput) photoUploadInput.value = "";
   }
 });
+
+reviewCancelButton?.addEventListener("click", () => setReviewMode(null));
+reviewSubmitButton?.addEventListener("click", submitClientReview);
