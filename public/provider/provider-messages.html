@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Provider Messages</title>
+</head>
+<body class="messages-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Provider</p>
+        <h1>Messages</h1>
+      </div>
+      <span></span>
+    </header>
+
+    <section class="message-layout" id="message-layout">
+      <article class="panel" id="message-thread-panel">
+        <div class="panel-header">
+          <h3>Conversations</h3>
+        </div>
+        <div class="job-list message-thread-list" id="message-thread-list"></div>
+      </article>
+
+      <article class="panel hidden" id="message-chat-panel">
+        <div class="panel-header">
+          <button class="ghost-button" id="message-back" type="button">Back</button>
+          <h3 id="message-thread-title">Select a conversation</h3>
+        </div>
+        <div class="message-feed" id="message-feed">
+          <p class="muted">Choose a conversation to start messaging.</p>
+        </div>
+        <form class="modal-form" id="message-form">
+          <label class="input-field">
+            <span>Message</span>
+            <textarea id="message-input" rows="3" placeholder="Type your message..." required></textarea>
+          </label>
+          <button class="primary-button" type="submit" id="message-send">Send</button>
+        </form>
+        <div class="auth-status" id="message-status"></div>
+      </article>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../provider/dashboard.html">Dashboard</a>
+    <a href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Proposals</a>
+    <a class="active" href="../provider/provider-messages.html">Messages</a>
+    <a href="../provider/profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/messages-provider.js"></script>
+</body>
+</html>

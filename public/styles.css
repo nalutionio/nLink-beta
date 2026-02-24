@@ -136,6 +136,11 @@ a {
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
 }
 
+.ghost-button.compact {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
 .role-switch-button {
   margin-left: auto;
   white-space: nowrap;
@@ -193,6 +198,28 @@ a {
   gap: 6px;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.check-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.check-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.proposal-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .auth-page .landing {
@@ -1088,6 +1115,7 @@ a {
 .jobs-page .job-feed {
   display: grid;
   gap: 12px;
+  align-content: start;
 }
 
 .job-card {
@@ -1180,9 +1208,99 @@ a {
 .job-notes {
   display: grid;
   gap: 6px;
-  padding-left: 18px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.job-notes li {
+  margin: 0;
+}
+
+.profile-trust-card {
+  align-items: flex-start;
+}
+
+.trust-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.overview-item {
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  display: grid;
+  gap: 4px;
+}
+
+.overview-item strong {
+  color: var(--ink);
+  font-size: 0.96rem;
+}
+
+.overview-helper {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.scope-box {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  display: grid;
+  gap: 6px;
+}
+
+.scope-box h4 {
+  margin: 0;
+}
+
+.scope-box p {
+  margin: 0;
+}
+
+#proposal-summary-panel {
+  width: 100%;
+  margin: 0;
+}
+
+.proposal-summary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.proposal-summary-head h4 {
+  margin: 0;
+}
+
+.proposal-summary-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+#proposal-summary-copy {
+  display: grid;
+  gap: 6px;
+}
+
+#proposal-summary-copy p {
+  margin: 0;
 }
 .job-card h4 {
   margin: 0 0 6px;
@@ -1193,6 +1311,74 @@ a {
   display: grid;
   gap: 8px;
   justify-items: end;
+}
+
+.job-group-title {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.job-card-closed {
+  opacity: 0.72;
+  filter: grayscale(0.28);
+}
+
+.proposal-card {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.proposal-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+}
+
+.proposal-body {
+  display: grid;
+  gap: 4px;
+}
+
+.proposal-title {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.proposal-meta {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.proposal-actions {
+  align-content: start;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-items: start;
+  align-items: center;
+}
+
+.proposal-status {
+  text-transform: capitalize;
+}
+
+.proposal-status.status-pending {
+  background: rgba(100, 116, 139, 0.16);
+  color: #5f6d87;
+}
+
+.proposal-status.status-accepted {
+  background: rgba(121, 184, 0, 0.2);
+  color: #4f7700;
+}
+
+.proposal-status.status-closed {
+  background: rgba(100, 116, 139, 0.16);
+  color: #5f6d87;
 }
 
 /* Provider job feed: keep client info readable and avoid squeezed text on mobile */
@@ -1230,9 +1416,10 @@ a {
 
   .jobs-page.provider-theme #request-list .job-card,
   .jobs-page.provider-theme #request-closed .job-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 10px;
+    grid-template-columns: 72px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 8px;
+    padding: 12px;
   }
 
   .jobs-page.provider-theme #request-list .job-card .job-actions,
@@ -1246,6 +1433,24 @@ a {
   .jobs-page.provider-theme #request-list .mini-client > div,
   .jobs-page.provider-theme #request-closed .mini-client > div {
     min-width: 0;
+  }
+
+  .jobs-page.provider-theme #request-list .job-thumb,
+  .jobs-page.provider-theme #request-closed .job-thumb {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .jobs-page.provider-theme #request-list .job-card-body,
+  .jobs-page.provider-theme #request-closed .job-card-body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jobs-page.provider-theme #request-list .job-card .job-actions,
+  .jobs-page.provider-theme #request-closed .job-card .job-actions {
+    grid-column: 2;
+    grid-row: 2;
   }
 }
 
@@ -1296,14 +1501,52 @@ a {
     right: 10px;
     transform: none;
     width: auto;
-    gap: 6px;
+    gap: 4px;
+    padding: 6px;
   }
 
   .bottom-nav a {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
-    padding: 8px 6px;
-    font-size: 0.78rem;
+    min-height: 40px;
+    padding: 8px 4px;
+    font-size: 0;
+    line-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bottom-nav a::before {
+    content: "•";
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .bottom-nav a[href*="dashboard"]::before {
+    content: "⌂";
+  }
+
+  .bottom-nav a[href*="discover"]::before,
+  .bottom-nav a[href*="provider-jobs"]::before {
+    content: "◈";
+  }
+
+  .bottom-nav a[href*="client-jobs"]::before,
+  .bottom-nav a[href*="provider-requests"]::before {
+    content: "▦";
+  }
+
+  .bottom-nav a[href*="messages"]::before {
+    content: "✉";
+  }
+
+  .bottom-nav a[href*="profile"]::before {
+    content: "◉";
+  }
+
+  .bottom-nav a[href*="saved"]::before {
+    content: "★";
   }
 
   .jobs-page .topbar {
@@ -1318,6 +1561,10 @@ a {
 
   .jobs-page .topbar > .ghost-button {
     display: none;
+  }
+
+  .jobs-page .topbar > .always-show-back {
+    display: inline-flex;
   }
 
   .jobs-page .panel {
@@ -1486,6 +1733,18 @@ a {
   gap: 12px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+}
+
+.filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.filters-header h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .guest-swipe-counter {
@@ -1916,6 +2175,294 @@ a {
   margin-top: 10px;
 }
 
+.message-layout {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.messages-page .screen {
+  gap: 18px;
+  align-content: start;
+}
+
+.jobs-page .screen {
+  align-content: start;
+}
+
+.messages-page .panel {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.message-thread-list {
+  display: grid;
+  gap: 0;
+  max-height: 62vh;
+  overflow: auto;
+  align-content: start;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+}
+
+.message-thread-item {
+  border: 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: transparent;
+  border-radius: 0;
+  padding: 12px 14px;
+  padding-right: 70px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 3px;
+  cursor: pointer;
+  position: relative;
+}
+
+.message-thread-item.active {
+  background: rgba(15, 23, 42, 0.04);
+  box-shadow: none;
+}
+
+.message-thread-item p {
+  margin: 0;
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-thread-item strong {
+  font-size: 0.92rem;
+  grid-column: 2;
+}
+
+.message-thread-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  margin-top: 1px;
+}
+
+.message-thread-item .pill {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.message-thread-kind {
+  grid-column: 2;
+  width: fit-content;
+  margin: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.message-thread-kind.job {
+  background: rgba(121, 184, 0, 0.18);
+  color: #4f7700;
+}
+
+.message-thread-kind.direct {
+  background: rgba(15, 23, 42, 0.1);
+  color: #334155;
+}
+
+.messages-page .panel-header h3 {
+  min-width: 0;
+}
+
+.message-feed {
+  min-height: 330px;
+  max-height: 52vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #dfe3e9;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  padding-right: 2px;
+}
+
+.message-bubble {
+  max-width: 76%;
+  border-radius: 18px;
+  padding: 10px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: fit-content;
+  position: relative;
+}
+
+.message-bubble p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.message-bubble span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.message-bubble.mine {
+  margin-left: auto;
+  background: rgba(121, 184, 0, 0.26);
+  color: #183300;
+  border: 1px solid rgba(121, 184, 0, 0.4);
+  border-bottom-right-radius: 8px;
+}
+
+.message-bubble.mine::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: 9px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-right: inherit;
+  border-bottom: inherit;
+  transform: rotate(-45deg);
+  border-bottom-right-radius: 2px;
+}
+
+.provider-theme .message-bubble.mine {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.message-bubble.theirs {
+  margin-right: auto;
+  background: #f1f3f6;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-bottom-left-radius: 8px;
+}
+
+.message-bubble.theirs::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  bottom: 9px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-left: inherit;
+  border-bottom: inherit;
+  transform: rotate(45deg);
+  border-bottom-left-radius: 2px;
+}
+
+.message-bubble.mine span {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.message-job-chip {
+  width: fit-content;
+  margin: 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.messages-page #message-form {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.messages-page #message-form .input-field {
+  gap: 0;
+}
+
+.messages-page #message-form .input-field span {
+  display: none;
+}
+
+.messages-page #message-input {
+  resize: vertical;
+  min-height: 54px;
+  max-height: 120px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 13px 14px;
+}
+
+.messages-page #message-send {
+  border-radius: 999px;
+  padding: 11px 18px;
+  align-self: end;
+}
+
+.messages-page #message-chat-panel.panel {
+  border-radius: 0;
+  padding: 0;
+}
+
+.messages-page #message-chat-panel .panel-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.messages-page #message-chat-panel .panel-header h3 {
+  text-align: center;
+  font-size: 1.02rem;
+}
+
+.messages-page #message-back {
+  justify-self: start;
+}
+
+@media (max-width: 767px) {
+  .messages-page .screen {
+    padding: 16px 12px 92px;
+  }
+
+  .messages-page .topbar {
+    margin-bottom: 4px;
+  }
+
+  .message-feed {
+    min-height: 54vh;
+    max-height: 54vh;
+    border-radius: 12px;
+  }
+
+  .message-thread-list {
+    max-height: 68vh;
+    border-radius: 12px;
+  }
+}
+
 .badge {
   background: var(--highlight);
   color: #1d1d1d;
@@ -2158,6 +2705,20 @@ a {
 }
 
 @media (min-width: 768px) {
+  .message-layout {
+    grid-template-columns: minmax(240px, 0.95fr) minmax(0, 1.25fr);
+    align-items: start;
+  }
+
+  .message-thread-list {
+    max-height: 62vh;
+  }
+
+  .message-feed {
+    min-height: 380px;
+    max-height: 62vh;
+  }
+
   .app,
   .landing {
     max-width: 820px;

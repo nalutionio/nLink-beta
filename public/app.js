@@ -57,6 +57,11 @@ const closePhotoGalleryModal = () => {
   document.getElementById("photo-gallery-modal")?.remove();
 };
 
+const openClientDirectMessage = (provider) => {
+  if (!provider?.id) return;
+  window.location.href = `../client/client-messages.html?provider=${encodeURIComponent(provider.id)}`;
+};
+
 const fetchProviderPhotos = async (providerId) => {
   if (!supabase || !providerId) return { photos: [], error: null };
   const { data, error } = await supabase
@@ -588,7 +593,11 @@ const openProfileModal = (provider, options = {}) => {
         }
         const action = button.getAttribute("data-action");
         if (action === "book") logProviderEvent(provider?.id, "booking_click");
-        if (action === "contact") logProviderEvent(provider?.id, "contact_click");
+        if (action === "contact") {
+          logProviderEvent(provider?.id, "contact_click");
+          openClientDirectMessage(provider);
+          return;
+        }
         alert(labelBeta.action || "This action is coming soon in beta.");
       });
     });
@@ -623,6 +632,8 @@ const initSwipePage = () => {
   const budgetMaxInput = document.getElementById("budget-max");
   const ratingMinSelect = document.getElementById("rating-min");
   const filtersPanel = document.getElementById("filters-panel");
+  const discoverFilterToggle = document.getElementById("discover-filter-toggle");
+  const discoverFiltersContent = document.getElementById("discover-filters-content");
 
   const state = {
     providers: [],
@@ -643,6 +654,23 @@ const initSwipePage = () => {
       topActionLink.href = "../client/saved.html";
     }
     renderGuestCounter();
+  };
+
+  const setDiscoverFiltersVisible = (isVisible) => {
+    if (!discoverFilterToggle || !discoverFiltersContent) return;
+    discoverFiltersContent.classList.toggle("hidden", !isVisible);
+    discoverFilterToggle.textContent = isVisible ? "Hide" : "Show";
+    discoverFilterToggle.setAttribute("aria-expanded", isVisible ? "true" : "false");
+  };
+
+  const initDiscoverFilterToggle = () => {
+    if (!discoverFilterToggle || !discoverFiltersContent) return;
+    const mobileDefaultClosed = window.matchMedia("(max-width: 900px)").matches;
+    setDiscoverFiltersVisible(!mobileDefaultClosed);
+    discoverFilterToggle.addEventListener("click", () => {
+      const currentlyVisible = !discoverFiltersContent.classList.contains("hidden");
+      setDiscoverFiltersVisible(!currentlyVisible);
+    });
   };
 
   const renderGuestCounter = () => {
@@ -888,6 +916,9 @@ const initSwipePage = () => {
 
     state.currentIndex = 0;
     renderStack();
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      setDiscoverFiltersVisible(false);
+    }
   };
 
   const renderStack = () => {
@@ -957,7 +988,7 @@ const initSwipePage = () => {
       card.querySelector("button[data-action='contact']")?.addEventListener("click", () => {
         if (requireClientAuth("contact providers")) return;
         logProviderEvent(provider?.id, "contact_click");
-        alert(labelBeta.action || "This action is coming soon in beta.");
+        openClientDirectMessage(provider);
       });
 
       card.querySelector("button[data-action='review']")?.addEventListener("click", () => {
@@ -1028,6 +1059,7 @@ const initSwipePage = () => {
   saveButton.addEventListener("click", () => swipeFallback("right"));
 
   const initData = async () => {
+    initDiscoverFilterToggle();
     state.user = await getSessionUser();
     state.isGuest = !state.user;
     if (state.user) {
