@@ -20,19 +20,21 @@
         <p class="kicker">Job Detail</p>
         <h1 id="job-title">Job</h1>
       </div>
-      <a class="ghost-button" href="../provider/provider-jobs.html">Back</a>
+      <a class="ghost-button always-show-back" id="job-detail-back" href="../provider/provider-jobs.html">Back</a>
     </header>
 
     <section class="panel">
       <div class="panel-header">
         <h3>Client Profile</h3>
       </div>
-      <div class="mini-client large" id="job-client-card">
+      <div class="mini-client large profile-trust-card" id="job-client-card">
         <img src="../assets/nlinkiconblk.png" alt="Client profile" id="job-client-avatar" />
         <div>
           <h4 id="job-client-name">Client</h4>
           <p class="muted" id="job-client-meta">Account details</p>
+          <div class="trust-chips" id="job-client-chips"></div>
           <p class="muted" id="job-client-location-note">Street address remains private until shared.</p>
+          <button class="ghost-button" id="job-client-view-full" type="button">View Full Profile</button>
         </div>
       </div>
     </section>
@@ -42,8 +44,29 @@
         <h3>Overview</h3>
         <span class="pill" id="job-status">Open</span>
       </div>
-      <p class="muted" id="job-meta"></p>
-      <p id="job-description"></p>
+      <div class="overview-grid">
+        <div class="overview-item">
+          <span class="muted">Location</span>
+          <strong id="job-meta-location">-</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Client Target Range</span>
+          <strong id="job-meta-budget">-</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Property Size</span>
+          <strong id="job-meta-size">Not provided</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Timeline</span>
+          <strong id="job-meta-timeline">Flexible</strong>
+        </div>
+      </div>
+      <p class="muted overview-helper">Final price depends on scope, materials, and inspection when applicable.</p>
+      <div class="scope-box">
+        <h4>Scope Details</h4>
+        <p id="job-description"></p>
+      </div>
     </section>
 
     <section class="panel">
@@ -58,11 +81,65 @@
         <h3>Client Notes</h3>
       </div>
       <ul class="job-notes" id="job-notes"></ul>
-      <button class="primary-button" id="request-quote">Send Proposal</button>
-      <div class="auth-status" id="request-status"></div>
-      <div class="job-actions hidden" id="provider-review-toggle-wrap">
-        <button class="ghost-button" id="provider-review-toggle" type="button">Rate Client</button>
+      <div class="modal-form" id="proposal-form-wrap">
+        <h4>Proposal Sheet</h4>
+        <div class="proposal-fields">
+          <label class="input-field">
+            <span>Proposal Type</span>
+            <select id="proposal-type">
+              <option value="inspection_first">Inspection first</option>
+              <option value="direct_service">Direct service</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Pricing Basis</span>
+            <select id="proposal-pricing-basis">
+              <option value="after_inspection">After inspection</option>
+              <option value="fixed">Fixed</option>
+              <option value="hourly">Hourly</option>
+              <option value="per_sqft">Per sqft</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Estimate Min ($)</span>
+            <input id="proposal-estimate-min" type="number" min="0" step="1" placeholder="500" />
+          </label>
+          <label class="input-field">
+            <span>Estimate Max ($)</span>
+            <input id="proposal-estimate-max" type="number" min="0" step="1" placeholder="1500" />
+          </label>
+          <label class="input-field">
+            <span>Inspection Fee ($)</span>
+            <input id="proposal-inspection-fee" type="number" min="0" step="1" placeholder="0" />
+          </label>
+          <label class="input-field checkbox-field">
+            <span>Fee options</span>
+            <div class="check-list">
+              <label><input id="proposal-inspection-creditable" type="checkbox" /> Apply fee to final invoice</label>
+              <label><input id="proposal-inspection-waivable" type="checkbox" /> Fee can be waived</label>
+            </div>
+          </label>
+        </div>
+        <label class="input-field">
+          <span>Proposal Notes</span>
+          <textarea id="proposal-notes" rows="3" placeholder="Assumptions, exclusions, and what this estimate covers."></textarea>
+        </label>
       </div>
+      <div class="panel hidden" id="proposal-summary-panel">
+        <div class="proposal-summary-head">
+          <h4>Your Proposal</h4>
+          <div class="proposal-summary-actions">
+            <span class="pill" id="proposal-summary-status">pending</span>
+            <button class="ghost-button hidden" id="provider-review-toggle" type="button">Rate Client</button>
+            <button class="ghost-button hidden" id="proposal-toggle-view" type="button">View Proposal</button>
+          </div>
+        </div>
+        <div id="proposal-summary-copy" class="muted"></div>
+      </div>
+      <button class="primary-button" id="request-quote">Send Proposal</button>
+      <a class="ghost-button hidden" id="message-client-link" href="#">Message Client</a>
+      <div class="auth-status" id="request-status"></div>
       <div class="modal-form hidden" id="provider-review-form-wrap">
         <h4 id="provider-review-title">Rate Client</h4>
         <label class="input-field">
@@ -89,13 +166,14 @@
   </main>
 
   <nav class="bottom-nav">
-    <a href="../provider/dashboard.html">Dashboard</a>
     <a class="active" href="../provider/provider-jobs.html">Discover</a>
     <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/provider-messages.html">Messages</a>
     <a href="../provider/profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/job-detail-provider.js"></script>

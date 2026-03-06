@@ -157,14 +157,13 @@ const renderJobs = async () => {
     photos = data || [];
   }
 
-  jobList.innerHTML = "";
-  jobs.forEach((job) => {
+  const renderJobCard = (job) => {
     const photo = photos.find((item) => item.job_id === job.id);
     const thumb = photo?.url || "../assets/nlinkiconblk.png";
     const status = normalizeJobStatus(job.status);
 
     const card = document.createElement("a");
-    card.className = "job-card job-link-card";
+    card.className = `job-card job-link-card ${status === "closed" ? "job-card-closed" : ""}`.trim();
     card.href = `../client/client-job-detail.html?id=${job.id}`;
     card.innerHTML = `
       <img class="job-thumb" src="${thumb}" alt="${job.title}" />
@@ -182,8 +181,34 @@ const renderJobs = async () => {
       </div>
       <span class="pill">${status}</span>
     `;
-    jobList.appendChild(card);
-  });
+    return card;
+  };
+
+  const activeJobs = jobs.filter((job) => normalizeJobStatus(job.status) !== "closed");
+  const closedJobs = jobs.filter((job) => normalizeJobStatus(job.status) === "closed");
+
+  jobList.innerHTML = "";
+
+  if (!activeJobs.length && !closedJobs.length) {
+    jobList.innerHTML = "<p class='muted'>No jobs yet.</p>";
+    return;
+  }
+
+  if (activeJobs.length) {
+    const activeTitle = document.createElement("p");
+    activeTitle.className = "job-group-title";
+    activeTitle.textContent = "Active";
+    jobList.appendChild(activeTitle);
+    activeJobs.forEach((job) => jobList.appendChild(renderJobCard(job)));
+  }
+
+  if (closedJobs.length) {
+    const closedTitle = document.createElement("p");
+    closedTitle.className = "job-group-title";
+    closedTitle.textContent = "Closed";
+    jobList.appendChild(closedTitle);
+    closedJobs.forEach((job) => jobList.appendChild(renderJobCard(job)));
+  }
 };
 
 form?.addEventListener("submit", async (event) => {

@@ -13,7 +13,7 @@
 <body class="dashboard-page">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../client/client-dashboard.html" aria-label="NLink dashboard">
+      <a class="brand-link" href="../client/discover.html" aria-label="NLink dashboard">
         <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
       </a>
       <div class="topbar-title">
@@ -74,13 +74,14 @@
   </main>
 
   <nav class="bottom-nav">
-    <a class="active" href="../client/client-dashboard.html">Dashboard</a>
     <a href="../client/discover.html">Discover</a>
     <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a href="../client/client-profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/client-dashboard.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

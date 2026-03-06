@@ -4,8 +4,11 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const titleEl = document.getElementById("job-title");
 const statusEl = document.getElementById("job-status");
-const metaEl = document.getElementById("job-meta");
 const descriptionEl = document.getElementById("job-description");
+const metaLocationEl = document.getElementById("job-meta-location");
+const metaBudgetEl = document.getElementById("job-meta-budget");
+const metaSizeEl = document.getElementById("job-meta-size");
+const metaTimelineEl = document.getElementById("job-meta-timeline");
 const galleryEl = document.getElementById("job-gallery");
 const requestsEl = document.getElementById("job-requests");
 const closeButton = document.getElementById("job-close-btn");
@@ -166,12 +169,44 @@ const loadPhotos = async () => {
 };
 
 const loadRequests = async () => {
-  const { data } = await supabase
-    .from("job_requests")
-    .select("id,status,created_at,provider_id,providers(name,owner_id)")
-    .eq("job_id", jobId)
-    .order("created_at", { ascending: false });
-  return data || [];
+  const queries = [
+    "id,status,created_at,provider_id,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,providers(name,owner_id)",
+    "id,status,created_at,provider_id,providers(name,owner_id)",
+  ];
+  for (let i = 0; i < queries.length; i += 1) {
+    const { data, error } = await supabase
+      .from("job_requests")
+      .select(queries[i])
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    if (!error) return data || [];
+    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return [];
+  }
+  return [];
+};
+
+const formatProposalType = (value) => {
+  if (!value) return "General proposal";
+  if (value === "inspection_first") return "Inspection first";
+  if (value === "direct_service") return "Direct service";
+  if (value === "hybrid") return "Hybrid";
+  return "General proposal";
+};
+
+const formatPricingBasis = (value) => {
+  if (!value) return "Pricing basis not set";
+  if (value === "after_inspection") return "Price after inspection";
+  if (value === "per_sqft") return "Per sqft pricing";
+  return `${value[0].toUpperCase()}${value.slice(1)} pricing`;
+};
+
+const formatEstimateRange = (min, max) => {
+  const minVal = Number(min || 0);
+  const maxVal = Number(max || 0);
+  if (minVal > 0 && maxVal > 0) return `Estimate: $${minVal} - $${maxVal}`;
+  if (minVal > 0) return `Estimate from: $${minVal}`;
+  if (maxVal > 0) return `Estimate up to: $${maxVal}`;
+  return "Estimate: shared in proposal notes";
 };
 
 const loadMyReviews = async (userId) => {
@@ -388,15 +423,10 @@ const render = async () => {
   if (statusEl) statusEl.textContent = jobStatus;
   if (closeButton) closeButton.disabled = jobStatus === "closed";
   if (reopenButton) reopenButton.disabled = jobStatus === "open" || jobStatus === "in_progress";
-  if (metaEl) {
-    const bits = [
-      job.location,
-      `$${job.budget_min} - $${job.budget_max}`,
-      job.sqft ? `${job.sqft} sqft` : null,
-      job.timeline ? `Needed ${job.timeline}` : null,
-    ].filter(Boolean);
-    metaEl.textContent = bits.join(" • ");
-  }
+  if (metaLocationEl) metaLocationEl.textContent = job.location || "Not set";
+  if (metaBudgetEl) metaBudgetEl.textContent = `$${job.budget_min || 0} - $${job.budget_max || 0}`;
+  if (metaSizeEl) metaSizeEl.textContent = job.sqft ? `${job.sqft} sqft` : "Not provided";
+  if (metaTimelineEl) metaTimelineEl.textContent = job.timeline || "Flexible";
   if (descriptionEl) descriptionEl.textContent = job.description || "";
 
   currentPhotos = await loadPhotos();
@@ -424,6 +454,10 @@ const render = async () => {
           <div class="job-card-body">
             <h4>${request.providers?.name || "Provider"}</h4>
             <p class="muted">${new Date(request.created_at).toLocaleDateString()}</p>
+            <p class="muted">${formatProposalType(request.proposal_type)} • ${formatPricingBasis(request.pricing_basis)}</p>
+            <p class="muted">${formatEstimateRange(request.estimated_price_min, request.estimated_price_max)}</p>
+            ${request.inspection_fee ? `<p class="muted">Inspection fee: $${request.inspection_fee}${request.inspection_fee_creditable ? " (credited)" : ""}${request.inspection_fee_waivable ? " • can be waived" : ""}</p>` : ""}
+            ${request.proposal_notes ? `<p class="muted">${request.proposal_notes}</p>` : ""}
           </div>
           <div class="job-actions">
             <span class="pill">${request.status || "pending"}</span>
@@ -432,6 +466,7 @@ const render = async () => {
               <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
             ` : ""}
             ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Closed</button>` : ""}
+            ${(isPending || isAccepted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `<a class="ghost-button" href="../client/client-messages.html?job=${jobId}&provider=${request.provider_id}">Message</a>` : ""}
             ${canRate ? `<button class="ghost-button" data-request-action="rate" data-request-id="${request.id}">Rate</button>` : ""}
           </div>
         `;

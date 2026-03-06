@@ -18,7 +18,7 @@
         <p class="kicker">Profile</p>
         <h1>Account</h1>
       </div>
-      <span></span>
+      <a class="icon-button" href="../client/settings.html" aria-label="Open settings">⚙</a>
     </header>
 
     <section class="client-hero">
@@ -31,6 +31,25 @@
         <h2 id="client-name">Client Name</h2>
         <p class="muted" id="client-meta">client@email.com</p>
       </div>
+    </section>
+
+    <section class="stat-grid">
+      <article class="stat-card">
+        <span class="stat-label">Saved Providers</span>
+        <h2 id="profile-stat-saved">0</h2>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Accepted Proposals</span>
+        <h2 id="profile-stat-accepted">0</h2>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Open Jobs</span>
+        <h2 id="profile-stat-open-jobs">0</h2>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Pending Proposals</span>
+        <h2 id="profile-stat-pending">0</h2>
+      </article>
     </section>
 
     <section class="settings-group">
@@ -48,52 +67,34 @@
           <span class="pill" id="client-public-location">Location not set</span>
         </div>
         <p class="muted">Street address stays private unless you choose to share it during booking.</p>
+        <button class="ghost-button" type="button" id="client-view-full-profile">View Full Profile</button>
       </article>
     </section>
 
     <section class="settings-group">
-      <h3>Account Settings</h3>
-      <div class="settings-list list-cards">
-        <a class="settings-item" href="../client/client-profile-edit.html">Edit profile information</a>
-        <a class="settings-item" href="../client/settings-notifications.html">Notifications <span class="pill">ON</span></a>
-        <a class="settings-item" href="../client/settings-support.html">Language <span class="pill link">English</span></a>
-      </div>
+      <h3>Property Profile <span class="pill" id="client-property-completion">0/9 completed</span></h3>
+      <article class="settings-item">
+        <div class="tag-list" id="client-property-chips"></div>
+        <div class="gallery-grid" id="client-property-photos"></div>
+        <p class="muted" id="client-property-access-note">No property access notes added.</p>
+      </article>
     </section>
 
     <section class="settings-group">
-      <h3>Security</h3>
-      <div class="settings-list list-cards">
-        <a class="settings-item" href="../client/settings-security.html">Security</a>
-        <a class="settings-item" href="../client/settings-support.html">Theme <span class="pill link">Light mode</span></a>
-      </div>
-    </section>
-
-    <section class="settings-group">
-      <h3>Support</h3>
-      <div class="settings-list list-cards">
-        <a class="settings-item" href="../client/settings-support.html">Help &amp; Support</a>
-        <a class="settings-item" href="../client/settings-support.html">Contact us</a>
-        <a class="settings-item" href="../client/settings-support.html">Privacy policy</a>
-      </div>
-    </section>
-
-    <section class="settings-group">
-      <div class="settings-list">
-        <button class="settings-item danger" id="sign-out">Sign Out</button>
-      </div>
+      <a class="settings-item" href="../client/settings.html">Open Account Settings & Support</a>
     </section>
   </main>
 
   <nav class="bottom-nav">
-    <a href="../client/client-dashboard.html">Dashboard</a>
     <a href="../client/discover.html">Discover</a>
     <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a class="active" href="../client/client-profile.html">Profile</a>
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
-  <script src="../js/signout.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/profile-client.js"></script>

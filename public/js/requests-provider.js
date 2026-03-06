@@ -4,6 +4,10 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const pendingEl = document.getElementById("request-list");
 const closedEl = document.getElementById("request-closed");
+let providerUserId = null;
+const clientInitiatedByThread = {};
+const clientProfilesById = {};
+const jobsById = {};
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -14,12 +18,25 @@ const getSessionUser = async () => {
 const loadProviderId = async () => {
   const user = await getSessionUser();
   if (!user) return null;
+  providerUserId = user.id;
   const { data } = await supabase
     .from("providers")
     .select("id")
     .eq("owner_id", user.id)
     .maybeSingle();
   return data?.id || null;
+};
+
+const formatBudget = (min, max) => {
+  const minVal = Number(min || 0);
+  const maxVal = Number(max || 0);
+  return `$${minVal} - $${maxVal}`;
+};
+
+const formatDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString();
 };
 
 const toPublicLocation = (value) => {
@@ -37,13 +54,133 @@ const formatMemberSince = (value) => {
   return `Member since ${date.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
 };
 
+const propertyCompletionCount = (profile) => {
+  const value = (profile && typeof profile === "object") ? profile : {};
+  const fields = [
+    value.propertyType,
+    value.ownership,
+    value.yearBuilt,
+    value.roofAge,
+    value.hvacAge,
+    value.panelAge,
+    value.waterHeaterAge,
+    value.renovationYear,
+    String(value.accessNotes || "").trim(),
+  ];
+  return fields.filter((item) => String(item || "").trim().length > 0).length;
+};
+
+const closeClientFullProfileModal = () => {
+  document.getElementById("provider-client-full-profile-modal")?.remove();
+};
+
+const openClientFullProfileModal = (clientId, jobId) => {
+  const job = jobsById[jobId];
+  if (!job) return;
+  const profile = clientProfilesById[clientId] || {};
+  const property = profile.property_profile && typeof profile.property_profile === "object"
+    ? profile.property_profile
+    : {};
+  const completion = propertyCompletionCount(property);
+  const name = profile.full_name || job.client_name || "Client";
+  const location = toPublicLocation(profile.location || profile.address || job.client_location_public || job.location || "");
+  const memberSince = formatMemberSince(profile.created_at || job.created_at);
+  const chips = [];
+  if (property.propertyType) chips.push(`Type: ${property.propertyType}`);
+  if (property.ownership) chips.push(`Ownership: ${property.ownership}`);
+  if (property.yearBuilt) chips.push(`Built: ${property.yearBuilt}`);
+  if (property.roofAge) chips.push(`Roof: ${property.roofAge}`);
+  if (property.hvacAge) chips.push(`HVAC: ${property.hvacAge}`);
+  if (property.panelAge) chips.push(`Panel: ${property.panelAge}`);
+  if (property.waterHeaterAge) chips.push(`Water Heater: ${property.waterHeaterAge}`);
+  if (property.renovationYear) chips.push(`Last Reno: ${property.renovationYear}`);
+  const photos = Array.isArray(property.photos)
+    ? property.photos.filter((item) => item && typeof item.url === "string" && item.url).slice(0, 3)
+    : [];
+
+  closeClientFullProfileModal();
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "provider-client-full-profile-modal";
+  modal.setAttribute("aria-hidden", "false");
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>${name}</h3>
+        <button class="ghost-button" type="button" data-action="close">Close</button>
+      </div>
+      <p class="muted">${memberSince} • ${location || "Location not set"}</p>
+      <div class="trust-chips">
+        <span class="pill">${job.client_email_verified === true ? "Email verified" : "Email unverified"}</span>
+        <span class="pill">${completion}/9 property details</span>
+      </div>
+      <div class="tag-list">${chips.length ? chips.map((chip) => `<span class="pill">${chip}</span>`).join("") : "<span class=\"pill\">No property details yet</span>"}</div>
+      <p class="muted">${property.accessNotes ? property.accessNotes : "No property access notes added."}</p>
+      <div class="gallery-grid">${photos.map((photo, index) => `
+        <article class="gallery-card property-photo-card">
+          <img src="${photo.url}" alt="Property ${index + 1}" class="${photo.hidden ? "is-hidden-photo" : ""}" />
+          <small class="pill property-photo-visibility">${photo.hidden ? "Hidden" : "Visible"}</small>
+        </article>
+      `).join("")}</div>
+      <p class="muted">Exact address remains private unless client shares it after acceptance.</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-action='close']")?.addEventListener("click", closeClientFullProfileModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeClientFullProfileModal();
+  });
+};
+
+const loadClientProfiles = async (clientIds) => {
+  const ids = Array.from(new Set(clientIds.filter(Boolean)));
+  if (!ids.length) return;
+  const queries = [
+    "user_id,full_name,avatar_url,location,address,property_profile,created_at",
+    "user_id,full_name,avatar_url,location,address,property_profile",
+    "user_id,full_name,avatar_url,location,address",
+    "user_id,full_name,avatar_url",
+  ];
+  for (let i = 0; i < queries.length; i += 1) {
+    const { data, error } = await supabase
+      .from("clients")
+      .select(queries[i])
+      .in("user_id", ids);
+    if (!error && Array.isArray(data)) {
+      data.forEach((row) => {
+        if (row?.user_id) clientProfilesById[row.user_id] = row;
+      });
+      return;
+    }
+    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return;
+  }
+};
+
+const formatProposalType = (value) => {
+  if (!value) return "General";
+  if (value === "inspection_first") return "Inspection first";
+  if (value === "direct_service") return "Direct service";
+  if (value === "hybrid") return "Hybrid";
+  return "General";
+};
+
+const formatEstimate = (min, max) => {
+  const minVal = Number(min || 0);
+  const maxVal = Number(max || 0);
+  if (minVal > 0 && maxVal > 0) return `$${minVal} - $${maxVal}`;
+  if (minVal > 0) return `From $${minVal}`;
+  if (maxVal > 0) return `Up to $${maxVal}`;
+  return "Not set";
+};
+
 const renderRequests = async () => {
   if (!supabase) return;
   const providerId = await loadProviderId();
   if (!providerId) return;
+  Object.keys(clientInitiatedByThread).forEach((key) => delete clientInitiatedByThread[key]);
 
   const queries = [
-    "id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at)",
+    "id,status,created_at,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,jobs(id,title,location,budget_min,budget_max,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at)",
     "id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id,created_at)",
   ];
   let data = [];
@@ -64,6 +201,41 @@ const renderRequests = async () => {
   }
 
   const requests = data || [];
+  requests.forEach((req) => {
+    if (req?.jobs?.id) jobsById[req.jobs.id] = req.jobs;
+  });
+  await loadClientProfiles(requests.map((req) => req.jobs?.client_id));
+  const jobIds = requests
+    .map((req) => req.jobs?.id)
+    .filter(Boolean);
+  let photosByJobId = {};
+  if (jobIds.length) {
+    const { data: photoRows } = await supabase
+      .from("job_photos")
+      .select("job_id,url,created_at")
+      .in("job_id", jobIds)
+      .order("created_at", { ascending: false });
+    if (Array.isArray(photoRows)) {
+      photoRows.forEach((row) => {
+        if (!photosByJobId[row.job_id]) photosByJobId[row.job_id] = row.url;
+      });
+    }
+  }
+  if (jobIds.length) {
+    const { data: messageRows } = await supabase
+      .from("job_messages")
+      .select("job_id,client_id,sender_role,created_at")
+      .eq("provider_id", providerId)
+      .eq("sender_role", "client")
+      .in("job_id", jobIds)
+      .order("created_at", { ascending: true });
+    if (Array.isArray(messageRows)) {
+      messageRows.forEach((row) => {
+        const key = `${row.job_id}:${row.client_id}`;
+        clientInitiatedByThread[key] = true;
+      });
+    }
+  }
   const pending = requests.filter((req) => (req.status || "pending") === "pending");
   const active = requests.filter((req) => req.status === "accepted");
   const closed = requests.filter((req) => req.status === "closed" || req.status === "declined");
@@ -73,32 +245,47 @@ const renderRequests = async () => {
     if (pending.length === 0 && active.length === 0) {
       pendingEl.innerHTML = "<p class='muted'>No proposals yet.</p>";
     } else {
-      [...pending, ...active].forEach((req) => {
-        const clientName = req.jobs?.client_name || "Client";
-        const clientAvatar = req.jobs?.client_avatar_url || "../assets/nlinkiconblk.png";
-        const clientLocation = toPublicLocation(req.jobs?.client_location_public || req.jobs?.location || "");
+      const renderCard = (req) => {
+        const thumb = photosByJobId[req.jobs?.id] || "../assets/nlinkiconblk.png";
         const card = document.createElement("article");
-        card.className = "job-card";
+        card.className = "job-card proposal-card";
+        const status = req.status || "pending";
+        const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
+        const canMessage = status === "accepted" && clientInitiatedByThread[threadKey];
         card.innerHTML = `
-          <div class="job-card-body">
-            <h4>${req.jobs?.title || "Job"}</h4>
-            <p class="muted">${req.jobs?.location || ""} • $${req.jobs?.budget_min || 0} - $${req.jobs?.budget_max || 0}</p>
-            <p class="muted">Proposed ${new Date(req.created_at).toLocaleDateString()}</p>
-            <div class="mini-client">
-              <img src="${clientAvatar}" alt="${clientName}" />
-              <div>
-                <p class="muted">${clientName} • ${formatMemberSince(req.jobs?.created_at)}</p>
-                <p class="muted">${clientLocation || "Location private"} ${req.jobs?.client_email_verified === true ? "• Email verified" : ""}</p>
-              </div>
-            </div>
+          <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
+          <div class="job-card-body proposal-body">
+            <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
+            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta">Proposed ${formatDate(req.created_at)}</p>
+            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+            ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
-          <div class="job-actions">
-            <span class="pill">${req.status || "pending"}</span>
-            <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}">View</a>
+          <div class="job-actions proposal-actions">
+            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : "status-pending"}">${status}</span>
+            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
+            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${req.jobs?.id || ""}&client=${req.jobs?.client_id || ""}">Message</a>` : ""}
+            <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
         pendingEl.appendChild(card);
-      });
+      };
+
+      if (active.length) {
+        const activeTitle = document.createElement("p");
+        activeTitle.className = "job-group-title";
+        activeTitle.textContent = "Accepted";
+        pendingEl.appendChild(activeTitle);
+        active.forEach(renderCard);
+      }
+
+      if (pending.length) {
+        const pendingTitle = document.createElement("p");
+        pendingTitle.className = "job-group-title";
+        pendingTitle.textContent = "Pending";
+        pendingEl.appendChild(pendingTitle);
+        pending.forEach(renderCard);
+      }
     }
   }
 
@@ -108,29 +295,38 @@ const renderRequests = async () => {
       closedEl.innerHTML = "<p class='muted'>No closed proposals.</p>";
     } else {
       closed.forEach((req) => {
-        const clientName = req.jobs?.client_name || "Client";
-        const clientAvatar = req.jobs?.client_avatar_url || "../assets/nlinkiconblk.png";
-        const clientLocation = toPublicLocation(req.jobs?.client_location_public || req.jobs?.location || "");
+        const thumb = photosByJobId[req.jobs?.id] || "../assets/nlinkiconblk.png";
+        const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
+        const canMessage = clientInitiatedByThread[threadKey];
         const card = document.createElement("article");
-        card.className = "job-card";
+        card.className = "job-card proposal-card job-card-closed";
         card.innerHTML = `
-          <div class="job-card-body">
-            <h4>${req.jobs?.title || "Job"}</h4>
-            <p class="muted">${req.jobs?.location || ""} • $${req.jobs?.budget_min || 0} - $${req.jobs?.budget_max || 0}</p>
-            <div class="mini-client">
-              <img src="${clientAvatar}" alt="${clientName}" />
-              <div>
-                <p class="muted">${clientName} • ${formatMemberSince(req.jobs?.created_at)}</p>
-                <p class="muted">${clientLocation || "Location private"} ${req.jobs?.client_email_verified === true ? "• Email verified" : ""}</p>
-              </div>
-            </div>
+          <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
+          <div class="job-card-body proposal-body">
+            <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
+            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+            ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
-          <span class="pill">Closed</span>
+          <div class="job-actions proposal-actions">
+            <span class="pill proposal-status status-closed">Closed</span>
+            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
+            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${req.jobs?.id || ""}&client=${req.jobs?.client_id || ""}">Message</a>` : ""}
+          </div>
         `;
         closedEl.appendChild(card);
       });
     }
   }
 };
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-client-view]");
+  if (!button) return;
+  const clientId = button.dataset.clientView || "";
+  const jobId = button.dataset.jobId || "";
+  if (!clientId || !jobId) return;
+  openClientFullProfileModal(clientId, jobId);
+});
 
 renderRequests();

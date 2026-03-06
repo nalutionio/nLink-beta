@@ -13,14 +13,14 @@
 <body class="jobs-page">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../client/client-dashboard.html" aria-label="NLink dashboard">
+      <a class="brand-link" href="../client/discover.html" aria-label="NLink dashboard">
         <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
       </a>
       <div class="topbar-title">
         <p class="kicker">Jobs</p>
         <h1>Post a job</h1>
       </div>
-      <a class="ghost-button" href="../client/client-dashboard.html">Dashboard</a>
+      <a class="ghost-button" href="../client/client-profile.html">Profile</a>
     </header>
 
     <section class="panel">
@@ -87,13 +87,14 @@
   </main>
 
   <nav class="bottom-nav">
-    <a href="../client/client-dashboard.html">Dashboard</a>
     <a href="../client/discover.html">Discover</a>
     <a class="active" href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a href="../client/client-profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/service-tags.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

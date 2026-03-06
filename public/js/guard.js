@@ -26,7 +26,7 @@
         : "/client/onboarding.html";
     }
     return role === "provider"
-      ? "/provider/dashboard.html"
+      ? "/provider/provider-jobs.html"
       : "/client/discover.html";
   };
 

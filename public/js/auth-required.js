@@ -16,7 +16,7 @@ const getRolesFromMetadata = (metadata) => {
 
 const dashboardForRole = (role) => (
   role === "provider"
-    ? "/provider/dashboard.html"
+    ? "/provider/provider-jobs.html"
     : "/client/discover.html"
 );
 
@@ -67,7 +67,7 @@ const requireAuth = async (redirectTo = "/landing.html") => {
   }
 
   if (isClientArea && !roles.includes("client")) {
-    window.location.href = "/provider/dashboard.html";
+    window.location.href = "/provider/provider-jobs.html";
     return;
   }
 

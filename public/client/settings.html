@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Client Settings</title>
+</head>
+<body class="settings-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/discover.html" aria-label="NLink discover">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Settings</p>
+        <h1>Account & Support</h1>
+      </div>
+      <a class="ghost-button" href="../client/client-profile.html">Back</a>
+    </header>
+
+    <section class="account-card">
+      <div class="profile-avatar-lg">
+        <img src="../assets/nlinkiconblk.png" alt="Profile" id="client-settings-avatar" />
+      </div>
+      <div>
+        <h2 id="client-settings-name">Client</h2>
+        <p class="muted" id="client-settings-email">-</p>
+      </div>
+      <a class="primary-button" href="../client/client-profile-edit.html">Edit Profile</a>
+    </section>
+
+    <section class="settings-shell">
+      <aside class="settings-side-nav" data-settings-nav>
+        <button class="settings-nav-item active" data-target="client-settings-account" type="button">Account</button>
+        <button class="settings-nav-item" data-target="client-settings-security" type="button">Security</button>
+        <button class="settings-nav-item" data-target="client-settings-support" type="button">Support</button>
+      </aside>
+
+      <div class="settings-sections">
+        <section class="settings-group settings-section active" id="client-settings-account">
+          <h3>Account Information</h3>
+          <div class="settings-list list-cards">
+            <div class="settings-item"><span>Email</span><span class="pill link" id="client-info-email">-</span></div>
+            <div class="settings-item"><span>Email Verification</span><span class="pill" id="client-info-email-verify">Pending</span></div>
+            <div class="settings-item"><span>Phone</span><span class="pill link" id="client-info-phone">Not set</span></div>
+            <div class="settings-item"><span>Address</span><span class="pill link" id="client-info-address">Not set</span></div>
+            <div class="settings-item"><span>Location</span><span class="pill link" id="client-info-location">Not set</span></div>
+          </div>
+          <div class="settings-list list-cards">
+            <a class="settings-item" href="../client/client-profile-edit.html">Edit profile information</a>
+          </div>
+        </section>
+
+        <section class="settings-group settings-section" id="client-settings-security">
+          <h3>Security & Access</h3>
+          <div class="settings-list list-cards">
+            <a class="settings-item" href="../client/settings-notifications.html">Notifications</a>
+            <a class="settings-item" href="../client/settings-security.html">Security preferences</a>
+            <button class="settings-item danger" id="sign-out">Sign Out</button>
+          </div>
+        </section>
+
+        <section class="settings-group settings-section" id="client-settings-support">
+          <h3>Support</h3>
+          <div class="settings-list list-cards">
+            <a class="settings-item" href="mailto:support@nalutionsolution.com">Contact support@nalutionsolution.com</a>
+            <a class="settings-item" href="../client/settings-support.html">Help Center</a>
+            <a class="settings-item" href="../landing.html#privacy">Privacy Policy</a>
+            <a class="settings-item" href="../landing.html#terms">Terms & Conditions</a>
+            <a class="settings-item" href="../landing.html#cookie">Cookie Policy</a>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/discover.html">Discover</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
+    <a class="active" href="../client/client-profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
+  <script src="../js/signout.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/settings-tabs.js"></script>
+  <script src="../js/client-settings.js"></script>
+</body>
+</html>

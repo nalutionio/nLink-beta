@@ -96,6 +96,98 @@
           <span>Address</span>
           <input type="text" id="client-address" placeholder="45 New Avenue, New York" />
         </label>
+
+        <article class="panel edit-section-card">
+          <div class="panel-header"><h3>Property Profile (Home Services)</h3></div>
+          <p class="muted" id="property-completion">0/9 completed</p>
+          <p class="muted">Better details help providers send more accurate proposals.</p>
+          <div class="grid-2">
+            <label class="input-field">
+              <span>Property type</span>
+              <select id="property-type">
+                <option value="">Select</option>
+                <option>Single-family</option>
+                <option>Townhome</option>
+                <option>Condo</option>
+                <option>Multi-family</option>
+              </select>
+            </label>
+            <label class="input-field">
+              <span>Ownership</span>
+              <select id="property-ownership">
+                <option value="">Select</option>
+                <option>Owner</option>
+                <option>Property manager</option>
+                <option>Tenant-authorized</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="input-field">
+              <span>Year built</span>
+              <input type="number" id="property-year-built" min="1800" max="2100" placeholder="e.g. 1998" />
+            </label>
+            <label class="input-field">
+              <span>Roof age</span>
+              <select id="property-roof-age">
+                <option value="">Unknown</option>
+                <option>0-5 years</option>
+                <option>6-10 years</option>
+                <option>11-15 years</option>
+                <option>15+ years</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="input-field">
+              <span>HVAC age</span>
+              <select id="property-hvac-age">
+                <option value="">Unknown</option>
+                <option>0-5 years</option>
+                <option>6-10 years</option>
+                <option>11-15 years</option>
+                <option>15+ years</option>
+              </select>
+            </label>
+            <label class="input-field">
+              <span>Electrical panel age</span>
+              <select id="property-panel-age">
+                <option value="">Unknown</option>
+                <option>0-5 years</option>
+                <option>6-10 years</option>
+                <option>11-15 years</option>
+                <option>15+ years</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="input-field">
+              <span>Water heater age</span>
+              <select id="property-water-heater-age">
+                <option value="">Unknown</option>
+                <option>0-5 years</option>
+                <option>6-10 years</option>
+                <option>11-15 years</option>
+                <option>15+ years</option>
+              </select>
+            </label>
+            <label class="input-field">
+              <span>Last renovation year</span>
+              <input type="number" id="property-renovation-year" min="1800" max="2100" placeholder="Optional" />
+            </label>
+          </div>
+          <label class="input-field">
+            <span>Access notes (optional)</span>
+            <textarea id="property-access-notes" rows="3" placeholder="Parking, gate code process, pets, HOA timing, etc."></textarea>
+          </label>
+          <label class="upload-field">
+            <span>Property reference photos (up to 3)</span>
+            <input type="file" id="property-photo-upload" accept="image/*" multiple />
+            <small class="muted" id="property-photo-upload-name">No photos chosen</small>
+          </label>
+          <div class="gallery-grid" id="property-photo-editor"></div>
+          <p class="muted">Exact street address stays private until you choose to share it.</p>
+        </article>
         <button class="primary-button" type="submit">Submit</button>
       </form>
       <div class="auth-status" id="client-profile-status"></div>
@@ -103,13 +195,14 @@
   </main>
 
   <nav class="bottom-nav">
-    <a href="../client/client-dashboard.html">Dashboard</a>
     <a href="../client/discover.html">Discover</a>
     <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a class="active" href="../client/client-profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/image-cropper.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

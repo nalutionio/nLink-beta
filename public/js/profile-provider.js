@@ -13,6 +13,15 @@ const infoEmailVerifyEl = document.getElementById("provider-info-email-verify");
 const infoPhoneEl = document.getElementById("provider-info-phone");
 const infoPhoneVerifyEl = document.getElementById("provider-info-phone-verify");
 const infoAddressEl = document.getElementById("provider-info-address");
+const statViewsEl = document.getElementById("profile-stat-views");
+const statSavesEl = document.getElementById("profile-stat-saves");
+const statProposalsEl = document.getElementById("profile-stat-proposals");
+const statMessagesEl = document.getElementById("profile-stat-messages");
+const ratingValueEl = document.getElementById("service-rating-value");
+const ratingCountEl = document.getElementById("service-rating-count");
+const ratingStarsEl = document.getElementById("service-rating-stars");
+const commentsListEl = document.getElementById("service-comments-list");
+const commentsMoreButton = document.getElementById("service-comments-more");
 const primaryProviderKey = "nlink_primary_provider_id";
 
 const isPlaceholderUrl = (value) => typeof value === "string" && value.toLowerCase().includes("placeholder");
@@ -38,6 +47,102 @@ const setStatus = (message, type = "") => {
   statusEl.textContent = message;
   statusEl.className = `auth-status ${type}`.trim();
 };
+
+const isMissingTableError = (error) => Boolean(error)
+  && (
+    error.code === "42P01"
+    || error.code === "PGRST205"
+    || error.status === 404
+  );
+
+const safeHeadCount = async (queryBuilder) => {
+  const { count, error } = await queryBuilder;
+  if (isMissingTableError(error)) return { count: 0, error: null };
+  return { count: Number(count || 0), error };
+};
+
+const renderStars = (rating) => {
+  const fullStars = Math.floor(rating);
+  const hasHalf = rating - fullStars >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+  return "★".repeat(fullStars) + (hasHalf ? "☆" : "") + "✩".repeat(emptyStars);
+};
+
+const createReviewCard = (review) => {
+  const card = document.createElement("article");
+  card.className = "review-card";
+  const nameNode = document.createElement("strong");
+  nameNode.textContent = review.name || "Anonymous";
+  const ratingNode = document.createElement("div");
+  const ratingValue = Number(review.rating) || 0;
+  ratingNode.textContent = `${renderStars(ratingValue)} ${ratingValue.toFixed(1)}`;
+  const textNode = document.createElement("p");
+  textNode.textContent = (review.text || "").trim() || "No comment text provided.";
+  card.append(nameNode, ratingNode, textNode);
+  return card;
+};
+
+const closeCommentsModal = () => {
+  document.getElementById("service-comments-modal")?.remove();
+};
+
+const openCommentsModal = () => {
+  const reviews = Array.isArray(window.__providerReviews) ? window.__providerReviews : [];
+  if (reviews.length <= 2) return;
+  closeCommentsModal();
+
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "service-comments-modal";
+  modal.setAttribute("aria-hidden", "false");
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>All Comments (${reviews.length})</h3>
+        <button class="ghost-button" type="button" data-action="close">Close</button>
+      </div>
+      <div class="comments-list"></div>
+    </div>
+  `;
+
+  const list = modal.querySelector(".comments-list");
+  reviews.forEach((review) => list?.appendChild(createReviewCard(review)));
+  document.body.appendChild(modal);
+  modal.querySelector("[data-action='close']")?.addEventListener("click", closeCommentsModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeCommentsModal();
+  });
+};
+
+const renderReviewsUi = (reviews) => {
+  const normalized = Array.isArray(reviews) ? reviews : [];
+  window.__providerReviews = normalized;
+
+  const count = normalized.length;
+  const average = count
+    ? normalized.reduce((sum, row) => sum + (Number(row.rating) || 0), 0) / count
+    : 0;
+
+  if (ratingValueEl) ratingValueEl.textContent = count ? average.toFixed(1) : "Unrated";
+  if (ratingCountEl) ratingCountEl.textContent = count ? `${count} reviews` : "No reviews yet";
+  if (ratingStarsEl) ratingStarsEl.textContent = count ? renderStars(average) : "☆☆☆☆☆";
+
+  if (!commentsListEl) return;
+  commentsListEl.innerHTML = "";
+  if (!count) {
+    commentsListEl.innerHTML = "<p class=\"muted\">No reviews yet.</p>";
+    commentsMoreButton?.classList.add("hidden");
+    return;
+  }
+
+  normalized.slice(0, 2).forEach((review) => commentsListEl.appendChild(createReviewCard(review)));
+  if (commentsMoreButton) {
+    const hasMore = count > 2;
+    commentsMoreButton.classList.toggle("hidden", !hasMore);
+    commentsMoreButton.textContent = hasMore ? `See More (${count - 2})` : "See More";
+  }
+};
+
 
 const getRolesFromMetadata = (metadata) => {
   const roles = [];
@@ -68,6 +173,7 @@ const loadProvider = async () => {
   if (infoPhoneEl) infoPhoneEl.textContent = user.phone || user.user_metadata?.contact_phone || "Not set";
   if (infoPhoneVerifyEl) infoPhoneVerifyEl.textContent = user.phone_confirmed_at ? "Verified" : "Pending";
 
+  let provider = null;
   const preferredId = localStorage.getItem(primaryProviderKey);
   if (preferredId) {
     const { data: preferred, error: preferredError } = await profileSupabase
@@ -76,34 +182,27 @@ const loadProvider = async () => {
       .eq("id", preferredId)
       .eq("owner_id", user.id)
       .maybeSingle();
-    if (preferredError) return;
-    if (preferred) {
-      if (nameEl) nameEl.textContent = preferred.name || metadataBusinessName || "Your business";
-      if (avatarEl) {
-        const preferredAvatar = preferred.avatar_url || metadataAvatar || preferred.banner_url || preferred.hero_url || "";
-        if (preferredAvatar && !isPlaceholderUrl(preferredAvatar)) {
-          avatarEl.src = `${preferredAvatar}${preferredAvatar.includes("?") ? "&" : "?"}v=${Date.now()}`;
-        }
-      }
-      if (preferred.id) localStorage.setItem(primaryProviderKey, preferred.id);
-      return;
+    if (!preferredError && preferred) {
+      provider = preferred;
     }
   }
 
-  const { data, error } = await profileSupabase
-    .from("providers")
-    .select("id,name,avatar_url,banner_url,hero_url,created_at")
-    .eq("owner_id", user.id)
-    .limit(25);
-
-  if (error || !data) {
-    if (nameEl && !metadataBusinessName) nameEl.textContent = "Your business";
-    return;
-  }
-  const provider = pickBestProviderRecord(data);
   if (!provider) {
-    if (nameEl && !metadataBusinessName) nameEl.textContent = "Your business";
-    return;
+    const { data, error } = await profileSupabase
+      .from("providers")
+      .select("id,name,avatar_url,banner_url,hero_url,created_at")
+      .eq("owner_id", user.id)
+      .limit(25);
+
+    if (error || !data) {
+      if (nameEl && !metadataBusinessName) nameEl.textContent = "Your business";
+      return;
+    }
+    provider = pickBestProviderRecord(data);
+    if (!provider) {
+      if (nameEl && !metadataBusinessName) nameEl.textContent = "Your business";
+      return;
+    }
   }
   if (provider.id) localStorage.setItem(primaryProviderKey, provider.id);
 
@@ -125,8 +224,83 @@ const loadProvider = async () => {
   if (avatarEl && avatarUrl && !isPlaceholderUrl(avatarUrl)) {
     avatarEl.src = `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
   }
+
+
+  const providerId = provider.id || preferredId || null;
+  if (!providerId) return;
+
+  const [{ count: proposalCount }, { count: jobMessageCount }, { count: directMessageCount }] = await Promise.all([
+    safeHeadCount(
+      profileSupabase
+        .from("job_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", providerId),
+    ),
+    safeHeadCount(
+      profileSupabase
+        .from("job_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", providerId),
+    ),
+    safeHeadCount(
+      profileSupabase
+        .from("direct_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", providerId),
+    ),
+  ]);
+
+  if (statProposalsEl) statProposalsEl.textContent = String(proposalCount);
+  if (statMessagesEl) statMessagesEl.textContent = String(jobMessageCount + directMessageCount);
+
+  const { data: eventRows, error: eventError } = await profileSupabase
+    .from("provider_events")
+    .select("event_type")
+    .eq("provider_id", providerId);
+  if (eventError && !isMissingTableError(eventError)) {
+    if (statViewsEl) statViewsEl.textContent = "0";
+    if (statSavesEl) statSavesEl.textContent = "0";
+  } else {
+    const rows = Array.isArray(eventRows) ? eventRows : [];
+    const views = rows.filter((row) => row.event_type === "profile_view").length;
+    const saves = rows.filter((row) => row.event_type === "save_click").length;
+    if (statViewsEl) statViewsEl.textContent = String(views);
+    if (statSavesEl) statSavesEl.textContent = String(saves);
+  }
+
+  if (ratingValueEl || ratingCountEl || ratingStarsEl || commentsListEl) {
+    let reviews = [];
+    const { data: providerReviews, error: providerReviewError } = await profileSupabase
+      .from("provider_reviews")
+      .select("rating,text,comment,reviewer_name,name")
+      .eq("provider_id", providerId);
+
+    if (!providerReviewError && Array.isArray(providerReviews) && providerReviews.length) {
+      reviews = providerReviews.map((row) => ({
+        name: row.reviewer_name || row.name || "Anonymous",
+        rating: Number(row.rating) || 0,
+        text: row.text || row.comment || "",
+      }));
+    } else {
+      const { data: jobReviews, error: jobReviewError } = await profileSupabase
+        .from("job_reviews")
+        .select("rating,review_text,reviewer_role,reviewee_role")
+        .eq("reviewee_role", "provider")
+        .eq("reviewee_user_id", user.id);
+      if (!jobReviewError && Array.isArray(jobReviews)) {
+        reviews = jobReviews.map((row) => ({
+          name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+          rating: Number(row.rating) || 0,
+          text: row.review_text || "",
+        }));
+      }
+    }
+
+    renderReviewsUi(reviews);
+  }
 };
 
+commentsMoreButton?.addEventListener("click", openCommentsModal);
 loadProvider();
 
 const clearLocalProviderState = () => {

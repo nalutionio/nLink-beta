@@ -19,8 +19,9 @@
     </header>
 
     <section class="auth-card auth-simple">
-      <h1>Set up your profile</h1>
-      <p class="muted">A few quick steps, then you can start swiping.</p>
+      <h1>Quick setup</h1>
+      <p class="muted">Two quick steps, then you can start discovering.</p>
+      <p class="kicker" id="client-step-counter">Step 1 of 2</p>
 
       <form id="client-onboarding-form" class="modal-form">
         <div class="onboard-step" data-step="1">
@@ -37,17 +38,6 @@
           </label>
         </div>
 
-        <div class="onboard-step hidden" data-step="3">
-          <label class="input-field">
-            <span>What services do you want first?</span>
-            <input type="text" id="client-interests" placeholder="Cleaning, Electrical, Photography..." required />
-          </label>
-          <label class="input-field">
-            <span>Budget comfort range</span>
-            <input type="text" id="client-budget" placeholder="e.g. 100-500" />
-          </label>
-        </div>
-
         <div class="auth-actions">
           <button type="button" class="ghost-button" id="client-back" hidden>Back</button>
           <button type="button" class="primary-button" id="client-next">Next</button>
@@ -61,6 +51,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/client-onboarding.js"></script>

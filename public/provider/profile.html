@@ -13,14 +13,14 @@
 <body class="profile-page provider-theme">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="NLink discover">
         <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
       </a>
       <div class="topbar-title">
         <p class="kicker">Profile</p>
-        <h1>Account & Settings</h1>
+        <h1>Business Profile</h1>
       </div>
-      <span></span>
+      <a class="icon-button" href="../provider/settings.html" aria-label="Open settings">⚙</a>
     </header>
 
     <section class="account-card">
@@ -34,38 +34,69 @@
       <a class="primary-button" href="../provider/profile-edit.html">Edit Profile</a>
     </section>
 
-    <section class="settings-group">
-      <h3>Account Settings</h3>
-      <div class="settings-list">
-        <a class="settings-item" href="../provider/account-information.html">Account Information</a>
-        <a class="settings-item" href="../provider/settings-notifications.html">Notifications</a>
-        <a class="settings-item" href="../provider/settings-security.html">Security</a>
-        <a class="settings-item" href="../provider/settings-billing.html">Billing</a>
-        <button class="settings-item danger" id="sign-out">Sign Out</button>
-      </div>
+    <section class="stat-grid">
+      <article class="stat-card">
+        <span class="stat-label">Profile Views</span>
+        <h2 id="profile-stat-views">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Saves</span>
+        <h2 id="profile-stat-saves">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Proposals</span>
+        <h2 id="profile-stat-proposals">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Messages</span>
+        <h2 id="profile-stat-messages">—</h2>
+        <p class="stat-trend">Live data</p>
+      </article>
+    </section>
+
+    <section class="dashboard-panels">
+      <article class="panel rating-panel">
+        <div class="panel-header">
+          <h3>Service Rating</h3>
+          <span class="badge">Beta</span>
+        </div>
+        <div class="rating-score">
+          <div>
+            <h2 id="service-rating-value">Unrated</h2>
+            <p class="muted" id="service-rating-count">No reviews yet</p>
+          </div>
+          <div class="rating-stars" id="service-rating-stars">☆☆☆☆☆</div>
+        </div>
+      </article>
+
+      <article class="panel comments-panel">
+        <div class="panel-header">
+          <h3>Recent Comments</h3>
+          <button class="ghost-button hidden" id="service-comments-more" type="button">See More</button>
+        </div>
+        <div id="service-comments-list">
+          <p class="muted">No reviews yet.</p>
+        </div>
+      </article>
+
     </section>
 
     <div class="auth-status" id="profile-status"></div>
-
-    <section class="settings-group">
-      <h3>Support</h3>
-      <div class="settings-list">
-        <a class="settings-item" href="../provider/settings-support.html">Help Center</a>
-        <a class="settings-item" href="../provider/settings-support.html">Contact Support</a>
-        <a class="settings-item" href="../provider/settings-support.html">Privacy Policy</a>
-      </div>
-    </section>
   </main>
 
   <nav class="bottom-nav">
-    <a href="../provider/dashboard.html">Dashboard</a>
     <a href="../provider/provider-jobs.html">Discover</a>
     <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/provider-messages.html">Messages</a>
     <a class="active" href="../provider/profile.html">Profile</a>
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/signout.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

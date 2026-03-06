@@ -18,6 +18,19 @@ const avatarUploadName = document.getElementById("client-avatar-upload-name");
 const bannerPresets = document.getElementById("client-banner-presets");
 const heroPreviewEl = document.getElementById("client-edit-hero-bg");
 const avatarPreviewEl = document.getElementById("client-edit-avatar-preview");
+const propertyTypeInput = document.getElementById("property-type");
+const propertyOwnershipInput = document.getElementById("property-ownership");
+const propertyYearBuiltInput = document.getElementById("property-year-built");
+const propertyRoofAgeInput = document.getElementById("property-roof-age");
+const propertyHvacAgeInput = document.getElementById("property-hvac-age");
+const propertyPanelAgeInput = document.getElementById("property-panel-age");
+const propertyWaterHeaterAgeInput = document.getElementById("property-water-heater-age");
+const propertyRenovationYearInput = document.getElementById("property-renovation-year");
+const propertyAccessNotesInput = document.getElementById("property-access-notes");
+const propertyPhotoUpload = document.getElementById("property-photo-upload");
+const propertyPhotoUploadName = document.getElementById("property-photo-upload-name");
+const propertyPhotoEditor = document.getElementById("property-photo-editor");
+const propertyCompletionEl = document.getElementById("property-completion");
 
 const fallbackAvatar = "../assets/nlinkiconblk.png";
 
@@ -26,6 +39,8 @@ const state = {
   profile: null,
   avatarUrl: "",
   bannerUrl: "",
+  propertyProfile: {},
+  propertyPhotos: [],
 };
 
 const isMissingColumnError = (error) => Boolean(error)
@@ -41,6 +56,31 @@ const setStatus = (message, type = "") => {
   if (!statusEl) return;
   statusEl.textContent = message;
   statusEl.className = `auth-status ${type}`.trim();
+};
+
+const getLocalPropertyProfile = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("nlink_client_property_profile") || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+};
+
+const updatePropertyCompletion = () => {
+  const fields = [
+    propertyTypeInput?.value,
+    propertyOwnershipInput?.value,
+    propertyYearBuiltInput?.value,
+    propertyRoofAgeInput?.value,
+    propertyHvacAgeInput?.value,
+    propertyPanelAgeInput?.value,
+    propertyWaterHeaterAgeInput?.value,
+    propertyRenovationYearInput?.value,
+    propertyAccessNotesInput?.value?.trim(),
+  ];
+  const completed = fields.filter((value) => String(value || "").trim().length > 0).length;
+  if (propertyCompletionEl) propertyCompletionEl.textContent = `${completed}/9 completed`;
 };
 
 const applyPreview = () => {
@@ -89,6 +129,7 @@ const uploadImage = async (fileOrBlob, path) => {
 
 const selectClientProfile = async (userId) => {
   const tries = [
+    "full_name,nick_name,email,phone,country,gender,address,location,avatar_url,banner_url,property_profile",
     "full_name,nick_name,email,phone,country,gender,address,location,avatar_url,banner_url",
     "full_name,nick_name,email,phone,country,gender,address,location,avatar_url",
     "full_name,nick_name,email,phone,country,gender,address,avatar_url",
@@ -148,6 +189,17 @@ const loadProfile = async () => {
   const metadata = user.user_metadata || {};
   state.avatarUrl = profile?.avatar_url || metadata.client_avatar_url || "";
   state.bannerUrl = profile?.banner_url || metadata.client_banner_url || "";
+  state.propertyProfile = (profile?.property_profile && typeof profile.property_profile === "object")
+    ? profile.property_profile
+    : (metadata.client_property_profile && typeof metadata.client_property_profile === "object")
+      ? metadata.client_property_profile
+      : getLocalPropertyProfile();
+  state.propertyPhotos = Array.isArray(state.propertyProfile.photos)
+    ? state.propertyProfile.photos
+      .filter((item) => item && typeof item.url === "string" && item.url)
+      .map((item) => ({ url: item.url, hidden: Boolean(item.hidden) }))
+      .slice(0, 3)
+    : [];
   applyPreview();
 
   fullNameInput.value = profile?.full_name || metadata.client_name || "";
@@ -157,6 +209,84 @@ const loadProfile = async () => {
   if (profile?.country) countryInput.value = profile.country;
   if (profile?.gender) genderInput.value = profile.gender;
   addressInput.value = profile?.address || profile?.location || metadata.client_location || "";
+
+  propertyTypeInput.value = state.propertyProfile.propertyType || "";
+  propertyOwnershipInput.value = state.propertyProfile.ownership || "";
+  propertyYearBuiltInput.value = state.propertyProfile.yearBuilt || "";
+  propertyRoofAgeInput.value = state.propertyProfile.roofAge || "";
+  propertyHvacAgeInput.value = state.propertyProfile.hvacAge || "";
+  propertyPanelAgeInput.value = state.propertyProfile.panelAge || "";
+  propertyWaterHeaterAgeInput.value = state.propertyProfile.waterHeaterAge || "";
+  propertyRenovationYearInput.value = state.propertyProfile.renovationYear || "";
+  propertyAccessNotesInput.value = state.propertyProfile.accessNotes || "";
+  renderPropertyPhotoEditor();
+  updatePropertyCompletion();
+};
+
+const renderPropertyPhotoEditor = () => {
+  if (!propertyPhotoEditor) return;
+  propertyPhotoEditor.innerHTML = "";
+  if (!state.propertyPhotos.length) {
+    propertyPhotoEditor.innerHTML = "<p class=\"muted\">No property photos yet.</p>";
+    return;
+  }
+
+  state.propertyPhotos.forEach((photo, index) => {
+    const card = document.createElement("article");
+    card.className = "gallery-card property-photo-card";
+    card.innerHTML = `
+      <img src="${photo.url}" alt="Property reference ${index + 1}" class="${photo.hidden ? "is-hidden-photo" : ""}" />
+      <span class="pill property-photo-visibility">${photo.hidden ? "Hidden" : "Visible"}</span>
+      <div class="compact-actions" style="display:grid;grid-template-columns:1fr 1fr;">
+        <button type="button" class="ghost-button" data-action="toggle" data-index="${index}">${photo.hidden ? "Hidden" : "Visible"}</button>
+        <button type="button" class="ghost-button" data-action="remove" data-index="${index}">Remove</button>
+        <button type="button" class="ghost-button" data-action="up" data-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>
+        <button type="button" class="ghost-button" data-action="down" data-index="${index}" ${index === state.propertyPhotos.length - 1 ? "disabled" : ""}>Down</button>
+      </div>
+    `;
+    propertyPhotoEditor.appendChild(card);
+  });
+
+  propertyPhotoEditor.querySelectorAll("button[data-action='toggle']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.index);
+      if (!Number.isFinite(index) || !state.propertyPhotos[index]) return;
+      state.propertyPhotos[index].hidden = !state.propertyPhotos[index].hidden;
+      renderPropertyPhotoEditor();
+      setStatus("Photo visibility updated. Save profile to apply.", "info");
+    });
+  });
+  propertyPhotoEditor.querySelectorAll("button[data-action='remove']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.index);
+      if (!Number.isFinite(index)) return;
+      state.propertyPhotos = state.propertyPhotos.filter((_, i) => i !== index);
+      renderPropertyPhotoEditor();
+      setStatus("Photo removed. Save profile to apply.", "info");
+    });
+  });
+  propertyPhotoEditor.querySelectorAll("button[data-action='up']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.index);
+      if (!Number.isFinite(index) || index <= 0 || !state.propertyPhotos[index]) return;
+      const next = state.propertyPhotos.slice();
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      state.propertyPhotos = next;
+      renderPropertyPhotoEditor();
+      setStatus("Photo order updated. Save profile to apply.", "info");
+    });
+  });
+  propertyPhotoEditor.querySelectorAll("button[data-action='down']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.index);
+      if (!Number.isFinite(index) || index >= state.propertyPhotos.length - 1 || !state.propertyPhotos[index]) return;
+      const next = state.propertyPhotos.slice();
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      state.propertyPhotos = next;
+      renderPropertyPhotoEditor();
+      setStatus("Photo order updated. Save profile to apply.", "info");
+    });
+  });
 };
 
 const handleImageUpload = async (file, type) => {
@@ -225,6 +355,18 @@ form?.addEventListener("submit", async (event) => {
     location: addressInput.value.trim(),
     avatar_url: state.avatarUrl || null,
     banner_url: state.bannerUrl || null,
+    property_profile: {
+      propertyType: propertyTypeInput.value,
+      ownership: propertyOwnershipInput.value,
+      yearBuilt: propertyYearBuiltInput.value,
+      roofAge: propertyRoofAgeInput.value,
+      hvacAge: propertyHvacAgeInput.value,
+      panelAge: propertyPanelAgeInput.value,
+      waterHeaterAge: propertyWaterHeaterAgeInput.value,
+      renovationYear: propertyRenovationYearInput.value,
+      accessNotes: propertyAccessNotesInput.value.trim(),
+      photos: state.propertyPhotos.slice(0, 3),
+    },
   };
 
   try {
@@ -241,6 +383,7 @@ form?.addEventListener("submit", async (event) => {
     client_avatar_url: state.avatarUrl || "",
     client_banner_url: state.bannerUrl || "",
     client_email_verified: Boolean(user.email_confirmed_at),
+    client_property_profile: payload.property_profile,
   };
   const { error: metadataError } = await supabase.auth.updateUser({ data: metadata });
   if (metadataError) {
@@ -249,6 +392,11 @@ form?.addEventListener("submit", async (event) => {
   }
 
   setStatus("Profile saved.", "success");
+  try {
+    localStorage.setItem("nlink_client_property_profile", JSON.stringify(payload.property_profile));
+  } catch (_error) {
+    // no-op
+  }
   window.setTimeout(() => {
     window.location.href = "/client/client-profile.html";
   }, 500);
@@ -278,6 +426,49 @@ bannerPresets?.querySelectorAll("[data-banner-color]").forEach((button) => {
     button.classList.add("selected");
     setStatus("Preset banner selected. Save profile to apply everywhere.", "success");
   });
+});
+
+propertyPhotoUpload?.addEventListener("change", async (event) => {
+  const files = Array.from(event.target.files || []).slice(0, 3);
+  if (!files.length || !state.user) return;
+
+  const remainingSlots = Math.max(0, 3 - state.propertyPhotos.length);
+  if (remainingSlots === 0) {
+    setStatus("You can upload up to 3 property photos.", "error");
+    return;
+  }
+  const selected = files.slice(0, remainingSlots);
+  if (propertyPhotoUploadName) {
+    propertyPhotoUploadName.textContent = `Selected: ${selected.map((file) => file.name).join(", ")}`;
+  }
+
+  setStatus("Uploading property photos...", "info");
+  for (const file of selected) {
+    try {
+      const path = `clients/${state.user.id}/property-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+      const url = await uploadImage(file, path);
+      if (url) state.propertyPhotos.push({ url, hidden: false });
+    } catch (_error) {
+      setStatus("Some photos could not be uploaded.", "error");
+    }
+  }
+  renderPropertyPhotoEditor();
+  setStatus("Property photos uploaded. Save profile to apply.", "success");
+});
+
+[
+  propertyTypeInput,
+  propertyOwnershipInput,
+  propertyYearBuiltInput,
+  propertyRoofAgeInput,
+  propertyHvacAgeInput,
+  propertyPanelAgeInput,
+  propertyWaterHeaterAgeInput,
+  propertyRenovationYearInput,
+  propertyAccessNotesInput,
+].forEach((input) => {
+  input?.addEventListener("input", updatePropertyCompletion);
+  input?.addEventListener("change", updatePropertyCompletion);
 });
 
 loadProfile();

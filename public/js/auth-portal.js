@@ -24,7 +24,7 @@ const getEmailConfirmRedirectUrl = () => `${getAppOrigin()}/shared/auth-callback
 
 const dashboardForRole = (role) => (
   role === "provider"
-    ? "/provider/dashboard.html"
+    ? "/provider/provider-jobs.html"
     : "/client/discover.html"
 );
 

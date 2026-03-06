@@ -13,7 +13,7 @@
 <body class="jobs-page provider-theme">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../provider/dashboard.html" aria-label="NLink dashboard">
+      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="NLink dashboard">
         <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
       </a>
       <div class="topbar-title">
@@ -26,45 +26,51 @@
     <section class="panel">
       <div class="panel-header">
         <h3>Filter Jobs</h3>
-        <span class="badge">Beta</span>
+        <div class="header-actions">
+          <span class="badge">Beta</span>
+          <button class="ghost-button compact" id="filter-toggle" type="button" aria-expanded="true">Hide</button>
+        </div>
       </div>
-      <div class="filter-row">
-        <label class="input-field">
-          <span>Category</span>
-          <input type="hidden" id="filter-category" value="all" />
-          <div class="tag-picker-wrap">
-            <div id="filter-category-tags" class="tag-picker"></div>
-          </div>
-        </label>
-        <label class="input-field">
-          <span>Location</span>
-          <input type="text" id="filter-location" placeholder="Hoboken, NJ" />
-        </label>
+      <div id="filters-content">
+        <div class="filter-row">
+          <label class="input-field">
+            <span>Category</span>
+            <input type="hidden" id="filter-category" value="all" />
+            <div class="tag-picker-wrap">
+              <div id="filter-category-tags" class="tag-picker"></div>
+            </div>
+          </label>
+          <label class="input-field">
+            <span>Location</span>
+            <input type="text" id="filter-location" placeholder="Hoboken, NJ" />
+          </label>
+        </div>
+        <div class="filter-row">
+          <label class="input-field">
+            <span>Budget Min</span>
+            <input type="number" id="filter-budget-min" placeholder="300" />
+          </label>
+          <label class="input-field">
+            <span>Budget Max</span>
+            <input type="number" id="filter-budget-max" placeholder="900" />
+          </label>
+        </div>
+        <button class="primary-button" id="apply-filters">Apply Filters</button>
       </div>
-      <div class="filter-row">
-        <label class="input-field">
-          <span>Budget Min</span>
-          <input type="number" id="filter-budget-min" placeholder="300" />
-        </label>
-        <label class="input-field">
-          <span>Budget Max</span>
-          <input type="number" id="filter-budget-max" placeholder="900" />
-        </label>
-      </div>
-      <button class="primary-button" id="apply-filters">Apply Filters</button>
     </section>
 
     <section class="job-feed" id="job-feed"></section>
   </main>
 
   <nav class="bottom-nav">
-    <a href="../provider/dashboard.html">Dashboard</a>
     <a class="active" href="../provider/provider-jobs.html">Discover</a>
     <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/provider-messages.html">Messages</a>
     <a href="../provider/profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/service-tags.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

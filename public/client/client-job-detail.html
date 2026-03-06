@@ -20,7 +20,7 @@
         <p class="kicker">Job Detail</p>
         <h1 id="job-title">Job</h1>
       </div>
-      <a class="ghost-button" href="../client/client-jobs.html">Back</a>
+      <a class="ghost-button always-show-back" href="../client/client-jobs.html">Back</a>
     </header>
 
     <section class="panel">
@@ -31,8 +31,29 @@
           <button class="ghost-button" id="job-edit-toggle" type="button">Edit</button>
         </div>
       </div>
-      <p class="muted" id="job-meta"></p>
-      <p id="job-description"></p>
+      <div class="overview-grid">
+        <div class="overview-item">
+          <span class="muted">Location</span>
+          <strong id="job-meta-location">-</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Target Range</span>
+          <strong id="job-meta-budget">-</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Property Size</span>
+          <strong id="job-meta-size">Not provided</strong>
+        </div>
+        <div class="overview-item">
+          <span class="muted">Timeline</span>
+          <strong id="job-meta-timeline">Flexible</strong>
+        </div>
+      </div>
+      <p class="muted overview-helper">Final price may change after provider assessment and scope confirmation.</p>
+      <div class="scope-box">
+        <h4>Scope Details</h4>
+        <p id="job-description"></p>
+      </div>
       <div class="modal-form hidden" id="job-inline-edit">
         <label class="input-field">
           <span>Job title</span>
@@ -126,13 +147,14 @@
   </main>
 
   <nav class="bottom-nav">
-    <a href="../client/client-dashboard.html">Dashboard</a>
     <a href="../client/discover.html">Discover</a>
     <a class="active" href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a href="../client/client-profile.html">Profile</a>
   </nav>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/job-detail-client.js"></script>

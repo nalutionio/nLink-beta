@@ -19,8 +19,9 @@
     </header>
 
     <section class="auth-card auth-simple">
-      <h1>Create your business profile</h1>
-      <p class="muted">Complete this once. You can edit details anytime.</p>
+      <h1>Quick business setup</h1>
+      <p class="muted">Set up essentials now. Complete the rest from Profile later.</p>
+      <p class="kicker" id="provider-step-counter">Step 1 of 3</p>
 
       <form id="provider-onboarding-form" class="modal-form">
         <div class="onboard-step" data-step="1">
@@ -42,19 +43,16 @@
             <input type="text" id="provider-location" placeholder="City, State" required />
           </label>
           <label class="input-field">
-            <span>Budget range</span>
-            <input type="text" id="provider-budget" placeholder="e.g. 100-500" required />
+            <span>Typical project range (optional)</span>
+            <input type="text" id="provider-budget" placeholder="e.g. 500-2000" />
           </label>
-        </div>
-
-        <div class="onboard-step hidden" data-step="3">
           <label class="input-field">
             <span>Short bio</span>
             <textarea id="provider-description" rows="4" placeholder="Tell clients what you do." required></textarea>
           </label>
         </div>
 
-        <div class="onboard-step hidden" data-step="4">
+        <div class="onboard-step hidden" data-step="3">
           <label class="upload-field">
             <span>Preset banner color (optional)</span>
             <div class="banner-presets" id="provider-onboarding-banner-presets">
@@ -87,6 +85,7 @@
         <div class="auth-actions">
           <button type="button" class="ghost-button" id="provider-back" hidden>Back</button>
           <button type="button" class="primary-button" id="provider-next">Next</button>
+          <button type="button" class="ghost-button" id="provider-skip-media" hidden>Skip for now</button>
           <button type="submit" class="primary-button" id="provider-finish" hidden>Finish</button>
         </div>
       </form>
@@ -97,6 +96,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/service-tags.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

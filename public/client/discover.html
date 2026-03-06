@@ -23,41 +23,47 @@
     <div class="layout">
       <aside class="sidebar">
         <section class="filters" id="filters-panel" aria-hidden="false">
-        <div class="filter-row">
-          <div class="filter-field">
-            <label for="category">Service Category</label>
-            <select id="category">
-              <option value="all">All</option>
-            </select>
+          <div class="filters-header">
+            <h3>Filters</h3>
+            <button class="ghost-button compact" id="discover-filter-toggle" type="button" aria-expanded="true">Hide</button>
           </div>
-        <div class="filter-field">
-          <label for="location-search">Location (ZIP or Town)</label>
-          <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken, NJ)" />
-          <datalist id="location-options"></datalist>
-        </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-field">
-            <label for="budget-min">Budget Min ($)</label>
-            <input type="number" id="budget-min" placeholder="50" min="0" />
+          <div id="discover-filters-content">
+            <div class="filter-row">
+              <div class="filter-field">
+                <label for="category">Service Category</label>
+                <select id="category">
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <div class="filter-field">
+                <label for="location-search">Location (ZIP or Town)</label>
+                <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken, NJ)" />
+                <datalist id="location-options"></datalist>
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="filter-field">
+                <label for="budget-min">Budget Min ($)</label>
+                <input type="number" id="budget-min" placeholder="50" min="0" />
+              </div>
+              <div class="filter-field">
+                <label for="budget-max">Budget Max ($)</label>
+                <input type="number" id="budget-max" placeholder="500" min="0" />
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="filter-field">
+                <label for="rating-min">Min Rating</label>
+                <select id="rating-min">
+                  <option value="0">Any</option>
+                  <option value="3.5">3.5+</option>
+                  <option value="4">4.0+</option>
+                  <option value="4.5">4.5+</option>
+                </select>
+              </div>
+              <button class="primary-button" id="apply-filters">Apply Filters</button>
+            </div>
           </div>
-          <div class="filter-field">
-            <label for="budget-max">Budget Max ($)</label>
-            <input type="number" id="budget-max" placeholder="500" min="0" />
-          </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-field">
-            <label for="rating-min">Min Rating</label>
-            <select id="rating-min">
-              <option value="0">Any</option>
-              <option value="3.5">3.5+</option>
-              <option value="4">4.0+</option>
-              <option value="4.5">4.5+</option>
-            </select>
-          </div>
-          <button class="primary-button" id="apply-filters">Apply Filters</button>
-        </div>
         </section>
 
         <section class="actions">
@@ -90,9 +96,9 @@
   </footer>
 
   <nav class="bottom-nav" id="client-nav" hidden>
-    <a href="../client/client-dashboard.html">Dashboard</a>
     <a class="active" href="../client/discover.html">Discover</a>
     <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
     <a href="../client/client-profile.html">Profile</a>
   </nav>
 
@@ -101,6 +107,7 @@
   <script src="../cropper.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
   <script src="../js/ui-labels.js"></script>
   <script src="../js/service-tags.js"></script>
   <script src="../app.js"></script>

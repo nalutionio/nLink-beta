@@ -6,8 +6,10 @@ const form = document.getElementById("provider-onboarding-form");
 const steps = Array.from(document.querySelectorAll(".onboard-step"));
 const backButton = document.getElementById("provider-back");
 const nextButton = document.getElementById("provider-next");
+const skipMediaButton = document.getElementById("provider-skip-media");
 const finishButton = document.getElementById("provider-finish");
 const statusEl = document.getElementById("provider-onboarding-status");
+const stepCounterEl = document.getElementById("provider-step-counter");
 
 const nameInput = document.getElementById("provider-name");
 const categoryInput = document.getElementById("provider-category");
@@ -85,8 +87,10 @@ const renderStep = () => {
   steps.forEach((step, index) => {
     step.classList.toggle("hidden", index !== stepIndex);
   });
+  if (stepCounterEl) stepCounterEl.textContent = `Step ${stepIndex + 1} of ${steps.length}`;
   backButton.hidden = stepIndex === 0;
   nextButton.hidden = stepIndex === steps.length - 1;
+  skipMediaButton.hidden = stepIndex !== steps.length - 1;
   finishButton.hidden = stepIndex !== steps.length - 1;
 };
 
@@ -100,24 +104,16 @@ const validateStep = () => {
       setStatus("Add your location.", "error");
       return false;
     }
-    if (!parseBudgetRange(budgetInput.value.trim())) {
-      setStatus("Add budget like 100-500.", "error");
+    if (budgetInput.value.trim() && !parseBudgetRange(budgetInput.value.trim())) {
+      setStatus("Use range format like 500-2000 or leave blank.", "error");
+      return false;
+    }
+    if (!descriptionInput.value.trim()) {
+      setStatus("Add a short bio.", "error");
       return false;
     }
   }
-  if (stepIndex === 2 && !descriptionInput.value.trim()) {
-    setStatus("Add a short bio.", "error");
-    return false;
-  }
-  if (stepIndex === 3) {
-    const logoCount = logoUpload?.files?.length || 0;
-    const bannerCount = bannerUpload?.files?.length || 0;
-    const galleryCount = Math.min(galleryUpload?.files?.length || 0, 3);
-    const totalImages = logoCount + bannerCount + galleryCount;
-    if (totalImages < 2) {
-      setStatus("Upload at least 2 images (logo, banner, or gallery).", "error");
-      return false;
-    }
+  if (stepIndex === 2) {
     const files = [
       ...(logoUpload?.files ? Array.from(logoUpload.files) : []),
       ...(bannerUpload?.files ? Array.from(bannerUpload.files) : []),
@@ -137,6 +133,10 @@ nextButton?.addEventListener("click", () => {
   if (!validateStep()) return;
   stepIndex = Math.min(stepIndex + 1, steps.length - 1);
   renderStep();
+});
+
+skipMediaButton?.addEventListener("click", async () => {
+  form?.requestSubmit();
 });
 
 backButton?.addEventListener("click", () => {
@@ -161,7 +161,7 @@ form?.addEventListener("submit", async (event) => {
       return;
     }
 
-    const budget = parseBudgetRange(budgetInput.value.trim());
+    const budget = parseBudgetRange(budgetInput.value.trim()) || { min: 0, max: 0 };
     const providerPayload = {
       name: nameInput.value.trim(),
       category: categoryInput.value.trim(),
@@ -312,7 +312,7 @@ form?.addEventListener("submit", async (event) => {
 
     localStorage.setItem("nlink_last_role", "provider");
     localStorage.setItem("nlink_primary_provider_id", providerId);
-    window.location.href = "/provider/dashboard.html";
+    window.location.href = "/provider/provider-jobs.html";
   } catch (error) {
     setStatus(error.message || "Could not complete onboarding.", "error");
   }

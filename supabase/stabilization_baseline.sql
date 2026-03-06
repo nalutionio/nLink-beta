@@ -91,6 +91,105 @@ begin
   end if;
 end $$;
 
+-- job messages: related client/provider can read and send when relationship exists
+create table if not exists public.job_messages (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs(id) on delete cascade,
+  provider_id uuid not null references public.providers(id) on delete cascade,
+  client_id uuid not null references auth.users(id) on delete cascade,
+  sender_user_id uuid not null references auth.users(id) on delete cascade,
+  sender_role text not null check (sender_role in ('client', 'provider')),
+  message_text text not null check (char_length(trim(message_text)) > 0),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_job_messages_conversation
+  on public.job_messages(job_id, provider_id, client_id, created_at desc);
+
+create index if not exists idx_job_messages_sender
+  on public.job_messages(sender_user_id, created_at desc);
+
+alter table public.job_messages enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'job_messages'
+      and policyname = 'job_messages_select_related'
+  ) then
+    create policy job_messages_select_related
+      on public.job_messages
+      for select to authenticated
+      using (
+        client_id = auth.uid()
+        or exists (
+          select 1
+          from public.providers p
+          where p.id = job_messages.provider_id
+            and p.owner_id = auth.uid()
+        )
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'job_messages'
+      and policyname = 'job_messages_insert_related'
+  ) then
+    create policy job_messages_insert_related
+      on public.job_messages
+      for insert to authenticated
+      with check (
+        (
+          sender_role = 'client'
+          and sender_user_id = auth.uid()
+          and client_id = auth.uid()
+          and exists (
+            select 1
+            from public.jobs j
+            where j.id = job_messages.job_id
+              and j.client_id = auth.uid()
+          )
+          and exists (
+            select 1
+            from public.job_requests jr
+            where jr.job_id = job_messages.job_id
+              and jr.provider_id = job_messages.provider_id
+              and jr.status in ('pending', 'accepted', 'closed')
+          )
+          and exists (
+            select 1
+            from public.providers p
+            where p.id = job_messages.provider_id
+              and p.owner_id <> auth.uid()
+          )
+        )
+        or
+        (
+          sender_role = 'provider'
+          and sender_user_id = auth.uid()
+          and exists (
+            select 1
+            from public.providers p
+            where p.id = job_messages.provider_id
+              and p.owner_id = auth.uid()
+          )
+          and exists (
+            select 1
+            from public.job_requests jr
+            where jr.job_id = job_messages.job_id
+              and jr.provider_id = job_messages.provider_id
+              and jr.status in ('pending', 'accepted', 'closed')
+          )
+          and client_id <> auth.uid()
+        )
+      );
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Jobs + requests: canonical status values for flow consistency.
 -- ---------------------------------------------------------------------------
@@ -507,6 +606,12 @@ begin
           from public.providers p
           where p.id = job_requests.provider_id
             and p.owner_id = auth.uid()
+        )
+        and exists (
+          select 1
+          from public.jobs j
+          where j.id = job_requests.job_id
+            and j.client_id <> auth.uid()
         )
       );
   end if;

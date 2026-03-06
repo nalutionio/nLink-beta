@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>NLink - Provider Settings</title>
+</head>
+<body class="settings-page provider-theme">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="NLink discover">
+        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Settings</p>
+        <h1>Account & Support</h1>
+      </div>
+      <a class="ghost-button" href="../provider/profile.html">Back</a>
+    </header>
+
+    <section class="account-card">
+      <div class="profile-avatar-lg">
+        <img src="../assets/nlinkiconblk.png" alt="Profile" id="provider-avatar" />
+      </div>
+      <div>
+        <h2 id="provider-name">Your business</h2>
+        <p class="muted" id="provider-email"></p>
+      </div>
+      <a class="primary-button" href="../provider/profile-edit.html">Edit Profile</a>
+    </section>
+
+    <section class="settings-shell">
+      <aside class="settings-side-nav" data-settings-nav>
+        <button class="settings-nav-item active" data-target="provider-settings-account" type="button">Account</button>
+        <button class="settings-nav-item" data-target="provider-settings-security" type="button">Security</button>
+        <button class="settings-nav-item" data-target="provider-settings-support" type="button">Support</button>
+      </aside>
+
+      <div class="settings-sections">
+        <section class="settings-group settings-section active" id="provider-settings-account">
+          <h3>Account Information</h3>
+          <div class="settings-list list-cards">
+            <div class="settings-item"><span>Email</span><span class="pill link" id="provider-info-email">-</span></div>
+            <div class="settings-item"><span>Email Verification</span><span class="pill" id="provider-info-email-verify">Pending</span></div>
+            <div class="settings-item"><span>Phone</span><span class="pill link" id="provider-info-phone">Not set</span></div>
+            <div class="settings-item"><span>Phone Verification</span><span class="pill" id="provider-info-phone-verify">Pending</span></div>
+            <div class="settings-item"><span>Address</span><span class="pill link" id="provider-info-address">Not set</span></div>
+          </div>
+          <div class="settings-list">
+            <a class="settings-item" href="../provider/profile-edit.html">Edit Provider Profile</a>
+          </div>
+        </section>
+
+        <section class="settings-group settings-section" id="provider-settings-security">
+          <h3>Security & Access</h3>
+          <div class="settings-list">
+            <a class="settings-item" href="../provider/settings-notifications.html">Notifications</a>
+            <a class="settings-item" href="../provider/settings-security.html">Security Preferences</a>
+            <a class="settings-item" href="../provider/settings-billing.html">Billing</a>
+            <button class="settings-item danger" id="sign-out">Sign Out</button>
+            <button class="settings-item danger" id="delete-provider-profile">Delete Provider Profile</button>
+          </div>
+        </section>
+
+        <section class="settings-group settings-section" id="provider-settings-support">
+          <h3>Support</h3>
+          <div class="settings-list">
+            <a class="settings-item" href="mailto:support@nalutionsolution.com">Contact support@nalutionsolution.com</a>
+            <a class="settings-item" href="../provider/settings-support.html">Help Center</a>
+            <a class="settings-item" href="../landing.html#privacy">Privacy Policy</a>
+            <a class="settings-item" href="../landing.html#terms">Terms & Conditions</a>
+            <a class="settings-item" href="../landing.html#cookie">Cookie Policy</a>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="auth-status" id="profile-status"></div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../provider/provider-jobs.html">Discover</a>
+    <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/provider-messages.html">Messages</a>
+    <a class="active" href="../provider/profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/nav-badges.js"></script>
+  <script src="../js/signout.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+  <script src="../js/settings-tabs.js"></script>
+  <script src="../js/profile-provider.js"></script>
+</body>
+</html>

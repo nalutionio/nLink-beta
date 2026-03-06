@@ -87,6 +87,14 @@ Run this to enable job/request analytics events:
 Run this to enable two-way job-based reviews:
 - `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_reviews.sql`
 
+### Patch For Messaging
+Run this to enable client-provider job messaging:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/job_messages.sql`
+
+### Patch For Dual-Role Guardrails
+Run this to prevent self-proposals/self-messaging (client+provider same account):
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/self_interaction_guards.sql`
+
 ## Smoke Test Checklist (Before Every Push)
 1. Auth flow:
    - Client signup/login redirects to `/client/discover.html`.

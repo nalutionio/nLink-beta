@@ -9,10 +9,14 @@ const filterLocation = document.getElementById("filter-location");
 const filterBudgetMin = document.getElementById("filter-budget-min");
 const filterBudgetMax = document.getElementById("filter-budget-max");
 const applyFiltersButton = document.getElementById("apply-filters");
+const filterToggleButton = document.getElementById("filter-toggle");
+const filtersContent = document.getElementById("filters-content");
 
 let jobsCache = [];
 let providerId = null;
+let providerUserId = null;
 const requestStatusByJobId = {};
+const clientInitiatedByJobId = {};
 let jobEventsTableAvailable = true;
 
 if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
@@ -71,6 +75,9 @@ const loadProviderId = async () => {
 
 const fetchJobs = async () => {
   if (!supabase) return [];
+  const user = await getSessionUser();
+  if (!user) return [];
+  providerUserId = user.id;
   const queries = [
     "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id,client_name,client_avatar_url,client_location_public,client_email_verified",
     "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id",
@@ -80,6 +87,7 @@ const fetchJobs = async () => {
       .from("jobs")
       .select(queries[i])
       .eq("status", "open")
+      .neq("client_id", user.id)
       .order("created_at", { ascending: false });
     if (!error && Array.isArray(data)) return data;
     if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return [];
@@ -95,6 +103,20 @@ const fetchProviderRequests = async () => {
     .eq("provider_id", providerId);
   (data || []).forEach((row) => {
     requestStatusByJobId[row.job_id] = row.status || "pending";
+  });
+};
+
+const fetchClientInitiatedMessages = async (jobIds) => {
+  Object.keys(clientInitiatedByJobId).forEach((key) => delete clientInitiatedByJobId[key]);
+  if (!jobIds.length) return;
+  const { data } = await supabase
+    .from("job_messages")
+    .select("job_id,sender_role")
+    .eq("provider_id", providerId)
+    .eq("sender_role", "client")
+    .in("job_id", jobIds);
+  (data || []).forEach((row) => {
+    if (row.job_id) clientInitiatedByJobId[row.job_id] = true;
   });
 };
 
@@ -120,21 +142,6 @@ const matchesFilters = (job) => {
   return matchesCategory && matchesLocation && matchesBudget;
 };
 
-const toPublicLocation = (value) => {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
-  return raw;
-};
-
-const formatMemberSince = (value) => {
-  if (!value) return "Member";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Member";
-  return `Member since ${date.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
-};
-
 const renderJobs = async () => {
   if (!feedEl) return;
   const filtered = jobsCache.filter(matchesFilters);
@@ -142,38 +149,30 @@ const renderJobs = async () => {
 
   feedEl.innerHTML = "";
   filtered.forEach((job) => {
+    if (providerUserId && job.client_id === providerUserId) return;
     const photo = photos.find((item) => item.job_id === job.id);
     const thumb = photo?.url || "../assets/nlinkiconblk.png";
-    const clientName = job.client_name || "Client";
-    const clientAvatar = job.client_avatar_url || "../assets/nlinkiconblk.png";
-    const clientVerified = job.client_email_verified === true;
-    const clientLocation = toPublicLocation(job.client_location_public || job.location || "");
-    const clientMember = formatMemberSince(job.created_at);
+    const requestStatus = requestStatusByJobId[job.id];
+    const canMessage = requestStatus === "accepted" && clientInitiatedByJobId[job.id];
     const card = document.createElement("div");
     card.className = "job-card job-link-card";
-    card.dataset.href = `../provider/job-detail.html?id=${job.id}`;
+    card.dataset.href = `../provider/job-detail.html?id=${job.id}&from=discover`;
     card.innerHTML = `
       <img class="job-thumb" src="${thumb}" alt="${job.title}" />
       <div class="job-card-body">
         <h4>${job.title}</h4>
         <p class="muted">${job.location} • $${job.budget_min} - $${job.budget_max}${job.sqft ? ` • ${job.sqft} sqft` : ""}</p>
         <p class="muted">${job.timeline ? job.timeline : "Flexible timing"} • Posted ${new Date(job.created_at).toLocaleDateString()}</p>
-        <div class="mini-client">
-          <img src="${clientAvatar}" alt="${clientName}" />
-          <div>
-            <p class="muted">${clientName} • ${clientMember}</p>
-            <p class="muted">${clientLocation || "Location private"} ${clientVerified ? "• Email verified" : ""}</p>
-          </div>
-        </div>
         <span class="job-link">View details</span>
       </div>
       <div class="job-actions">
         <span class="pill">Open</span>
         <button class="primary-button" data-job-id="${job.id}">${
-          requestStatusByJobId[job.id]
-            ? (requestStatusByJobId[job.id] === "accepted" ? "Accepted" : "Proposal Sent")
-            : "Send Proposal"
+          requestStatus
+            ? (requestStatus === "accepted" ? "Accepted" : "Proposal Sent")
+            : "Build Proposal"
         }</button>
+        ${canMessage && job.client_id && job.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${job.id}&client=${job.client_id || ""}">Message</a>` : ""}
       </div>
     `;
     card.addEventListener("click", (event) => {
@@ -183,7 +182,9 @@ const renderJobs = async () => {
     card.querySelector("button")?.addEventListener("click", async (event) => {
       event.stopPropagation();
       const jobId = event.currentTarget.dataset.jobId;
-      await requestQuote(jobId, event.currentTarget);
+      const status = requestStatusByJobId[jobId];
+      if (status) return;
+      window.location.href = `../provider/job-detail.html?id=${jobId}&from=discover&compose=1`;
     });
     const actionButton = card.querySelector("button");
     if (actionButton && requestStatusByJobId[job.id]) {
@@ -193,55 +194,38 @@ const renderJobs = async () => {
   });
 };
 
-const requestQuote = async (jobId, button) => {
-  if (!supabase) return;
-  if (!providerId) {
-    alert("Create your provider profile before sending proposals.");
-    return;
-  }
+const setFilterVisibility = (isVisible) => {
+  if (!filtersContent || !filterToggleButton) return;
+  filtersContent.classList.toggle("hidden", !isVisible);
+  filterToggleButton.textContent = isVisible ? "Hide" : "Show";
+  filterToggleButton.setAttribute("aria-expanded", isVisible ? "true" : "false");
+};
 
-  button.disabled = true;
-  const { data: existing } = await supabase
-    .from("job_requests")
-    .select("id,status")
-    .eq("job_id", jobId)
-    .eq("provider_id", providerId)
-    .maybeSingle();
-
-  if (existing) {
-    const status = existing.status || "pending";
-    requestStatusByJobId[jobId] = status;
-    button.textContent = status === "accepted" ? "Accepted" : "Proposal Sent";
-    button.disabled = true;
-    return;
-  }
-
-  const { error } = await supabase.from("job_requests").insert({
-    job_id: jobId,
-    provider_id: providerId,
-    status: "pending",
+const initFilterToggle = () => {
+  if (!filtersContent || !filterToggleButton) return;
+  const mobileDefaultClosed = window.matchMedia("(max-width: 900px)").matches;
+  setFilterVisibility(!mobileDefaultClosed);
+  filterToggleButton.addEventListener("click", () => {
+    const currentlyVisible = !filtersContent.classList.contains("hidden");
+    setFilterVisibility(!currentlyVisible);
   });
-
-  if (error) {
-    alert(error.message || "Could not send proposal.");
-    button.disabled = false;
-    return;
-  }
-
-  requestStatusByJobId[jobId] = "pending";
-  button.textContent = "Proposal Sent";
-  button.disabled = true;
-  await logJobEvent(jobId, "request_sent", { source: "provider_jobs_feed" });
 };
 
 const init = async () => {
   if (!supabase) return;
+  initFilterToggle();
   providerId = await loadProviderId();
   await fetchProviderRequests();
   jobsCache = await fetchJobs();
+  await fetchClientInitiatedMessages(jobsCache.map((job) => job.id));
   await renderJobs();
 };
 
-applyFiltersButton?.addEventListener("click", renderJobs);
+applyFiltersButton?.addEventListener("click", async () => {
+  await renderJobs();
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    setFilterVisibility(false);
+  }
+});
 
 init();

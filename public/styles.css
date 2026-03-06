@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,500,0,0");
+
 :root {
   --bg: #f4f2ed;
   --surface: #ffffff;
@@ -754,8 +756,11 @@ a {
   height: min(62vh, 420px);
 }
 
-.preview-card .card img {
+.preview-card .card > img {
   height: 100%;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 18px;
 }
 
 .preview-card .card-content {
@@ -787,6 +792,21 @@ a {
 .gallery-card button {
   border-radius: 0;
   justify-content: center;
+}
+
+.property-photo-card img.is-hidden-photo {
+  filter: blur(12px) brightness(0.8);
+}
+
+.property-photo-card {
+  position: relative;
+}
+
+.property-photo-visibility {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .account-card {
@@ -845,6 +865,49 @@ a {
 .settings-item.danger {
   background: rgba(226, 85, 85, 0.12);
   color: var(--danger);
+}
+
+.settings-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-side-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.settings-nav-item {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settings-nav-item.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+.settings-sections {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-section {
+  display: none;
+}
+
+.settings-section.active {
+  display: grid;
 }
 
 .topbar.minimal {
@@ -1475,12 +1538,55 @@ a {
   font-size: 0.85rem;
   min-width: 72px;
   text-align: center;
+  position: relative;
 }
 
 .bottom-nav a.active {
   background: var(--accent);
   color: #fff;
   box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
+}
+
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e25555;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.nav-badge-legend {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  z-index: 40;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+}
+
+.nav-badge-legend-card {
+  width: min(420px, 100%);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  padding: 14px 14px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.nav-badge-legend-card p {
+  margin: 0;
 }
 
 @media (max-width: 767px) {
@@ -1518,35 +1624,48 @@ a {
   }
 
   .bottom-nav a::before {
-    content: "•";
-    font-size: 1.05rem;
+    content: "radio_button_checked";
+    font-family: "Material Symbols Rounded";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 1.2rem;
     line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "liga";
   }
 
   .bottom-nav a[href*="dashboard"]::before {
-    content: "⌂";
+    content: "dashboard";
   }
 
   .bottom-nav a[href*="discover"]::before,
   .bottom-nav a[href*="provider-jobs"]::before {
-    content: "◈";
+    content: "explore";
   }
 
   .bottom-nav a[href*="client-jobs"]::before,
   .bottom-nav a[href*="provider-requests"]::before {
-    content: "▦";
+    content: "assignment";
   }
 
   .bottom-nav a[href*="messages"]::before {
-    content: "✉";
+    content: "chat_bubble";
+    font-size: 1.35rem;
+    font-variation-settings: "wght" 700, "opsz" 24;
   }
 
   .bottom-nav a[href*="profile"]::before {
-    content: "◉";
+    content: "account_circle";
   }
 
   .bottom-nav a[href*="saved"]::before {
-    content: "★";
+    content: "favorite";
   }
 
   .jobs-page .topbar {
@@ -1569,6 +1688,25 @@ a {
 
   .jobs-page .panel {
     padding: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .settings-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .settings-side-nav {
+    flex-direction: column;
+    position: sticky;
+    top: 98px;
+    overflow: visible;
+  }
+
+  .settings-nav-item {
+    border-radius: 14px;
+    text-align: left;
   }
 }
 
@@ -1915,6 +2053,7 @@ a {
   font-size: 1.02rem;
   line-height: 1.2;
 }
+
 
 .compact-description {
   margin: 0;
