@@ -42,6 +42,16 @@ const getSaved = () => {
 const setSaved = (saved) => {
   localStorage.setItem(storageKey, JSON.stringify(saved));
 };
+const normalizeTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeTag
+    ? window.NLINK_SERVICE_TAGS.normalizeTag(value)
+    : String(value || "").trim().toLowerCase()
+);
+const toCanonicalTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalTag
+    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+    : String(value || "").trim()
+);
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -59,7 +69,12 @@ const closePhotoGalleryModal = () => {
 
 const openClientDirectMessage = (provider) => {
   if (!provider?.id) return;
-  window.location.href = `../client/client-messages.html?provider=${encodeURIComponent(provider.id)}`;
+  const params = new URLSearchParams();
+  params.set("provider", provider.id);
+  if (provider.name) params.set("providerName", provider.name);
+  const avatar = provider.avatarImage || provider.avatar || provider.avatar_url || "";
+  if (avatar) params.set("providerAvatar", avatar);
+  window.location.href = `../client/client-messages.html?${params.toString()}`;
 };
 
 const fetchProviderPhotos = async (providerId) => {
@@ -115,7 +130,7 @@ const hydrateSavedProviders = async (savedProviders) => {
       ...meta,
       id: row.id,
       name: row.name || "",
-      category: row.category || "",
+      category: toCanonicalTag(row.category || ""),
       budgetMin: row.budget_min ?? 0,
       budgetMax: row.budget_max ?? 0,
       location: row.location || "Unknown",
@@ -732,7 +747,7 @@ const initSwipePage = () => {
       categorySelect.innerHTML = '<option value="all">All</option>';
     }
     const canonicalCategories = window.NLINK_SERVICE_TAGS?.allServiceTags || [];
-    const providerCategories = state.providers.map((p) => p.category).filter(Boolean);
+    const providerCategories = state.providers.map((p) => toCanonicalTag(p.category)).filter(Boolean);
     const mergedCategories = [...canonicalCategories, ...providerCategories];
     buildOptions(categorySelect, mergedCategories);
     buildLocationOptions([
@@ -740,6 +755,45 @@ const initSwipePage = () => {
       ...state.providers.map((p) => p.zip).filter(Boolean),
       ...state.providers.map((p) => `${p.location}, ${p.zip}`).filter((value) => !value.endsWith(", undefined")),
     ]);
+  };
+
+  const extractState = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const parts = raw.split(",").map((item) => item.trim()).filter(Boolean);
+    const tail = parts[parts.length - 1] || raw;
+    const stateToken = tail.match(/\b([A-Za-z]{2})\b/);
+    return stateToken ? stateToken[1].toUpperCase() : "";
+  };
+
+  const extractZip = (value) => {
+    const raw = String(value || "");
+    const match = raw.match(/\b(\d{5})\b/);
+    return match ? match[1] : "";
+  };
+
+  const matchesLocationStrict = (provider, query) => {
+    const q = String(query || "").trim().toLowerCase();
+    if (!q) return true;
+    const providerLocation = String(provider.location || "").toLowerCase();
+    const providerZip = String(provider.zip || "");
+    return providerLocation.includes(q) || (providerZip && providerZip.includes(q));
+  };
+
+  const matchesLocationRelaxed = (provider, query) => {
+    const q = String(query || "").trim();
+    if (!q) return true;
+    const queryState = extractState(q);
+    const providerState = extractState(provider.location || "");
+    const queryZip = extractZip(q);
+    const providerZip = extractZip(provider.zip || provider.location || "");
+    if (queryZip && providerZip) {
+      return providerZip.slice(0, 3) === queryZip.slice(0, 3);
+    }
+    if (queryState && providerState) {
+      return providerState === queryState;
+    }
+    return false;
   };
 
   const loadSupabaseProviders = async () => {
@@ -843,7 +897,7 @@ const initSwipePage = () => {
       ...meta,
       id: item.id,
       name: item.name,
-      category: item.category,
+      category: toCanonicalTag(item.category),
       budgetMin: item.budget_min ?? 0,
       budgetMax: item.budget_max ?? 0,
       location: item.location || "Unknown",
@@ -898,21 +952,24 @@ const initSwipePage = () => {
 
   const applyFilters = () => {
     const category = categorySelect.value;
+    const selectedCategory = category === "all" ? "all" : toCanonicalTag(category);
     const location = (locationInput?.value || "").trim().toLowerCase();
     const minBudget = Number(budgetMinInput.value) || 0;
     const maxBudget = Number(budgetMaxInput.value) || Number.POSITIVE_INFINITY;
     const minRating = Number(ratingMinSelect.value) || 0;
 
-    state.filtered = state.providers.filter((provider) => {
-      const matchesCategory = category === "all" || provider.category === category;
-      const matchesLocation =
-        !location ||
-        provider.location.toLowerCase().includes(location) ||
-        (provider.zip && provider.zip.includes(location));
+    const baseFiltered = state.providers.filter((provider) => {
+      const providerCategory = toCanonicalTag(provider.category);
+      const matchesCategory = selectedCategory === "all"
+        || normalizeTag(providerCategory) === normalizeTag(selectedCategory);
       const matchesBudget = provider.budgetMax >= minBudget && provider.budgetMin <= maxBudget;
       const matchesRating = provider.rating >= minRating;
-      return matchesCategory && matchesLocation && matchesBudget && matchesRating;
+      return matchesCategory && matchesBudget && matchesRating;
     });
+    const strictLocation = baseFiltered.filter((provider) => matchesLocationStrict(provider, location));
+    state.filtered = strictLocation.length || !location
+      ? strictLocation
+      : baseFiltered.filter((provider) => matchesLocationRelaxed(provider, location));
 
     state.currentIndex = 0;
     renderStack();

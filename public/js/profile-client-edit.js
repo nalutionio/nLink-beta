@@ -33,6 +33,7 @@ const propertyPhotoEditor = document.getElementById("property-photo-editor");
 const propertyCompletionEl = document.getElementById("property-completion");
 
 const fallbackAvatar = "../assets/nlinkiconblk.png";
+const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 
 const state = {
   user: null,
@@ -118,12 +119,26 @@ const getSessionUser = async () => {
 
 const uploadImage = async (fileOrBlob, path) => {
   if (!supabase) return "";
-  const { error } = await supabase.storage.from("provider-media").upload(path, fileOrBlob, {
+  let uploadBlob = fileOrBlob;
+  let contentType = "image/jpeg";
+  let extension = "jpg";
+  if (typeof window.nlinkPrepareImageForUpload === "function") {
+    const prepared = await window.nlinkPrepareImageForUpload(fileOrBlob, { forceJpeg: true });
+    uploadBlob = prepared.blob;
+    contentType = prepared.type || "image/jpeg";
+    extension = prepared.ext || "jpg";
+  } else {
+    contentType = fileOrBlob?.type || "image/jpeg";
+    extension = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+  }
+  const basePath = String(path || "").replace(/\.(jpg|jpeg|png|webp|heic|heif|tif|tiff)$/i, "");
+  const finalPath = `${basePath}.${extension}`;
+  const { error } = await supabase.storage.from("provider-media").upload(finalPath, uploadBlob, {
     upsert: true,
-    contentType: "image/jpeg",
+    contentType,
   });
   if (error) throw error;
-  const { data } = supabase.storage.from("provider-media").getPublicUrl(path);
+  const { data } = supabase.storage.from("provider-media").getPublicUrl(finalPath);
   return data?.publicUrl || "";
 };
 
@@ -445,11 +460,14 @@ propertyPhotoUpload?.addEventListener("change", async (event) => {
   setStatus("Uploading property photos...", "info");
   for (const file of selected) {
     try {
+      const type = String(file.type || "").toLowerCase();
+      const ext = (String(file.name || "").split(".").pop() || "").toLowerCase();
+      if (!(type.startsWith("image/") || ALLOWED_IMAGE_EXTS.has(ext))) throw new Error("Unsupported image format.");
       const path = `clients/${state.user.id}/property-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
       const url = await uploadImage(file, path);
       if (url) state.propertyPhotos.push({ url, hidden: false });
-    } catch (_error) {
-      setStatus("Some photos could not be uploaded.", "error");
+    } catch (error) {
+      setStatus(error.message || "Some photos could not be uploaded. Use JPG/PNG/WEBP photos.", "error");
     }
   }
   renderPropertyPhotoEditor();

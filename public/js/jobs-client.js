@@ -19,8 +19,14 @@ const categoryTagsEl = document.getElementById("job-category-tags");
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 const fallbackAvatar = "../assets/nlinkiconblk.png";
 let jobEventsTableAvailable = true;
+const toCanonicalTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalTag
+    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+    : String(value || "").trim()
+);
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
@@ -118,11 +124,22 @@ const normalizeJobStatus = (status) => {
 };
 
 const uploadJobPhoto = async (file, jobId, index) => {
-  const extension = file.type.split("/")[1] || "jpg";
+  let uploadBlob = file;
+  let contentType = file.type || "image/jpeg";
+  let extension = (contentType.split("/")[1] || "").toLowerCase();
+  if (typeof window.nlinkPrepareImageForUpload === "function") {
+    const prepared = await window.nlinkPrepareImageForUpload(file, { forceJpeg: true });
+    uploadBlob = prepared.blob;
+    contentType = prepared.type || "image/jpeg";
+    extension = prepared.ext || "jpg";
+  } else if (!extension || !ALLOWED_IMAGE_EXTS.has(extension)) {
+    extension = "jpg";
+    contentType = "image/jpeg";
+  }
   const path = `jobs/${jobId}/${index}.${extension}`;
-  const { error } = await supabase.storage.from("job-media").upload(path, file, {
+  const { error } = await supabase.storage.from("job-media").upload(path, uploadBlob, {
     upsert: true,
-    contentType: file.type,
+    contentType,
   });
   if (error) throw error;
   const { data } = supabase.storage.from("job-media").getPublicUrl(path);
@@ -219,7 +236,7 @@ form?.addEventListener("submit", async (event) => {
   if (!user) return;
 
   const title = titleInput.value.trim();
-  const category = categoryInput.value.trim();
+  const category = toCanonicalTag(categoryInput.value);
   const description = descriptionInput.value.trim();
   const location = locationInput.value.trim();
   const budgetMin = Number(budgetMinInput.value);
@@ -266,7 +283,12 @@ form?.addEventListener("submit", async (event) => {
   const files = Array.from(photosInput.files || []).slice(0, MAX_JOB_PHOTOS);
   if (files.length) {
     try {
-      const invalidFile = files.find((file) => !file.type.startsWith("image/") || file.size > MAX_IMAGE_BYTES);
+      const invalidFile = files.find((file) => {
+        const type = String(file.type || "").toLowerCase();
+        const ext = (String(file.name || "").split(".").pop() || "").toLowerCase();
+        const looksImage = type.startsWith("image/") || ALLOWED_IMAGE_EXTS.has(ext);
+        return !looksImage || file.size > MAX_IMAGE_BYTES;
+      });
       if (invalidFile) {
         setStatus(`Use image files up to ${MAX_IMAGE_MB}MB.`, "error");
         await renderJobs();

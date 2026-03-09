@@ -254,6 +254,7 @@ const openClientFullProfileModal = () => {
     : [];
   const completion = propertyCompletionCount(profile);
   const name = currentClientProfile?.full_name || currentJob.client_name || "Client";
+  const avatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "../assets/nlinkiconblk.png";
   const location = toPublicLocation(currentClientProfile?.location || currentClientProfile?.address || currentJob.client_location_public || currentJob.location || "");
   const memberSince = formatMemberSince(currentJob.created_at);
 
@@ -264,10 +265,15 @@ const openClientFullProfileModal = () => {
   modal.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <h3>${name}</h3>
+        <div class="profile-inline-head">
+          <img class="inline-avatar" src="${avatar}" alt="${name}" />
+          <div>
+            <h3>${name}</h3>
+            <p class="muted">${memberSince} • ${location || "Location not set"}</p>
+          </div>
+        </div>
         <button class="ghost-button" type="button" data-action="close">Close</button>
       </div>
-      <p class="muted">${memberSince} • ${location || "Location not set"}</p>
       <div class="trust-chips">
         <span class="pill">${currentJob.client_email_verified === true ? "Email verified" : "Email unverified"}</span>
         <span class="pill">${completion}/9 property details</span>
@@ -409,7 +415,12 @@ const updateMessageLinkState = async () => {
   if (!messageClientLink) return;
   const canMessage = await canMessageClientNow();
   if (canMessage && currentJob?.client_id && currentJob.client_id !== providerUserId) {
-    messageClientLink.href = `../provider/provider-messages.html?job=${jobId}&client=${currentJob.client_id}`;
+    const params = new URLSearchParams();
+    params.set("job", jobId);
+    params.set("client", currentJob.client_id);
+    if (currentJob.client_name) params.set("clientName", currentJob.client_name);
+    if (currentJob.client_avatar_url) params.set("clientAvatar", currentJob.client_avatar_url);
+    messageClientLink.href = `../provider/provider-messages.html?${params.toString()}`;
     messageClientLink.classList.remove("hidden");
     return;
   }

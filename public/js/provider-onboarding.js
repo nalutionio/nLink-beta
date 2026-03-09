@@ -29,6 +29,7 @@ let selectedBannerColor = "";
 const MAX_UPLOAD_SIZE_MB = 10;
 const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif"]);
 
 if (window.NLINK_SERVICE_TAGS && categoryInput) {
   const tags = window.NLINK_SERVICE_TAGS.allServiceTags || [];
@@ -54,13 +55,24 @@ const parseBudgetRange = (value) => {
 };
 
 const uploadFile = async (file, path) => {
-  const extension = file.type.split("/")[1] || "jpg";
+  let uploadBlob = file;
+  let contentType = file.type || "image/jpeg";
+  let extension = (contentType.split("/")[1] || "").toLowerCase();
+  if (typeof window.nlinkPrepareImageForUpload === "function") {
+    const prepared = await window.nlinkPrepareImageForUpload(file, { forceJpeg: true });
+    uploadBlob = prepared.blob;
+    contentType = prepared.type || "image/jpeg";
+    extension = prepared.ext || "jpg";
+  } else if (!extension || !ALLOWED_IMAGE_EXTS.has(extension)) {
+    extension = "jpg";
+    contentType = "image/jpeg";
+  }
   const finalPath = `${path}.${extension}`;
   let uploadError = null;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const { error } = await providerOnboardSupabase.storage.from("provider-media").upload(finalPath, file, {
+    const { error } = await providerOnboardSupabase.storage.from("provider-media").upload(finalPath, uploadBlob, {
       upsert: true,
-      contentType: file.type,
+      contentType,
     });
     uploadError = error || null;
     if (!uploadError) break;
@@ -72,8 +84,12 @@ const uploadFile = async (file, path) => {
 
 const isValidImageUpload = (file) => {
   if (!file) return false;
-  if (!file.type || !file.type.startsWith("image/")) return false;
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) return false;
+  const fileType = String(file.type || "").toLowerCase();
+  const ext = (String(file.name || "").split(".").pop() || "").toLowerCase();
+  const hasImageType = fileType.startsWith("image/");
+  const hasAllowedType = hasImageType && (ALLOWED_IMAGE_TYPES.has(fileType) || fileType === "image/tiff");
+  const hasAllowedExt = ALLOWED_IMAGE_EXTS.has(ext) || ext === "tif" || ext === "tiff";
+  if (!hasAllowedType && !hasAllowedExt) return false;
   if (file.size > MAX_UPLOAD_SIZE_BYTES) return false;
   return true;
 };

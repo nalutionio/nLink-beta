@@ -161,6 +161,21 @@ const loadProviderPreview = async (providerId) => {
   return data || null;
 };
 
+const loadProvidersByIds = async (providerIds) => {
+  if (!supabase || !Array.isArray(providerIds) || !providerIds.length) return {};
+  const ids = [...new Set(providerIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const { data, error } = await supabase
+    .from("providers")
+    .select("id,name,avatar_url,owner_id")
+    .in("id", ids);
+  if (error || !Array.isArray(data)) return {};
+  return data.reduce((acc, row) => {
+    if (row?.id) acc[row.id] = row;
+    return acc;
+  }, {});
+};
+
 const loadThreads = async () => {
   const { data, error } = await supabase
     .from("job_requests")
@@ -180,6 +195,8 @@ const hydrate = async () => {
   const params = new URLSearchParams(window.location.search);
   const queryProviderId = params.get("provider");
   const queryJobId = params.get("job");
+  const queryProviderName = params.get("providerName");
+  const queryProviderAvatar = params.get("providerAvatar");
 
   const [threadsRaw, messages, directMessages, previewProvider] = await Promise.all([
     loadThreads(),
@@ -273,14 +290,27 @@ const hydrate = async () => {
     provider.activeJobId = null;
   });
 
+  const providerMetaById = await loadProvidersByIds(Object.keys(providersById));
+  Object.values(providersById).forEach((provider) => {
+    const meta = providerMetaById[provider.providerId];
+    if (!meta) return;
+    if (!provider.providerName || provider.providerName === "Provider") {
+      provider.providerName = meta.name || provider.providerName;
+    }
+    if (!provider.providerAvatar || provider.providerAvatar === fallbackAvatar) {
+      provider.providerAvatar = meta.avatar_url || provider.providerAvatar;
+    }
+    provider.providerOwnerId = meta.owner_id || provider.providerOwnerId || "";
+  });
+
   state.providers = Object.values(providersById).sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
   state.providers = state.providers.filter((provider) => provider.providerOwnerId !== state.user.id);
   if (queryProviderId && !state.providers.find((provider) => provider.providerId === queryProviderId)) {
     state.providers.unshift({
       providerId: queryProviderId,
-      providerName: previewProvider?.name || "Provider",
+      providerName: previewProvider?.name || queryProviderName || "Provider",
       providerOwnerId: previewProvider?.owner_id || "",
-      providerAvatar: previewProvider?.avatar_url || fallbackAvatar,
+      providerAvatar: previewProvider?.avatar_url || queryProviderAvatar || fallbackAvatar,
       preview: "",
       lastMessageAt: null,
       messages: [],
@@ -290,6 +320,17 @@ const hydrate = async () => {
       jobCount: 0,
       channel: "direct",
     });
+  }
+  if (queryProviderId) {
+    const existing = state.providers.find((provider) => provider.providerId === queryProviderId);
+    if (existing) {
+      if ((!existing.providerName || existing.providerName === "Provider") && queryProviderName) {
+        existing.providerName = queryProviderName;
+      }
+      if ((!existing.providerAvatar || existing.providerAvatar === fallbackAvatar) && queryProviderAvatar) {
+        existing.providerAvatar = queryProviderAvatar;
+      }
+    }
   }
   state.selectedProviderId = queryProviderId || state.providers[0]?.providerId || null;
 

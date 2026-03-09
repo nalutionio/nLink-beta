@@ -83,6 +83,7 @@ const openClientFullProfileModal = (clientId, jobId) => {
     : {};
   const completion = propertyCompletionCount(property);
   const name = profile.full_name || job.client_name || "Client";
+  const avatar = profile.avatar_url || job.client_avatar_url || "../assets/nlinkiconblk.png";
   const location = toPublicLocation(profile.location || profile.address || job.client_location_public || job.location || "");
   const memberSince = formatMemberSince(profile.created_at || job.created_at);
   const chips = [];
@@ -106,10 +107,15 @@ const openClientFullProfileModal = (clientId, jobId) => {
   modal.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <h3>${name}</h3>
+        <div class="profile-inline-head">
+          <img class="inline-avatar" src="${avatar}" alt="${name}" />
+          <div>
+            <h3>${name}</h3>
+            <p class="muted">${memberSince} • ${location || "Location not set"}</p>
+          </div>
+        </div>
         <button class="ghost-button" type="button" data-action="close">Close</button>
       </div>
-      <p class="muted">${memberSince} • ${location || "Location not set"}</p>
       <div class="trust-chips">
         <span class="pill">${job.client_email_verified === true ? "Email verified" : "Email unverified"}</span>
         <span class="pill">${completion}/9 property details</span>
@@ -171,6 +177,16 @@ const formatEstimate = (min, max) => {
   if (minVal > 0) return `From $${minVal}`;
   if (maxVal > 0) return `Up to $${maxVal}`;
   return "Not set";
+};
+
+const markRequestCompleted = async (requestId, providerId) => {
+  if (!supabase || !requestId || !providerId) return false;
+  const { error } = await supabase
+    .from("job_requests")
+    .update({ status: "closed" })
+    .eq("id", requestId)
+    .eq("provider_id", providerId);
+  return !error;
 };
 
 const renderRequests = async () => {
@@ -264,7 +280,13 @@ const renderRequests = async () => {
           <div class="job-actions proposal-actions">
             <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : "status-pending"}">${status}</span>
             ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
-            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${req.jobs?.id || ""}&client=${req.jobs?.client_id || ""}">Message</a>` : ""}
+            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
+              <a
+                class="ghost-button"
+                href="../provider/provider-messages.html?job=${encodeURIComponent(req.jobs?.id || "")}&client=${encodeURIComponent(req.jobs?.client_id || "")}${req.jobs?.client_name ? `&clientName=${encodeURIComponent(req.jobs.client_name)}` : ""}${req.jobs?.client_avatar_url ? `&clientAvatar=${encodeURIComponent(req.jobs.client_avatar_url)}` : ""}"
+              >Message</a>
+            ` : ""}
+            ${status === "accepted" ? `<button class="ghost-button" data-request-action="complete" data-request-id="${req.id}" type="button">Mark Completed</button>` : ""}
             <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
@@ -311,7 +333,12 @@ const renderRequests = async () => {
           <div class="job-actions proposal-actions">
             <span class="pill proposal-status status-closed">Closed</span>
             ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
-            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${req.jobs?.id || ""}&client=${req.jobs?.client_id || ""}">Message</a>` : ""}
+            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
+              <a
+                class="ghost-button"
+                href="../provider/provider-messages.html?job=${encodeURIComponent(req.jobs?.id || "")}&client=${encodeURIComponent(req.jobs?.client_id || "")}${req.jobs?.client_name ? `&clientName=${encodeURIComponent(req.jobs.client_name)}` : ""}${req.jobs?.client_avatar_url ? `&clientAvatar=${encodeURIComponent(req.jobs.client_avatar_url)}` : ""}"
+              >Message</a>
+            ` : ""}
           </div>
         `;
         closedEl.appendChild(card);
@@ -321,6 +348,24 @@ const renderRequests = async () => {
 };
 
 document.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("button[data-request-action='complete']");
+  if (actionButton) {
+    const requestId = actionButton.dataset.requestId || "";
+    if (!requestId) return;
+    actionButton.disabled = true;
+    actionButton.textContent = "Saving...";
+    loadProviderId().then((providerId) => markRequestCompleted(requestId, providerId))
+      .then((ok) => {
+        if (ok) {
+          renderRequests();
+          return;
+        }
+        actionButton.disabled = false;
+        actionButton.textContent = "Mark Completed";
+      });
+    return;
+  }
+
   const button = event.target.closest("button[data-client-view]");
   if (!button) return;
   const clientId = button.dataset.clientView || "";

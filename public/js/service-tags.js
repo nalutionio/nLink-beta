@@ -33,10 +33,37 @@
   allServiceTags.forEach((tag) => {
     canonicalByKey[normalizeTag(tag)] = tag;
   });
+  const aliasByKey = {
+    "fitness": "Personal Trainer",
+    "personal training": "Personal Trainer",
+    "trainer": "Personal Trainer",
+    "hair": "Hair Stylist",
+    "hair stylist": "Hair Stylist",
+    "barbering": "Barber",
+    "electrician": "Electrical",
+    "electric": "Electrical",
+    "cleaner": "Cleaning",
+    "landscaping": "Lawn Care",
+    "landscape": "Lawn Care",
+    "handy man": "Handyman",
+    "home repair": "Handyman",
+    "ac": "HVAC",
+    "heating": "HVAC",
+    "air conditioning": "HVAC",
+  };
+
+  const toCanonicalTag = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const key = normalizeTag(raw);
+    const aliasTarget = aliasByKey[key];
+    if (aliasTarget && canonicalByKey[normalizeTag(aliasTarget)]) return aliasTarget;
+    return canonicalByKey[key] || raw;
+  };
 
   const parseInputValues = (value) => String(value || "")
     .split(",")
-    .map((item) => canonicalByKey[normalizeTag(item)] || "")
+    .map((item) => toCanonicalTag(item))
     .filter(Boolean);
 
   const renderTagPicker = ({
@@ -156,6 +183,7 @@
     otherServiceTags,
     allServiceTags,
     normalizeTag,
+    toCanonicalTag,
     renderTagPicker,
   };
 })();

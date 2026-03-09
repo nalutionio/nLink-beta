@@ -1146,11 +1146,24 @@ const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 const fileToBlob = async (file, crop) => {
-  if (!crop) return file;
-  return crop.blob || file;
+  if (crop?.blob) return crop.blob;
+  if (typeof window.nlinkPrepareImageForUpload === "function") {
+    const prepared = await window.nlinkPrepareImageForUpload(file, { forceJpeg: true });
+    return prepared.blob;
+  }
+  return file;
 };
 
 const openCropEditor = async ({ file, aspectRatio = 1, circle = false, title = "Crop Image", outputWidth = 1200 }) => {
+  if (typeof window.nlinkOpenImageCropper === "function") {
+    return window.nlinkOpenImageCropper({
+      file,
+      aspectRatio,
+      circle,
+      title,
+      outputWidth,
+    });
+  }
   const source = await readFileAsDataUrl(file);
   return new Promise((resolve) => {
     const modal = document.createElement("div");
@@ -1865,7 +1878,7 @@ const saveProfile = async ({ desiredStatus = null, redirectAfterSave = false } =
 
     if (redirectAfterSave && isEditPage) {
       window.setTimeout(() => {
-        window.location.href = "../provider/dashboard.html";
+        window.location.href = "../provider/profile.html";
       }, 650);
     }
     return true;

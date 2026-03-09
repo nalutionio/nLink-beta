@@ -92,11 +92,6 @@
           <input type="text" id="edit-job-location" required />
         </label>
       </div>
-      <div class="auth-status" id="job-edit-status"></div>
-      <div class="job-actions hidden" id="job-edit-actions">
-        <button class="ghost-button" id="job-edit-cancel" type="button">Cancel</button>
-        <button class="primary-button" id="job-edit-save" type="button">Save Changes</button>
-      </div>
       <div class="job-actions">
         <button class="ghost-button" id="job-reopen-btn" type="button">Reopen Job</button>
         <button class="primary-button" id="job-close-btn" type="button">Close Job</button>
@@ -113,6 +108,11 @@
       </div>
       <div class="job-gallery" id="job-gallery"></div>
       <div class="auth-status" id="job-photo-status"></div>
+      <div class="auth-status" id="job-edit-status"></div>
+      <div class="job-actions hidden" id="job-edit-actions">
+        <button class="ghost-button" id="job-edit-cancel" type="button">Cancel</button>
+        <button class="primary-button" id="job-edit-save" type="button">Save Changes</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -155,6 +155,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/nav-badges.js"></script>
+  <script src="../js/service-tags.js"></script>
+  <script src="../js/image-cropper.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
   <script src="../js/job-detail-client.js"></script>

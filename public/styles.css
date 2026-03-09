@@ -173,6 +173,7 @@ a {
   flex: 1;
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .topbar-headline {
@@ -186,6 +187,31 @@ a {
   margin: 0;
   font-size: clamp(1.4rem, 4vw, 1.8rem);
   line-height: 1.2;
+}
+
+.profile-inline-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-inline-head h3 {
+  margin: 0;
+}
+
+.profile-inline-head .muted {
+  margin: 2px 0 0;
+}
+
+.inline-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.16);
 }
 .kicker {
   display: inline-block;
@@ -216,6 +242,17 @@ a {
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
+}
+
+.proposal-fields .check-list label {
+  align-items: flex-start;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.proposal-fields .check-list label input[type="checkbox"] {
+  margin-top: 2px;
+  flex: 0 0 auto;
 }
 
 .proposal-fields {
@@ -1376,6 +1413,16 @@ a {
   justify-items: end;
 }
 
+.review-actions {
+  justify-items: stretch;
+  grid-template-columns: 1fr;
+}
+
+.review-actions .ghost-button,
+.review-actions .primary-button {
+  width: 100%;
+}
+
 .job-group-title {
   margin: 4px 0 0;
   font-size: 0.78rem;
@@ -1707,6 +1754,12 @@ a {
   .settings-nav-item {
     border-radius: 14px;
     text-align: left;
+  }
+}
+
+@media (min-width: 768px) {
+  .review-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2582,6 +2635,24 @@ a {
 }
 
 @media (max-width: 767px) {
+  .settings-page .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .settings-page .topbar .ghost-button {
+    justify-self: end;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .settings-page .topbar h1 {
+    font-size: clamp(1.15rem, 4.8vw, 1.4rem);
+  }
+
   .messages-page .screen {
     padding: 16px 12px 92px;
   }
@@ -2766,6 +2837,7 @@ a {
   display: grid;
   place-items: center;
   position: relative;
+  touch-action: none;
 }
 
 .cropper-frame img {
@@ -2774,6 +2846,9 @@ a {
   object-fit: cover;
   transform-origin: center;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .cropper-guides {

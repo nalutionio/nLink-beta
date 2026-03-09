@@ -41,6 +41,11 @@ const editLocationInput = document.getElementById("edit-job-location");
 let jobId = null;
 let currentJob = null;
 let currentPhotos = [];
+const toCanonicalTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalTag
+    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+    : String(value || "").trim()
+);
 let editMode = false;
 let jobEventsTableAvailable = true;
 let jobReviewsTableAvailable = true;
@@ -49,6 +54,7 @@ let reviewTarget = null;
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -170,7 +176,8 @@ const loadPhotos = async () => {
 
 const loadRequests = async () => {
   const queries = [
-    "id,status,created_at,provider_id,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,providers(name,owner_id)",
+    "id,status,created_at,provider_id,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,providers(name,owner_id,avatar_url)",
+    "id,status,created_at,provider_id,providers(name,owner_id,avatar_url)",
     "id,status,created_at,provider_id,providers(name,owner_id)",
   ];
   for (let i = 0; i < queries.length; i += 1) {
@@ -261,11 +268,22 @@ const updateRequestStatus = async (requestId, nextStatus) => {
 };
 
 const uploadJobPhoto = async (file, index) => {
-  const extension = file.type.split("/")[1] || "jpg";
+  let uploadBlob = file;
+  let contentType = file.type || "image/jpeg";
+  let extension = (contentType.split("/")[1] || "").toLowerCase();
+  if (typeof window.nlinkPrepareImageForUpload === "function") {
+    const prepared = await window.nlinkPrepareImageForUpload(file, { forceJpeg: true });
+    uploadBlob = prepared.blob;
+    contentType = prepared.type || "image/jpeg";
+    extension = prepared.ext || "jpg";
+  } else if (!extension || !ALLOWED_IMAGE_EXTS.has(extension)) {
+    extension = "jpg";
+    contentType = "image/jpeg";
+  }
   const path = `jobs/${jobId}/${Date.now()}-${index}.${extension}`;
-  const { error } = await supabase.storage.from("job-media").upload(path, file, {
+  const { error } = await supabase.storage.from("job-media").upload(path, uploadBlob, {
     upsert: true,
-    contentType: file.type,
+    contentType,
   });
   if (error) throw error;
   const { data } = supabase.storage.from("job-media").getPublicUrl(path);
@@ -314,7 +332,7 @@ const saveInlineEdit = async () => {
   if (!user) return;
 
   const title = editTitleInput?.value.trim() || "";
-  const category = editCategoryInput?.value.trim() || "";
+  const category = toCanonicalTag(editCategoryInput?.value || "");
   const description = editDescriptionInput?.value.trim() || "";
   const location = editLocationInput?.value.trim() || "";
   const budgetMin = Number(editBudgetMinInput?.value);
@@ -446,7 +464,7 @@ const render = async () => {
         const isPending = (request.status || "pending") === "pending";
         const isAccepted = request.status === "accepted";
         const isClosed = request.status === "closed";
-        const canRate = (isAccepted || isClosed)
+        const canRate = isClosed
           && Boolean(request.provider_id)
           && Boolean(request.providers?.owner_id)
           && !reviewedProviderIds.has(request.provider_id);
@@ -466,7 +484,12 @@ const render = async () => {
               <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
             ` : ""}
             ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Closed</button>` : ""}
-            ${(isPending || isAccepted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `<a class="ghost-button" href="../client/client-messages.html?job=${jobId}&provider=${request.provider_id}">Message</a>` : ""}
+            ${(isPending || isAccepted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `
+              <a
+                class="ghost-button"
+                href="../client/client-messages.html?job=${jobId}&provider=${encodeURIComponent(request.provider_id)}${request.providers?.name ? `&providerName=${encodeURIComponent(request.providers.name)}` : ""}${request.providers?.avatar_url ? `&providerAvatar=${encodeURIComponent(request.providers.avatar_url)}` : ""}"
+              >Message</a>
+            ` : ""}
             ${canRate ? `<button class="ghost-button" data-request-action="rate" data-request-id="${request.id}">Rate</button>` : ""}
           </div>
         `;
@@ -532,7 +555,12 @@ photoUploadInput?.addEventListener("change", async (event) => {
   const files = Array.from(event.target.files || []).slice(0, MAX_JOB_PHOTOS);
   if (!files.length) return;
 
-  const invalid = files.find((file) => !file.type.startsWith("image/") || file.size > MAX_IMAGE_BYTES);
+  const invalid = files.find((file) => {
+    const type = String(file.type || "").toLowerCase();
+    const ext = (String(file.name || "").split(".").pop() || "").toLowerCase();
+    const looksImage = type.startsWith("image/") || ALLOWED_IMAGE_EXTS.has(ext);
+    return !looksImage || file.size > MAX_IMAGE_BYTES;
+  });
   if (invalid) {
     setPhotoStatus(`Use image files up to ${MAX_IMAGE_MB}MB.`, "error");
     return;

@@ -18,6 +18,45 @@ let providerUserId = null;
 const requestStatusByJobId = {};
 const clientInitiatedByJobId = {};
 let jobEventsTableAvailable = true;
+const normalizeTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeTag
+    ? window.NLINK_SERVICE_TAGS.normalizeTag(value)
+    : String(value || "").trim().toLowerCase()
+);
+const toCanonicalTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalTag
+    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+    : String(value || "").trim()
+);
+const extractState = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split(",").map((item) => item.trim()).filter(Boolean);
+  const tail = parts[parts.length - 1] || raw;
+  const stateToken = tail.match(/\b([A-Za-z]{2})\b/);
+  return stateToken ? stateToken[1].toUpperCase() : "";
+};
+const extractZip = (value) => {
+  const raw = String(value || "");
+  const match = raw.match(/\b(\d{5})\b/);
+  return match ? match[1] : "";
+};
+const matchesLocationStrict = (job, query) => {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  return String(job.location || "").toLowerCase().includes(q);
+};
+const matchesLocationRelaxed = (job, query) => {
+  const q = String(query || "").trim();
+  if (!q) return true;
+  const queryState = extractState(q);
+  const jobState = extractState(job.location || "");
+  const queryZip = extractZip(q);
+  const jobZip = extractZip(job.location || "");
+  if (queryZip && jobZip) return jobZip.slice(0, 3) === queryZip.slice(0, 3);
+  if (queryState && jobState) return queryState === jobState;
+  return false;
+};
 
 if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
@@ -131,20 +170,27 @@ const fetchPhotos = async (jobIds) => {
 
 const matchesFilters = (job) => {
   const category = filterCategory.value.trim();
-  const location = filterLocation.value.trim().toLowerCase();
+  const location = filterLocation.value.trim();
   const minBudget = Number(filterBudgetMin.value) || 0;
   const maxBudget = Number(filterBudgetMax.value) || Number.POSITIVE_INFINITY;
 
-  const matchesCategory = !category || category === "all" || (job.category || "") === category;
-  const matchesLocation = !location || job.location.toLowerCase().includes(location);
+  const selectedCategory = !category || category === "all" ? "all" : toCanonicalTag(category);
+  const jobCategory = toCanonicalTag(job.category || "");
+  const matchesCategory = selectedCategory === "all"
+    || normalizeTag(jobCategory) === normalizeTag(selectedCategory);
   const matchesBudget = job.budget_max >= minBudget && job.budget_min <= maxBudget;
 
-  return matchesCategory && matchesLocation && matchesBudget;
+  return matchesCategory && matchesBudget;
 };
 
 const renderJobs = async () => {
   if (!feedEl) return;
-  const filtered = jobsCache.filter(matchesFilters);
+  const location = filterLocation.value.trim();
+  const baseFiltered = jobsCache.filter(matchesFilters);
+  const strictLocation = baseFiltered.filter((job) => matchesLocationStrict(job, location));
+  const filtered = strictLocation.length || !location
+    ? strictLocation
+    : baseFiltered.filter((job) => matchesLocationRelaxed(job, location));
   const photos = await fetchPhotos(filtered.map((job) => job.id));
 
   feedEl.innerHTML = "";
@@ -172,7 +218,12 @@ const renderJobs = async () => {
             ? (requestStatus === "accepted" ? "Accepted" : "Proposal Sent")
             : "Build Proposal"
         }</button>
-        ${canMessage && job.client_id && job.client_id !== providerUserId ? `<a class="ghost-button" href="../provider/provider-messages.html?job=${job.id}&client=${job.client_id || ""}">Message</a>` : ""}
+        ${canMessage && job.client_id && job.client_id !== providerUserId ? `
+          <a
+            class="ghost-button"
+            href="../provider/provider-messages.html?job=${encodeURIComponent(job.id)}&client=${encodeURIComponent(job.client_id || "")}${job.client_name ? `&clientName=${encodeURIComponent(job.client_name)}` : ""}${job.client_avatar_url ? `&clientAvatar=${encodeURIComponent(job.client_avatar_url)}` : ""}"
+          >Message</a>
+        ` : ""}
       </div>
     `;
     card.addEventListener("click", (event) => {

@@ -23,6 +23,96 @@
     }, type, quality);
   });
 
+  const lockPageScroll = () => {
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+    };
+  };
+
+  const sanitizeFileType = (value) => {
+    const type = String(value || "").toLowerCase();
+    if (type === "image/jpg") return "image/jpeg";
+    if (type.startsWith("image/")) return type;
+    return "image/jpeg";
+  };
+
+  const extensionForType = (type) => {
+    if (type === "image/png") return "png";
+    if (type === "image/webp") return "webp";
+    return "jpg";
+  };
+
+  const decodeToCanvas = async (file) => {
+    if (!file) throw new Error("No image file provided.");
+    if (typeof createImageBitmap === "function") {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not process image.");
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close?.();
+      return canvas;
+    }
+    const source = await createPreviewUrl(file);
+    const image = await loadImage(source);
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not process image.");
+    ctx.drawImage(image, 0, 0);
+    return canvas;
+  };
+
+  window.nlinkPrepareImageForUpload = async (file, options = {}) => {
+    if (!file) throw new Error("No image selected.");
+    const originalType = sanitizeFileType(file.type);
+    const forceJpeg = options.forceJpeg !== false;
+    if (!forceJpeg && ["image/jpeg", "image/png", "image/webp"].includes(originalType)) {
+      const source = await createPreviewUrl(file);
+      return {
+        blob: file,
+        type: originalType,
+        ext: extensionForType(originalType),
+        previewDataUrl: source,
+      };
+    }
+
+    const canvas = await decodeToCanvas(file);
+    const maxDimension = Number(options.maxDimension || 2200);
+    if (maxDimension > 0 && (canvas.width > maxDimension || canvas.height > maxDimension)) {
+      const ratio = Math.min(maxDimension / canvas.width, maxDimension / canvas.height);
+      const resized = document.createElement("canvas");
+      resized.width = Math.max(1, Math.round(canvas.width * ratio));
+      resized.height = Math.max(1, Math.round(canvas.height * ratio));
+      const rctx = resized.getContext("2d");
+      if (!rctx) throw new Error("Could not process image.");
+      rctx.drawImage(canvas, 0, 0, resized.width, resized.height);
+      const blob = await canvasToBlob(resized, "image/jpeg", 0.9);
+      return {
+        blob,
+        type: "image/jpeg",
+        ext: "jpg",
+        previewDataUrl: resized.toDataURL("image/jpeg", 0.9),
+      };
+    }
+
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    return {
+      blob,
+      type: "image/jpeg",
+      ext: "jpg",
+      previewDataUrl: canvas.toDataURL("image/jpeg", 0.9),
+    };
+  };
+
   window.nlinkOpenImageCropper = async ({
     file,
     aspectRatio = 1,
@@ -31,9 +121,11 @@
     outputWidth = 1200,
   }) => {
     if (!file) return null;
-    const source = await createPreviewUrl(file);
+    const prepared = await window.nlinkPrepareImageForUpload(file, { forceJpeg: true });
+    const source = prepared.previewDataUrl || await createPreviewUrl(prepared.blob);
 
     return new Promise((resolve) => {
+      const unlockScroll = lockPageScroll();
       const modal = document.createElement("div");
       modal.className = "modal";
       modal.setAttribute("aria-hidden", "false");
@@ -72,13 +164,45 @@
         return;
       }
 
-      const state = { x: 0, y: 0, scale: 1 };
+      const state = { x: 0, y: 0, scale: 1, minScale: 0.4, maxScale: 4 };
+
+      const getFrameMetrics = () => {
+        const frameRect = frame.getBoundingClientRect();
+        const frameW = frameRect.width || 1;
+        const frameH = frameRect.height || 1;
+        const naturalW = image.naturalWidth || 1;
+        const naturalH = image.naturalHeight || 1;
+        const imageRatio = naturalW / naturalH;
+        const frameRatio = frameW / frameH;
+        let baseW = frameW;
+        let baseH = frameH;
+        if (imageRatio > frameRatio) {
+          baseW = frameH * imageRatio;
+          baseH = frameH;
+        } else {
+          baseW = frameW;
+          baseH = frameW / imageRatio;
+        }
+        return { frameW, frameH, naturalW, naturalH, baseW, baseH };
+      };
+
+      const clampPan = () => {
+        const { frameW, frameH, baseW, baseH } = getFrameMetrics();
+        const drawW = baseW * state.scale;
+        const drawH = baseH * state.scale;
+        const maxX = Math.max(0, (drawW - frameW) / 2);
+        const maxY = Math.max(0, (drawH - frameH) / 2);
+        state.x = Math.max(-maxX, Math.min(maxX, state.x));
+        state.y = Math.max(-maxY, Math.min(maxY, state.y));
+      };
 
       const applyTransform = () => {
+        clampPan();
         image.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
       };
 
       const close = (value = null) => {
+        unlockScroll();
         modal.remove();
         resolve(value);
       };
@@ -98,6 +222,7 @@
       let oy = 0;
 
       frame.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
         dragging = true;
         sx = event.clientX;
         sy = event.clientY;
@@ -108,6 +233,7 @@
 
       frame.addEventListener("pointermove", (event) => {
         if (!dragging) return;
+        event.preventDefault();
         state.x = ox + (event.clientX - sx);
         state.y = oy + (event.clientY - sy);
         applyTransform();
@@ -128,46 +254,55 @@
         applyTransform();
       });
 
-      modal.querySelector('[data-action="cancel"]')?.addEventListener("click", () => close(null));
-      modal.addEventListener("click", (event) => {
-        if (event.target === modal) close(null);
-      });
+      const initializeScaleBounds = () => {
+        const { frameW, frameH, baseW, baseH } = getFrameMetrics();
+        const containScale = Math.min(frameW / baseW, frameH / baseH);
+        state.minScale = Math.max(0.25, containScale);
+        state.maxScale = 4;
+        zoomInput.min = String(state.minScale);
+        zoomInput.max = String(state.maxScale);
+        state.scale = Math.max(state.minScale, 1);
+        zoomInput.value = String(state.scale);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      };
+      if (image.complete) {
+        initializeScaleBounds();
+      } else {
+        image.addEventListener("load", initializeScaleBounds, { once: true });
+      }
+      window.addEventListener("resize", initializeScaleBounds);
 
+      frame.style.touchAction = "none";
+      image.style.touchAction = "none";
+      frame.addEventListener("wheel", (event) => event.preventDefault(), { passive: false });
+
+      const previousClose = close;
+      const closeWrapped = (value = null) => {
+        window.removeEventListener("resize", initializeScaleBounds);
+        previousClose(value);
+      };
+      modal.querySelector('[data-action="cancel"]')?.addEventListener("click", () => closeWrapped(null));
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeWrapped(null);
+      });
       modal.querySelector('[data-action="save"]')?.addEventListener("click", async () => {
         try {
           const raw = await loadImage(source);
-          const frameWidth = frame.clientWidth;
-          const frameHeight = frame.clientHeight;
-          if (!frameWidth || !frameHeight) {
-            close(null);
+          const { naturalW, naturalH, frameW, frameH, baseW, baseH } = getFrameMetrics();
+          if (!frameW || !frameH) {
+            closeWrapped(null);
             return;
           }
-
-          const imageRatio = raw.width / raw.height;
-          const frameRatio = frameWidth / frameHeight;
-          let baseWidth = frameWidth;
-          let baseHeight = frameHeight;
-          if (imageRatio > frameRatio) {
-            baseHeight = frameHeight;
-            baseWidth = frameHeight * imageRatio;
-          } else {
-            baseWidth = frameWidth;
-            baseHeight = frameWidth / imageRatio;
-          }
-
-          const drawWidth = baseWidth * state.scale;
-          const drawHeight = baseHeight * state.scale;
-          const offsetX = (frameWidth - drawWidth) / 2 + state.x;
-          const offsetY = (frameHeight - drawHeight) / 2 + state.y;
-
-          const srcScaleX = raw.width / drawWidth;
-          const srcScaleY = raw.height / drawHeight;
-
-          const sxCrop = Math.max(0, -offsetX * srcScaleX);
-          const syCrop = Math.max(0, -offsetY * srcScaleY);
-          const swCrop = Math.min(raw.width - sxCrop, frameWidth * srcScaleX);
-          const shCrop = Math.min(raw.height - syCrop, frameHeight * srcScaleY);
-
+          const drawWidth = baseW * state.scale;
+          const drawHeight = baseH * state.scale;
+          const offsetX = (frameW - drawWidth) / 2 + state.x;
+          const offsetY = (frameH - drawHeight) / 2 + state.y;
+          const sxCrop = Math.max(0, -offsetX * (naturalW / drawWidth));
+          const syCrop = Math.max(0, -offsetY * (naturalH / drawHeight));
+          const swCrop = Math.min(naturalW - sxCrop, frameW * (naturalW / drawWidth));
+          const shCrop = Math.min(naturalH - syCrop, frameH * (naturalH / drawHeight));
           const width = outputWidth;
           const height = Math.max(1, Math.round(width / aspectRatio));
           const canvas = document.createElement("canvas");
@@ -175,15 +310,14 @@
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            close(null);
+            closeWrapped(null);
             return;
           }
           ctx.drawImage(raw, sxCrop, syCrop, swCrop, shCrop, 0, 0, width, height);
-
           const blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
-          close({ blob, previewDataUrl: canvas.toDataURL("image/jpeg", 0.9) });
+          closeWrapped({ blob, previewDataUrl: canvas.toDataURL("image/jpeg", 0.9) });
         } catch (_error) {
-          close(null);
+          closeWrapped(null);
         }
       });
 

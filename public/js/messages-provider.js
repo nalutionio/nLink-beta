@@ -173,6 +173,31 @@ const loadDirectMessages = async () => {
   return [];
 };
 
+const loadClientsByIds = async (clientIds) => {
+  if (!supabase || !Array.isArray(clientIds) || !clientIds.length) return {};
+  const ids = [...new Set(clientIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const queries = [
+    "user_id,full_name,avatar_url",
+    "user_id,nick_name,avatar_url",
+    "user_id,avatar_url",
+  ];
+  for (let i = 0; i < queries.length; i += 1) {
+    const { data, error } = await supabase
+      .from("clients")
+      .select(queries[i])
+      .in("user_id", ids);
+    if (!error && Array.isArray(data)) {
+      return data.reduce((acc, row) => {
+        if (row?.user_id) acc[row.user_id] = row;
+        return acc;
+      }, {});
+    }
+    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return {};
+  }
+  return {};
+};
+
 const hydrate = async () => {
   if (!supabase) return;
   const user = await getSessionUser();
@@ -183,6 +208,8 @@ const hydrate = async () => {
 
   const params = new URLSearchParams(window.location.search);
   const queryClientId = params.get("client");
+  const queryClientName = params.get("clientName");
+  const queryClientAvatar = params.get("clientAvatar");
 
   const [threadsRaw, messages, directMessages] = await Promise.all([
     loadThreads(),
@@ -274,10 +301,48 @@ const hydrate = async () => {
     client.lastMessageAt = row.created_at;
   });
 
+  const clientMetaById = await loadClientsByIds(Object.keys(clientsById));
+  Object.values(clientsById).forEach((client) => {
+    const meta = clientMetaById[client.clientId];
+    if (!meta) return;
+    if (!client.clientName || client.clientName === "Client") {
+      client.clientName = meta.full_name || meta.nick_name || client.clientName;
+    }
+    if (!client.clientAvatar || client.clientAvatar === fallbackAvatar) {
+      client.clientAvatar = meta.avatar_url || client.clientAvatar;
+    }
+  });
+
   state.clients = Object.values(clientsById)
     .filter((client) => client.clientInitiated)
     .map((client) => ({ ...client, jobIds: undefined }))
     .sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+
+  if (queryClientId && !state.clients.find((client) => client.clientId === queryClientId)) {
+    state.clients.unshift({
+      clientId: queryClientId,
+      clientName: queryClientName || "Client",
+      clientAvatar: queryClientAvatar || fallbackAvatar,
+      preview: "",
+      lastMessageAt: null,
+      messages: [],
+      jobCount: 0,
+      anchorJobId: null,
+      clientInitiated: false,
+      channel: "direct",
+    });
+  }
+  if (queryClientId) {
+    const existing = state.clients.find((client) => client.clientId === queryClientId);
+    if (existing) {
+      if ((!existing.clientName || existing.clientName === "Client") && queryClientName) {
+        existing.clientName = queryClientName;
+      }
+      if ((!existing.clientAvatar || existing.clientAvatar === fallbackAvatar) && queryClientAvatar) {
+        existing.clientAvatar = queryClientAvatar;
+      }
+    }
+  }
 
   state.selectedClientId = queryClientId || state.clients[0]?.clientId || null;
 
