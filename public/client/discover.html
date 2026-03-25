@@ -8,14 +8,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" href="../favicon.ico" />
-  <title>NLink (NalutionLink) - Swipe</title>
+  <title>plugFeed - Swipe</title>
 </head>
 <body>
-  <!-- Swipe discovery app for NLink beta -->
+  <!-- Swipe discovery app for PlugFeed beta -->
   <div class="app">
     <header class="app-header">
-      <a class="brand-link" href="../landing.html" aria-label="NLink home">
-        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      <a class="brand-link" href="../landing.html" aria-label="PlugFeed home">
+        <span class="brand-wordmark" aria-label="PlugFeed"><span class="plug">plug</span><span class="feed">Feed</span></span>
       </a>
       <a class="ghost-button" href="../client/saved.html">Saved</a>
     </header>
@@ -35,6 +35,14 @@
                   <option value="all">All</option>
                 </select>
               </div>
+              <div class="filter-field">
+                <label for="service-tags-filter">Tags (Optional)</label>
+                <select id="service-tags-filter" class="services-select filter-tags-select" multiple size="5" aria-label="Filter by tags">
+                  <option value="" disabled selected>Select one or more tags</option>
+                </select>
+              </div>
+            </div>
+            <div class="filter-row">
               <div class="filter-field">
                 <label for="location-search">Location (ZIP or Town)</label>
                 <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken, NJ)" />
@@ -97,6 +105,7 @@
 
   <nav class="bottom-nav" id="client-nav" hidden>
     <a class="active" href="../client/discover.html">Discover</a>
+    <a href="../client/community.html">Community</a>
     <a href="../client/client-jobs.html">Jobs</a>
     <a href="../client/client-messages.html">Messages</a>
     <a href="../client/client-profile.html">Profile</a>

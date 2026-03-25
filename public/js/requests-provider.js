@@ -82,8 +82,8 @@ const openClientFullProfileModal = (clientId, jobId) => {
     ? profile.property_profile
     : {};
   const completion = propertyCompletionCount(property);
-  const name = profile.full_name || job.client_name || "Client";
-  const avatar = profile.avatar_url || job.client_avatar_url || "../assets/nlinkiconblk.png";
+  const name = profile.full_name || job.client_name || "Neighbor";
+  const avatar = profile.avatar_url || job.client_avatar_url || "../assets/blankpropic.png";
   const location = toPublicLocation(profile.location || profile.address || job.client_location_public || job.location || "");
   const memberSince = formatMemberSince(profile.created_at || job.created_at);
   const chips = [];
@@ -128,7 +128,7 @@ const openClientFullProfileModal = (clientId, jobId) => {
           <small class="pill property-photo-visibility">${photo.hidden ? "Hidden" : "Visible"}</small>
         </article>
       `).join("")}</div>
-      <p class="muted">Exact address remains private unless client shares it after acceptance.</p>
+      <p class="muted">Exact address remains private unless the Neighbor shares it after acceptance.</p>
     </div>
   `;
   document.body.appendChild(modal);
@@ -279,7 +279,7 @@ const renderRequests = async () => {
           </div>
           <div class="job-actions proposal-actions">
             <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : "status-pending"}">${status}</span>
-            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
+            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Neighbor</button>` : ""}
             ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
               <a
                 class="ghost-button"
@@ -332,7 +332,7 @@ const renderRequests = async () => {
           </div>
           <div class="job-actions proposal-actions">
             <span class="pill proposal-status status-closed">Closed</span>
-            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Client</button>` : ""}
+            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Neighbor</button>` : ""}
             ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
               <a
                 class="ghost-button"

@@ -32,7 +32,7 @@ const propertyPhotoUploadName = document.getElementById("property-photo-upload-n
 const propertyPhotoEditor = document.getElementById("property-photo-editor");
 const propertyCompletionEl = document.getElementById("property-completion");
 
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackAvatar = "../assets/blankpropic.png";
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 
 const state = {
@@ -42,6 +42,19 @@ const state = {
   bannerUrl: "",
   propertyProfile: {},
   propertyPhotos: [],
+};
+
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
 };
 
 const isMissingColumnError = (error) => Boolean(error)
@@ -203,12 +216,10 @@ const loadProfile = async () => {
 
   const metadata = user.user_metadata || {};
   state.avatarUrl = profile?.avatar_url || metadata.client_avatar_url || "";
-  state.bannerUrl = profile?.banner_url || metadata.client_banner_url || "";
+  state.bannerUrl = profile?.banner_url || "";
   state.propertyProfile = (profile?.property_profile && typeof profile.property_profile === "object")
     ? profile.property_profile
-    : (metadata.client_property_profile && typeof metadata.client_property_profile === "object")
-      ? metadata.client_property_profile
-      : getLocalPropertyProfile();
+    : getLocalPropertyProfile();
   state.propertyPhotos = Array.isArray(state.propertyProfile.photos)
     ? state.propertyProfile.photos
       .filter((item) => item && typeof item.url === "string" && item.url)
@@ -392,13 +403,11 @@ form?.addEventListener("submit", async (event) => {
   }
 
   const metadata = {
-    ...(user.user_metadata || {}),
+    ...sanitizeAuthMetadata(user.user_metadata || {}),
     client_name: fullNameInput.value.trim(),
     client_location: addressInput.value.trim() || user.user_metadata?.client_location || "",
     client_avatar_url: state.avatarUrl || "",
-    client_banner_url: state.bannerUrl || "",
     client_email_verified: Boolean(user.email_confirmed_at),
-    client_property_profile: payload.property_profile,
   };
   const { error: metadataError } = await supabase.auth.updateUser({ data: metadata });
   if (metadataError) {

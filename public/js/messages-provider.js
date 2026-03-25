@@ -23,7 +23,7 @@ const state = {
   chatOpen: false,
 };
 
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackAvatar = "../assets/blankpropic.png";
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
@@ -74,7 +74,7 @@ const renderThreads = () => {
   if (!threadListEl) return;
   threadListEl.innerHTML = "";
   if (!state.clients.length) {
-    threadListEl.innerHTML = "<p class='muted'>No conversations yet. Clients must message first.</p>";
+    threadListEl.innerHTML = "<p class='muted'>No conversations yet. Neighbors must message first.</p>";
     return;
   }
   state.clients.forEach((client) => {
@@ -82,8 +82,8 @@ const renderThreads = () => {
     item.className = `message-thread-item ${state.selectedClientId === client.clientId ? "active" : ""}`;
     item.type = "button";
     item.innerHTML = `
-      <img class="message-thread-avatar" src="${client.clientAvatar || fallbackAvatar}" alt="${client.clientName || "Client"}" />
-      <strong>${client.clientName || "Client"}</strong>
+      <img class="message-thread-avatar" src="${client.clientAvatar || fallbackAvatar}" alt="${client.clientName || "Neighbor"}" />
+      <strong>${client.clientName || "Neighbor"}</strong>
       <p class="muted">${client.jobCount > 0 ? `${client.jobCount} ${client.jobCount === 1 ? "job" : "jobs"}` : "Direct chat"}</p>
       <span class="message-thread-kind ${client.channel === "direct" ? "direct" : "job"}">${client.channel === "direct" ? "Direct" : "Job"}</span>
       <p class="muted">${client.preview || "No messages yet."}</p>
@@ -110,7 +110,7 @@ const renderMessages = () => {
     return;
   }
 
-  if (threadTitleEl) threadTitleEl.textContent = client.clientName || "Client";
+  if (threadTitleEl) threadTitleEl.textContent = client.clientName || "Neighbor";
   if (sendEl) sendEl.disabled = false;
 
   const rows = client.messages || [];
@@ -225,7 +225,7 @@ const hydrate = async () => {
     if (!clientsById[clientId]) {
       clientsById[clientId] = {
         clientId,
-        clientName: row.jobs?.client_name || "Client",
+        clientName: row.jobs?.client_name || "Neighbor",
         clientAvatar: row.jobs?.client_avatar_url || fallbackAvatar,
         preview: "",
         lastMessageAt: row.created_at,
@@ -249,7 +249,7 @@ const hydrate = async () => {
     if (!clientsById[row.client_id]) {
       clientsById[row.client_id] = {
         clientId: row.client_id,
-        clientName: "Client",
+        clientName: "Neighbor",
         clientAvatar: fallbackAvatar,
         preview: "",
         lastMessageAt: row.created_at,
@@ -278,7 +278,7 @@ const hydrate = async () => {
     if (!clientsById[row.client_id]) {
       clientsById[row.client_id] = {
         clientId: row.client_id,
-        clientName: "Client",
+        clientName: "Neighbor",
         clientAvatar: fallbackAvatar,
         preview: "",
         lastMessageAt: row.created_at,
@@ -305,7 +305,7 @@ const hydrate = async () => {
   Object.values(clientsById).forEach((client) => {
     const meta = clientMetaById[client.clientId];
     if (!meta) return;
-    if (!client.clientName || client.clientName === "Client") {
+    if (!client.clientName || client.clientName === "Neighbor") {
       client.clientName = meta.full_name || meta.nick_name || client.clientName;
     }
     if (!client.clientAvatar || client.clientAvatar === fallbackAvatar) {
@@ -321,7 +321,7 @@ const hydrate = async () => {
   if (queryClientId && !state.clients.find((client) => client.clientId === queryClientId)) {
     state.clients.unshift({
       clientId: queryClientId,
-      clientName: queryClientName || "Client",
+      clientName: queryClientName || "Neighbor",
       clientAvatar: queryClientAvatar || fallbackAvatar,
       preview: "",
       lastMessageAt: null,
@@ -335,7 +335,7 @@ const hydrate = async () => {
   if (queryClientId) {
     const existing = state.clients.find((client) => client.clientId === queryClientId);
     if (existing) {
-      if ((!existing.clientName || existing.clientName === "Client") && queryClientName) {
+      if ((!existing.clientName || existing.clientName === "Neighbor") && queryClientName) {
         existing.clientName = queryClientName;
       }
       if ((!existing.clientAvatar || existing.clientAvatar === fallbackAvatar) && queryClientAvatar) {
@@ -357,7 +357,7 @@ const sendMessage = async (event) => {
   const client = getSelectedClient();
   if (!client) return;
   if (client.clientId === state.user.id) {
-    setStatus("You cannot message your own client profile.", "error");
+    setStatus("You cannot message your own Neighbor profile.", "error");
     return;
   }
   const text = (inputEl?.value || "").trim();
@@ -365,7 +365,7 @@ const sendMessage = async (event) => {
 
   const anchorJobId = client.anchorJobId;
   if (!client.clientInitiated) {
-    setStatus("Client must message first after accepting your proposal.", "error");
+    setStatus("Neighbor must message first after accepting your proposal.", "error");
     return;
   }
 

@@ -23,6 +23,18 @@ const ratingStarsEl = document.getElementById("service-rating-stars");
 const commentsListEl = document.getElementById("service-comments-list");
 const commentsMoreButton = document.getElementById("service-comments-more");
 const primaryProviderKey = "nlink_primary_provider_id";
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
+};
 
 const isPlaceholderUrl = (value) => typeof value === "string" && value.toLowerCase().includes("placeholder");
 
@@ -289,7 +301,7 @@ const loadProvider = async () => {
         .eq("reviewee_user_id", user.id);
       if (!jobReviewError && Array.isArray(jobReviews)) {
         reviews = jobReviews.map((row) => ({
-          name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+          name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
           rating: Number(row.rating) || 0,
           text: row.review_text || "",
         }));
@@ -379,7 +391,7 @@ const deleteProviderProfile = async () => {
     const nextPrimaryRole = nextRoles[0] || "client";
     const { error: metadataError } = await profileSupabase.auth.updateUser({
       data: {
-        ...(user.user_metadata || {}),
+        ...sanitizeAuthMetadata(user.user_metadata || {}),
         role: nextPrimaryRole,
         roles: nextRoles,
       },

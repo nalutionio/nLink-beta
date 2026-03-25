@@ -8,13 +8,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" href="../favicon.ico" />
-  <title>NLink (NalutionLink) - Edit Profile</title>
+  <title>plugFeed - Edit Profile</title>
 </head>
 <body class="profile-edit-page provider-theme">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="NLink dashboard">
-        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="PlugFeed dashboard">
+        <span class="brand-empty" aria-hidden="true"></span>
       </a>
       <div class="topbar-title">
         <p class="kicker">Edit Profile</p>
@@ -31,13 +31,13 @@
         </div>
         <div class="fb-avatar-wrap">
           <div class="profile-avatar-lg fb-avatar-lg">
-            <img src="../assets/nlinkiconblk.png" alt="Logo preview" id="provider-avatar-header" />
+            <img src="../images/placeholder1.jpg" alt="Logo preview" id="provider-avatar-header" />
           </div>
           <button class="ghost-button" type="button" onclick="document.getElementById('avatar-upload').click()">Edit Logo</button>
         </div>
         <div class="fb-header-meta">
           <h2 id="provider-name-header">Business Profile</h2>
-          <p class="muted">This is how your profile appears to clients.</p>
+          <p class="muted">This is how your profile appears to Neighbors.</p>
         </div>
       </article>
 
@@ -76,12 +76,18 @@
           <div class="upload-field">
             <span>Or choose a preset banner color</span>
             <div class="banner-presets" id="banner-presets">
-              <button type="button" class="color-swatch" data-banner-color="#0f172a" style="--swatch:#0f172a;" aria-label="Navy"></button>
-              <button type="button" class="color-swatch" data-banner-color="#1f2937" style="--swatch:#1f2937;" aria-label="Charcoal"></button>
-              <button type="button" class="color-swatch" data-banner-color="#1d4ed8" style="--swatch:#1d4ed8;" aria-label="Blue"></button>
-              <button type="button" class="color-swatch" data-banner-color="#0b8a6a" style="--swatch:#0b8a6a;" aria-label="Green"></button>
-              <button type="button" class="color-swatch" data-banner-color="#7c3aed" style="--swatch:#7c3aed;" aria-label="Indigo"></button>
-              <button type="button" class="color-swatch" data-banner-color="#b45309" style="--swatch:#b45309;" aria-label="Amber"></button>
+              <button type="button" class="color-swatch" data-banner-color="#ef4444" style="--swatch:#ef4444;" aria-label="Red"></button>
+              <button type="button" class="color-swatch" data-banner-color="#f97316" style="--swatch:#f97316;" aria-label="Orange"></button>
+              <button type="button" class="color-swatch" data-banner-color="#facc15" style="--swatch:#facc15;" aria-label="Yellow"></button>
+              <button type="button" class="color-swatch" data-banner-color="#84cc16" style="--swatch:#84cc16;" aria-label="Lime"></button>
+              <button type="button" class="color-swatch" data-banner-color="#22c55e" style="--swatch:#22c55e;" aria-label="Green"></button>
+              <button type="button" class="color-swatch" data-banner-color="#14b8a6" style="--swatch:#14b8a6;" aria-label="Teal"></button>
+              <button type="button" class="color-swatch" data-banner-color="#3b82f6" style="--swatch:#3b82f6;" aria-label="Blue"></button>
+              <button type="button" class="color-swatch" data-banner-color="#8b5cf6" style="--swatch:#8b5cf6;" aria-label="Purple"></button>
+              <button type="button" class="color-swatch" data-banner-color="#ec4899" style="--swatch:#ec4899;" aria-label="Pink"></button>
+              <button type="button" class="color-swatch" data-banner-color="#a16207" style="--swatch:#a16207;" aria-label="Brown"></button>
+              <button type="button" class="color-swatch" data-banner-color="#64748b" style="--swatch:#64748b;" aria-label="Slate"></button>
+              <button type="button" class="color-swatch" data-banner-color="#111827" style="--swatch:#111827;" aria-label="Black"></button>
             </div>
             <small class="muted">Preset saves instantly. Upload anytime to replace it.</small>
           </div>
@@ -94,9 +100,15 @@
             <input type="text" id="profile-name" placeholder="Business name" required />
           </label>
           <label class="input-field">
-            <span>Service category</span>
-            <select id="profile-category" required>
+            <span>Category</span>
+            <select id="profile-main-category" required>
               <option value="">Select a category</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Primary service</span>
+            <select id="profile-category" required>
+              <option value="">Select a service</option>
             </select>
           </label>
           <label class="input-field">
@@ -105,7 +117,7 @@
           </label>
           <label class="input-field">
             <span>About your business</span>
-            <textarea rows="4" id="profile-description" placeholder="Tell clients what you do, who you serve, and why they should book you."></textarea>
+            <textarea rows="4" id="profile-description" placeholder="Tell Neighbors what you do, who you serve, and why they should book you."></textarea>
           </label>
         </article>
 
@@ -120,7 +132,7 @@
             <input type="text" id="profile-budget" placeholder="Budget range (e.g., 80-400)" required />
           </label>
           <label class="input-field">
-            <span>Services offered</span>
+            <span>Service tags</span>
             <select id="profile-services" multiple size="8" class="services-select"></select>
             <small class="muted">Select up to 8 service tags.</small>
           </label>
@@ -217,6 +229,7 @@
   <nav class="bottom-nav">
     <a href="../provider/provider-jobs.html">Discover</a>
     <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/community.html">Community</a>
     <a href="../provider/provider-messages.html">Messages</a>
     <a class="active" href="../provider/profile.html">Profile</a>
   </nav>

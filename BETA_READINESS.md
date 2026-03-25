@@ -2,6 +2,15 @@
 
 Use this as the final go/no-go checklist before calling the beta complete.
 
+## 0) Phase 0 Product Lock (Required Before Community Build)
+
+Reference: `PHASE0_PRODUCT_LOCK.md`
+
+- [ ] Core product rules signed off.
+- [ ] Terminology (`PlugFeed`, `Plug`) signed off.
+- [ ] Community MVP scope signed off.
+- [ ] Provider guardrails and KPI set signed off.
+
 ## 1) Core Product Flows (Required)
 
 Mark each as `PASS [x]` or `FAIL [/]` with date + tester name.

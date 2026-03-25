@@ -253,8 +253,8 @@ const openClientFullProfileModal = () => {
     ? profile.photos.filter((item) => item && typeof item.url === "string" && item.url).slice(0, 3)
     : [];
   const completion = propertyCompletionCount(profile);
-  const name = currentClientProfile?.full_name || currentJob.client_name || "Client";
-  const avatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "../assets/nlinkiconblk.png";
+  const name = currentClientProfile?.full_name || currentJob.client_name || "Neighbor";
+  const avatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "../assets/blankpropic.png";
   const location = toPublicLocation(currentClientProfile?.location || currentClientProfile?.address || currentJob.client_location_public || currentJob.location || "");
   const memberSince = formatMemberSince(currentJob.created_at);
 
@@ -286,7 +286,7 @@ const openClientFullProfileModal = () => {
           <small class="pill property-photo-visibility">${photo.hidden ? "Hidden" : "Visible"}</small>
         </article>
       `).join("")}</div>
-      <p class="muted">Exact address remains private unless client shares it after acceptance.</p>
+      <p class="muted">Exact address remains private unless the Neighbor shares it after acceptance.</p>
     </div>
   `;
   document.body.appendChild(modal);
@@ -443,10 +443,10 @@ const renderJob = async () => {
 
   currentClientProfile = await loadClientProfile(job.client_id);
   if (clientAvatarEl) {
-    clientAvatarEl.src = currentClientProfile?.avatar_url || job.client_avatar_url || "../assets/nlinkiconblk.png";
+    clientAvatarEl.src = currentClientProfile?.avatar_url || job.client_avatar_url || "../assets/blankpropic.png";
   }
   if (clientNameEl) {
-    clientNameEl.textContent = currentClientProfile?.full_name || job.client_name || "Client";
+    clientNameEl.textContent = currentClientProfile?.full_name || job.client_name || "Neighbor";
   }
   if (clientMetaEl) {
     const bits = [
@@ -464,7 +464,7 @@ const renderJob = async () => {
     clientChipsEl.innerHTML = chips.map((chip) => `<span class="pill">${chip}</span>`).join("");
   }
   if (clientLocationNoteEl) {
-    clientLocationNoteEl.textContent = "Street address remains private until the client chooses to share it.";
+    clientLocationNoteEl.textContent = "Street address remains private until the Neighbor chooses to share it.";
   }
   await updateMessageLinkState();
 
@@ -651,7 +651,7 @@ const init = async () => {
 requestButton?.addEventListener("click", requestQuote);
 reviewToggleButton?.addEventListener("click", () => {
   if (!canRateClient) return;
-  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${currentJob?.client_name || "Client"}`;
+  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${currentJob?.client_name || "Neighbor"}`;
   setReviewMode(true);
 });
 reviewCancelButton?.addEventListener("click", () => setReviewMode(false));

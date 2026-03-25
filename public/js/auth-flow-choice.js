@@ -16,7 +16,7 @@
   const recent = document.getElementById("auth-choice-recent");
   if (recent && preferredRole) {
     recent.hidden = false;
-    recent.textContent = `Last used: ${preferredRole === "provider" ? "Provider" : "Client"} portal`;
+    recent.textContent = `Last used: ${preferredRole === "provider" ? "Plug" : "Neighbor"} portal`;
   }
 
   if (flow === "root") {

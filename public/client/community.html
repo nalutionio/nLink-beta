@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>plugFeed - Community</title>
+</head>
+<body class="dashboard-page">
+  <main class="screen community-screen" id="community-root" data-role="client" data-discovery-href="../client/discover.html" data-jobs-href="../client/client-jobs.html">
+    <header class="topbar compact-topbar">
+      <a class="brand-link" href="../client/discover.html" aria-label="PlugFeed home">
+        <span class="brand-wordmark" aria-label="PlugFeed"><span class="plug">plug</span><span class="feed">Feed</span></span>
+      </a>
+      <p class="kicker topbar-kicker">Community</p>
+    </header>
+
+    <div class="auth-status" id="community-status"></div>
+
+    <section class="panel community-composer">
+      <form id="community-post-form" class="modal-form community-composer-form">
+        <div class="community-compose-head">
+          <img id="community-composer-avatar" class="community-avatar" src="../assets/blankpropic.png" alt="Your profile" />
+          <textarea id="community-post-body" rows="3" placeholder="What's happening?" required></textarea>
+        </div>
+        <input type="hidden" id="community-post-type" value="ask" />
+        <div id="community-post-type-chips" class="community-type-chips"></div>
+        <div class="community-compose-actions">
+          <button class="ghost-button compact community-quick-action" type="button" data-composer-action="photo" aria-label="Add photo">
+            <span class="material-symbols-rounded" aria-hidden="true">image</span>
+          </button>
+          <button class="ghost-button compact community-quick-action" type="button" data-composer-action="feeling" aria-label="Add feeling">
+            <span class="material-symbols-rounded" aria-hidden="true">mood</span>
+          </button>
+          <button class="primary-button" type="submit">Post</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="community-feed" id="community-feed"></section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="../client/discover.html">Discover</a>
+    <a class="active" href="../client/community.html">Community</a>
+    <a href="../client/client-jobs.html">Jobs</a>
+    <a href="../client/client-messages.html">Messages</a>
+    <a href="../client/client-profile.html">Profile</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/service-tags.js"></script>
+  <script src="../js/nav-badges.js"></script>
+  <script src="../js/community.js"></script>
+  <script src="../js/auth-required.js"></script>
+  <script>requireAuth();</script>
+</body>
+</html>

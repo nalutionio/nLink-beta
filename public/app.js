@@ -1,10 +1,22 @@
 /*
-  NLink app controller
+  PlugFeed app controller
   - Handles swipe feed, filters, saved persistence, and profile modal.
 */
 
 const storageKey = "nlink_saved";
 const supabase = typeof window.getNlinkSupabaseClient === "function" ? window.getNlinkSupabaseClient() : null;
+const createPublicSupabaseClient = () => {
+  const config = window.NLINK_SUPABASE || {};
+  if (!window.supabase || !config.url || !config.anonKey) return null;
+  return window.supabase.createClient(config.url, config.anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+};
+const publicSupabase = createPublicSupabaseClient();
 const GUEST_SWIPE_LIMIT = 5;
 const labels = window.NLINK_UI_LABELS || {};
 const labelCommon = labels.common || {};
@@ -47,16 +59,57 @@ const normalizeTag = (value) => (
     ? window.NLINK_SERVICE_TAGS.normalizeTag(value)
     : String(value || "").trim().toLowerCase()
 );
+const toCanonicalService = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalService
+    ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
+    : String(value || "").trim()
+);
 const toCanonicalTag = (value) => (
   window.NLINK_SERVICE_TAGS?.toCanonicalTag
     ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
     : String(value || "").trim()
 );
+const toCanonicalCategory = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalCategory
+    ? window.NLINK_SERVICE_TAGS.toCanonicalCategory(value)
+    : String(value || "").trim()
+);
+const toCanonicalDiscoveryTerm = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalDiscoveryTerm
+    ? window.NLINK_SERVICE_TAGS.toCanonicalDiscoveryTerm(value)
+    : String(value || "").trim()
+);
+const inferCategoryForService = (service) => (
+  window.NLINK_SERVICE_TAGS?.inferCategoryForService
+    ? window.NLINK_SERVICE_TAGS.inferCategoryForService(service)
+    : ""
+);
+const getServicesForCategory = (category) => (
+  window.NLINK_SERVICE_TAGS?.getServicesForCategory
+    ? window.NLINK_SERVICE_TAGS.getServicesForCategory(category)
+    : []
+);
+const getTagsForService = (service) => (
+  window.NLINK_SERVICE_TAGS?.getTagsForService
+    ? window.NLINK_SERVICE_TAGS.getTagsForService(service)
+    : []
+);
+const normalizeLocationValue = (value) => String(value || "")
+  .replace(/\s+/g, " ")
+  .replace(/\s*,\s*$/, "")
+  .trim();
 
 const getSessionUser = async () => {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data?.session?.user || null;
+};
+
+const isTransportError = (error) => {
+  const message = String(error?.message || error || "");
+  return (Number(error?.status) || 0) === 0
+    || /failed to fetch/i.test(message)
+    || /network/i.test(message);
 };
 
 const closeGuestGateModal = () => {
@@ -130,15 +183,15 @@ const hydrateSavedProviders = async (savedProviders) => {
       ...meta,
       id: row.id,
       name: row.name || "",
-      category: toCanonicalTag(row.category || ""),
+      category: toCanonicalService(row.category || ""),
       budgetMin: row.budget_min ?? 0,
       budgetMax: row.budget_max ?? 0,
-      location: row.location || "Unknown",
+      location: normalizeLocationValue(row.location) || "Unknown",
       zip: meta.serviceAreaZip || "",
       rating: 0,
       reviewCount: 0,
-      heroImage: row.hero_url || "../assets/nlinkblack.png",
-      bannerImage: row.banner_url || row.hero_url || "../assets/nlinkblack.png",
+      heroImage: row.hero_url || "../assets/plugFeedlogo-rmbg.png",
+      bannerImage: row.banner_url || row.hero_url || "../assets/plugFeedlogo-rmbg.png",
       avatar: row.avatar_url || row.hero_url || "../assets/nlinkiconblk.png",
       description: row.description || "",
       services: meta.services || [],
@@ -249,12 +302,12 @@ const openGuestGateModal = (contextText = "continue") => {
   modal.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Continue as Client</h3>
+        <h3>Continue as Neighbor</h3>
         <button class="ghost-button" type="button" data-action="close">Close</button>
       </div>
-      <p class="muted">Create a client account or log in to ${contextText}.</p>
+      <p class="muted">Create a Neighbor account or log in to ${contextText}.</p>
       <div class="cta-row">
-        <a class="primary-button auth-link-button" href="${clientSignupUrl}">Create Client Account</a>
+        <a class="primary-button auth-link-button" href="${clientSignupUrl}">Create Neighbor Account</a>
         <a class="ghost-button auth-link-button" href="${clientLoginUrl}">Log In</a>
       </div>
     </div>
@@ -304,9 +357,9 @@ const formatRatingLabel = (provider) => (
 const getDisplayImages = (provider) => {
   const cropped = typeof getCroppedImages === "function" ? getCroppedImages(provider.id) : null;
   return {
-    banner: cropped?.banner || provider.bannerImage || provider.heroImage || "../assets/nlinkblack.png",
+    banner: cropped?.banner || provider.bannerImage || provider.heroImage || "../assets/plugFeedlogo-rmbg.png",
     avatar: cropped?.avatar || provider.avatar || provider.heroImage || "../assets/nlinkiconblk.png",
-    hero: provider.heroImage || "../assets/nlinkblack.png",
+    hero: provider.heroImage || "../assets/plugFeedlogo-rmbg.png",
   };
 };
 
@@ -356,7 +409,7 @@ const createCardMarkup = (provider, expanded = false) => {
       .slice(0, 88);
     return `
       <div class="card-photo-shell">
-        <img class="card-photo-image" src="${photos[0] || images.avatar}" alt="${provider.name || "Provider"}" />
+        <img class="card-photo-image" src="${photos[0] || images.avatar}" alt="${provider.name || "Plug"}" />
         <div class="card-photo-progress">${renderPhotoProgress(photos.length || 1, 0)}</div>
         <button class="card-photo-hit left" data-action="photo-prev" type="button" aria-label="Previous photo"></button>
         <button class="card-photo-hit right" data-action="photo-next" type="button" aria-label="Next photo"></button>
@@ -451,7 +504,7 @@ const createCardMarkup = (provider, expanded = false) => {
 
 const createSavedMarkup = (provider) => `
   <div class="card-photo-shell">
-    <img class="card-photo-image" src="${getCardPhotos(provider)[0] || getDisplayImages(provider).avatar}" alt="${provider.name || "Provider"}" />
+    <img class="card-photo-image" src="${getCardPhotos(provider)[0] || getDisplayImages(provider).avatar}" alt="${provider.name || "Plug"}" />
     <div class="card-photo-progress">${renderPhotoProgress(getCardPhotos(provider).length || 1, 0)}</div>
     <button class="card-photo-hit left" data-action="photo-prev" type="button" aria-label="Previous photo"></button>
     <button class="card-photo-hit right" data-action="photo-next" type="button" aria-label="Next photo"></button>
@@ -641,6 +694,7 @@ const initSwipePage = () => {
   const topActionLink = document.querySelector(".app-header .ghost-button");
 
   const categorySelect = document.getElementById("category");
+  const tagFilterSelect = document.getElementById("service-tags-filter");
   const locationInput = document.getElementById("location-search");
   const locationOptions = document.getElementById("location-options");
   const budgetMinInput = document.getElementById("budget-min");
@@ -731,9 +785,62 @@ const initSwipePage = () => {
     });
   };
 
+  const getSelectedTagFilters = () => {
+    if (!tagFilterSelect) return [];
+    return Array.from(tagFilterSelect.selectedOptions)
+      .map((option) => toCanonicalTag(option.value))
+      .filter(Boolean);
+  };
+
+  const buildTagFilterOptions = (categoryValue = "all", keepSelected = true) => {
+    if (!tagFilterSelect) return;
+    const previous = keepSelected ? new Set(getSelectedTagFilters()) : new Set();
+    const selectedCategory = categoryValue === "all" ? "" : toCanonicalCategory(categoryValue);
+    let options = [];
+    if (selectedCategory) {
+      const services = getServicesForCategory(selectedCategory);
+      options = services.flatMap((service) => getTagsForService(service)).map((tag) => toCanonicalTag(tag));
+    } else {
+      options = (window.NLINK_SERVICE_TAGS?.allTags || []).map((tag) => toCanonicalTag(tag));
+    }
+    const providerTagPool = state.providers
+      .filter((provider) => !selectedCategory || inferCategoryForService(provider.category) === selectedCategory)
+      .flatMap((provider) => (Array.isArray(provider.services) ? provider.services : []))
+      .map((tag) => toCanonicalTag(tag));
+    options = [...options, ...providerTagPool];
+    const uniqueOptions = Array.from(new Set(options)).filter(Boolean).sort();
+    tagFilterSelect.innerHTML = "";
+    uniqueOptions.forEach((tag) => {
+      const option = document.createElement("option");
+      option.value = tag;
+      option.textContent = tag;
+      option.selected = previous.has(tag);
+      tagFilterSelect.appendChild(option);
+    });
+    if (!uniqueOptions.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "No tags available";
+      option.disabled = true;
+      option.selected = true;
+      tagFilterSelect.appendChild(option);
+    }
+  };
+
   const buildLocationOptions = (values) => {
     if (!locationOptions) return;
-    const unique = Array.from(new Set(values)).sort();
+    const normalized = values
+      .map((value) => normalizeLocationValue(value))
+      .filter(Boolean);
+    const seen = new Set();
+    const unique = normalized
+      .filter((value) => {
+        const key = value.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort();
     locationOptions.innerHTML = "";
     unique.forEach((value) => {
       const option = document.createElement("option");
@@ -746,15 +853,31 @@ const initSwipePage = () => {
     if (categorySelect) {
       categorySelect.innerHTML = '<option value="all">All</option>';
     }
-    const canonicalCategories = window.NLINK_SERVICE_TAGS?.allServiceTags || [];
-    const providerCategories = state.providers.map((p) => toCanonicalTag(p.category)).filter(Boolean);
+    const canonicalCategories = window.NLINK_SERVICE_TAGS?.categories || [];
+    const providerCategories = state.providers
+      .map((p) => toCanonicalCategory(inferCategoryForService(p.category)))
+      .filter(Boolean);
     const mergedCategories = [...canonicalCategories, ...providerCategories];
     buildOptions(categorySelect, mergedCategories);
+    buildTagFilterOptions(categorySelect?.value || "all", false);
     buildLocationOptions([
-      ...state.providers.map((p) => p.location),
+      ...state.providers.map((p) => normalizeLocationValue(p.location)),
       ...state.providers.map((p) => p.zip).filter(Boolean),
-      ...state.providers.map((p) => `${p.location}, ${p.zip}`).filter((value) => !value.endsWith(", undefined")),
+      ...state.providers.map((p) => {
+        const location = normalizeLocationValue(p.location);
+        return location && p.zip ? `${location}, ${p.zip}` : "";
+      }).filter(Boolean),
     ]);
+  };
+
+  const providerMatchesDiscoveryTerm = (providerCategory, selectedTerm) => {
+    if (!selectedTerm || selectedTerm === "all") return true;
+    const service = toCanonicalService(providerCategory);
+    const selectedCategory = toCanonicalCategory(selectedTerm);
+    if (selectedCategory && selectedCategory === selectedTerm) {
+      return inferCategoryForService(service) === selectedCategory;
+    }
+    return normalizeTag(service) === normalizeTag(toCanonicalService(selectedTerm));
   };
 
   const extractState = (value) => {
@@ -798,9 +921,18 @@ const initSwipePage = () => {
 
   const loadSupabaseProviders = async () => {
     if (!supabase) return [];
-    const { data, error } = await supabase
+    let readClient = supabase;
+    let { data, error } = await readClient
       .from("providers")
       .select("id,name,category,location,budget_min,budget_max,description,hero_url,banner_url,avatar_url,created_at");
+    if ((error || !Array.isArray(data)) && publicSupabase && isTransportError(error)) {
+      const retry = await publicSupabase
+        .from("providers")
+        .select("id,name,category,location,budget_min,budget_max,description,hero_url,banner_url,avatar_url,created_at");
+      data = retry.data;
+      error = retry.error;
+      readClient = publicSupabase;
+    }
     if (error || !Array.isArray(data)) return [];
 
     const providerIds = data.map((item) => item.id).filter(Boolean);
@@ -810,7 +942,7 @@ const initSwipePage = () => {
       const lifecycleFields = "provider_id,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion";
       const baseFields = "provider_id,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok";
 
-      let profileQuery = await supabase
+      let profileQuery = await readClient
         .from("provider_profiles")
         .select(providerProfilesLifecycleAvailable ? lifecycleFields : baseFields)
         .in("provider_id", providerIds);
@@ -818,7 +950,7 @@ const initSwipePage = () => {
       let profileError = profileQuery.error;
       if (profileError && providerProfilesLifecycleAvailable && isMissingColumnError(profileError)) {
         providerProfilesLifecycleAvailable = false;
-        profileQuery = await supabase
+        profileQuery = await readClient
           .from("provider_profiles")
           .select(baseFields)
           .in("provider_id", providerIds);
@@ -834,7 +966,7 @@ const initSwipePage = () => {
     }
 
     if (providerIds.length > 0) {
-      const { data: photoRows, error: photosError } = await supabase
+      const { data: photoRows, error: photosError } = await readClient
         .from("provider_photos")
         .select("provider_id,url,created_at")
         .in("provider_id", providerIds)
@@ -849,7 +981,7 @@ const initSwipePage = () => {
 
     const reviewsByProviderId = {};
     if (providerIds.length > 0 && providerReviewsTableAvailable) {
-      const { data: reviewRows, error: reviewError } = await supabase
+      const { data: reviewRows, error: reviewError } = await readClient
         .from("provider_reviews")
         .select("*")
         .in("provider_id", providerIds);
@@ -870,7 +1002,7 @@ const initSwipePage = () => {
           || reviewError?.status === 404
         );
         if (fallbackToJobReviews) {
-          const { data: jobReviewRows, error: jobReviewError } = await supabase
+          const { data: jobReviewRows, error: jobReviewError } = await readClient
             .from("job_reviews")
             .select("provider_id,rating,review_text,reviewer_role")
             .in("provider_id", providerIds)
@@ -879,7 +1011,7 @@ const initSwipePage = () => {
             jobReviewRows.forEach((row) => {
               if (!reviewsByProviderId[row.provider_id]) reviewsByProviderId[row.provider_id] = [];
               reviewsByProviderId[row.provider_id].push({
-                name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+                name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
                 rating: Number(row.rating) || 0,
                 text: row.review_text || "",
               });
@@ -897,17 +1029,17 @@ const initSwipePage = () => {
       ...meta,
       id: item.id,
       name: item.name,
-      category: toCanonicalTag(item.category),
+      category: toCanonicalService(item.category),
       budgetMin: item.budget_min ?? 0,
       budgetMax: item.budget_max ?? 0,
-      location: item.location || "Unknown",
+      location: normalizeLocationValue(item.location) || "Unknown",
       zip: meta.serviceAreaZip || "",
       rating: reviewsByProviderId[item.id]?.length
         ? Number((reviewsByProviderId[item.id].reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviewsByProviderId[item.id].length).toFixed(1))
         : 0,
       reviewCount: reviewsByProviderId[item.id]?.length || 0,
-      heroImage: item.hero_url || "../assets/nlinkblack.png",
-      bannerImage: item.banner_url || item.hero_url || "../assets/nlinkblack.png",
+      heroImage: item.hero_url || "../assets/plugFeedlogo-rmbg.png",
+      bannerImage: item.banner_url || item.hero_url || "../assets/plugFeedlogo-rmbg.png",
       avatar: item.avatar_url || item.hero_url || "../assets/nlinkiconblk.png",
       description: item.description || "",
       services: meta.services || [],
@@ -952,19 +1084,23 @@ const initSwipePage = () => {
 
   const applyFilters = () => {
     const category = categorySelect.value;
-    const selectedCategory = category === "all" ? "all" : toCanonicalTag(category);
+    const selectedCategory = category === "all" ? "all" : toCanonicalDiscoveryTerm(category);
+    const selectedTags = getSelectedTagFilters();
     const location = (locationInput?.value || "").trim().toLowerCase();
     const minBudget = Number(budgetMinInput.value) || 0;
     const maxBudget = Number(budgetMaxInput.value) || Number.POSITIVE_INFINITY;
     const minRating = Number(ratingMinSelect.value) || 0;
 
     const baseFiltered = state.providers.filter((provider) => {
-      const providerCategory = toCanonicalTag(provider.category);
-      const matchesCategory = selectedCategory === "all"
-        || normalizeTag(providerCategory) === normalizeTag(selectedCategory);
+      const matchesCategory = providerMatchesDiscoveryTerm(provider.category, selectedCategory);
+      const providerTags = Array.isArray(provider.services)
+        ? provider.services.map((tag) => toCanonicalTag(tag))
+        : [];
+      const matchesTags = selectedTags.length === 0
+        || selectedTags.every((tag) => providerTags.includes(tag));
       const matchesBudget = provider.budgetMax >= minBudget && provider.budgetMin <= maxBudget;
       const matchesRating = provider.rating >= minRating;
-      return matchesCategory && matchesBudget && matchesRating;
+      return matchesCategory && matchesTags && matchesBudget && matchesRating;
     });
     const strictLocation = baseFiltered.filter((provider) => matchesLocationStrict(provider, location));
     state.filtered = strictLocation.length || !location
@@ -989,7 +1125,7 @@ const initSwipePage = () => {
       emptyState.hidden = false;
       emptyState.innerHTML = `
         <h2>Guest limit reached</h2>
-        <p>You have used ${GUEST_SWIPE_LIMIT} guest swipes. Create a client account to keep discovering providers.</p>
+        <p>You have used ${GUEST_SWIPE_LIMIT} guest swipes. Create a Neighbor account to keep discovering providers.</p>
       `;
       return;
     }
@@ -1112,6 +1248,9 @@ const initSwipePage = () => {
   };
 
   applyFiltersButton.addEventListener("click", applyFilters);
+  categorySelect?.addEventListener("change", () => {
+    buildTagFilterOptions(categorySelect.value || "all", true);
+  });
   passButton.addEventListener("click", () => swipeFallback("left"));
   saveButton.addEventListener("click", () => swipeFallback("right"));
 

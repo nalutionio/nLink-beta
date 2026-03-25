@@ -8,13 +8,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" href="../favicon.ico" />
-  <title>NLink - Job Detail</title>
+  <title>plugFeed - Job Detail</title>
 </head>
 <body class="jobs-page provider-theme">
   <main class="screen">
     <header class="topbar">
-      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="NLink jobs">
-        <img src="../assets/nlinkiconblk.png" alt="NLink logo" class="brand-logo" />
+      <a class="brand-link" href="../provider/provider-jobs.html" aria-label="PlugFeed jobs">
+        <span class="brand-empty" aria-hidden="true"></span>
       </a>
       <div class="topbar-title">
         <p class="kicker">Job Detail</p>
@@ -25,12 +25,12 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h3>Client Profile</h3>
+        <h3>Neighbor Profile</h3>
       </div>
       <div class="mini-client large profile-trust-card" id="job-client-card">
-        <img src="../assets/nlinkiconblk.png" alt="Client profile" id="job-client-avatar" />
+        <img src="../images/placeholder1.jpg" alt="Neighbor profile" id="job-client-avatar" />
         <div>
-          <h4 id="job-client-name">Client</h4>
+          <h4 id="job-client-name">Neighbor</h4>
           <p class="muted" id="job-client-meta">Account details</p>
           <div class="trust-chips" id="job-client-chips"></div>
           <p class="muted" id="job-client-location-note">Street address remains private until shared.</p>
@@ -50,7 +50,7 @@
           <strong id="job-meta-location">-</strong>
         </div>
         <div class="overview-item">
-          <span class="muted">Client Target Range</span>
+          <span class="muted">Neighbor Target Range</span>
           <strong id="job-meta-budget">-</strong>
         </div>
         <div class="overview-item">
@@ -78,7 +78,7 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h3>Client Notes</h3>
+        <h3>Neighbor Notes</h3>
       </div>
       <ul class="job-notes" id="job-notes"></ul>
       <div class="modal-form" id="proposal-form-wrap">
@@ -131,17 +131,17 @@
           <h4>Your Proposal</h4>
           <div class="proposal-summary-actions">
             <span class="pill" id="proposal-summary-status">pending</span>
-            <button class="ghost-button hidden" id="provider-review-toggle" type="button">Rate Client</button>
+            <button class="ghost-button hidden" id="provider-review-toggle" type="button">Rate Neighbor</button>
             <button class="ghost-button hidden" id="proposal-toggle-view" type="button">View Proposal</button>
           </div>
         </div>
         <div id="proposal-summary-copy" class="muted"></div>
       </div>
       <button class="primary-button" id="request-quote">Send Proposal</button>
-      <a class="ghost-button hidden" id="message-client-link" href="#">Message Client</a>
+      <a class="ghost-button hidden" id="message-client-link" href="#">Message Neighbor</a>
       <div class="auth-status" id="request-status"></div>
       <div class="modal-form hidden" id="provider-review-form-wrap">
-        <h4 id="provider-review-title">Rate Client</h4>
+        <h4 id="provider-review-title">Rate Neighbor</h4>
         <label class="input-field">
           <span>Rating</span>
           <select id="provider-review-rating">
@@ -168,6 +168,7 @@
   <nav class="bottom-nav">
     <a class="active" href="../provider/provider-jobs.html">Discover</a>
     <a href="../provider/provider-requests.html">Proposals</a>
+    <a href="../provider/community.html">Community</a>
     <a href="../provider/provider-messages.html">Messages</a>
     <a href="../provider/profile.html">Profile</a>
   </nav>

@@ -110,13 +110,13 @@ const setReviewMode = (target = null) => {
   reviewTarget = target;
   reviewWrap?.classList.toggle("hidden", !target);
   if (!target) {
-    if (reviewTitleEl) reviewTitleEl.textContent = "Rate Provider";
+    if (reviewTitleEl) reviewTitleEl.textContent = "Rate Plug";
     if (reviewRatingInput) reviewRatingInput.value = "5";
     if (reviewTextInput) reviewTextInput.value = "";
     setReviewStatus("");
     return;
   }
-  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${target.providerName || "Provider"}`;
+  if (reviewTitleEl) reviewTitleEl.textContent = `Rate ${target.providerName || "Plug"}`;
   if (reviewRatingInput) reviewRatingInput.value = "5";
   if (reviewTextInput) reviewTextInput.value = "";
   setReviewStatus("");
@@ -470,7 +470,7 @@ const render = async () => {
           && !reviewedProviderIds.has(request.provider_id);
         card.innerHTML = `
           <div class="job-card-body">
-            <h4>${request.providers?.name || "Provider"}</h4>
+            <h4>${request.providers?.name || "Plug"}</h4>
             <p class="muted">${new Date(request.created_at).toLocaleDateString()}</p>
             <p class="muted">${formatProposalType(request.proposal_type)} • ${formatPricingBasis(request.pricing_basis)}</p>
             <p class="muted">${formatEstimateRange(request.estimated_price_min, request.estimated_price_max)}</p>
@@ -510,7 +510,7 @@ const render = async () => {
               requestId: request.id,
               providerId: request.provider_id,
               providerUserId: request.providers?.owner_id || null,
-              providerName: request.providers?.name || "Provider",
+              providerName: request.providers?.name || "Plug",
             });
           }
         });

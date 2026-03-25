@@ -1,5 +1,5 @@
 /*
-  NLink auth (Supabase) - beta
+  PlugFeed auth (Supabase) - beta
   Replace SUPABASE_URL and SUPABASE_ANON_KEY with your project credentials.
 */
 

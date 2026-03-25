@@ -23,10 +23,25 @@ const normalizeTag = (value) => (
     ? window.NLINK_SERVICE_TAGS.normalizeTag(value)
     : String(value || "").trim().toLowerCase()
 );
-const toCanonicalTag = (value) => (
-  window.NLINK_SERVICE_TAGS?.toCanonicalTag
-    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+const toCanonicalService = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalService
+    ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
     : String(value || "").trim()
+);
+const toCanonicalCategory = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalCategory
+    ? window.NLINK_SERVICE_TAGS.toCanonicalCategory(value)
+    : String(value || "").trim()
+);
+const toCanonicalDiscoveryTerm = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalDiscoveryTerm
+    ? window.NLINK_SERVICE_TAGS.toCanonicalDiscoveryTerm(value)
+    : String(value || "").trim()
+);
+const inferCategoryForService = (service) => (
+  window.NLINK_SERVICE_TAGS?.inferCategoryForService
+    ? window.NLINK_SERVICE_TAGS.inferCategoryForService(service)
+    : ""
 );
 const extractState = (value) => {
   const raw = String(value || "").trim();
@@ -62,10 +77,14 @@ if (window.NLINK_SERVICE_TAGS && filterCategoryTags && filterCategory) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
     container: filterCategoryTags,
     input: filterCategory,
-    options: window.NLINK_SERVICE_TAGS.allServiceTags,
+    options: [
+      ...(window.NLINK_SERVICE_TAGS.categories || []),
+      ...(window.NLINK_SERVICE_TAGS.allServices || window.NLINK_SERVICE_TAGS.allServiceTags || []),
+    ],
     multiple: false,
     allowAll: true,
     allLabel: "All",
+    canonicalize: toCanonicalDiscoveryTerm,
   });
 }
 
@@ -174,10 +193,13 @@ const matchesFilters = (job) => {
   const minBudget = Number(filterBudgetMin.value) || 0;
   const maxBudget = Number(filterBudgetMax.value) || Number.POSITIVE_INFINITY;
 
-  const selectedCategory = !category || category === "all" ? "all" : toCanonicalTag(category);
-  const jobCategory = toCanonicalTag(job.category || "");
+  const selectedCategory = !category || category === "all" ? "all" : toCanonicalDiscoveryTerm(category);
+  const jobService = toCanonicalService(job.category || "");
+  const selectedAsCategory = toCanonicalCategory(selectedCategory);
   const matchesCategory = selectedCategory === "all"
-    || normalizeTag(jobCategory) === normalizeTag(selectedCategory);
+    || (selectedAsCategory === selectedCategory
+      ? inferCategoryForService(jobService) === selectedAsCategory
+      : normalizeTag(jobService) === normalizeTag(toCanonicalService(selectedCategory)));
   const matchesBudget = job.budget_max >= minBudget && job.budget_min <= maxBudget;
 
   return matchesCategory && matchesBudget;

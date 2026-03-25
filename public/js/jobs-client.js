@@ -20,11 +20,11 @@ const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackAvatar = "../assets/blankpropic.png";
 let jobEventsTableAvailable = true;
-const toCanonicalTag = (value) => (
-  window.NLINK_SERVICE_TAGS?.toCanonicalTag
-    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+const toCanonicalService = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalService
+    ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
     : String(value || "").trim()
 );
 
@@ -101,7 +101,7 @@ const getClientSnapshot = async (user) => {
   const profile = await selectClientProfile(user.id);
   const meta = user.user_metadata || {};
   return {
-    client_name: profile?.full_name || meta.client_name || user.email?.split("@")[0] || "Client",
+    client_name: profile?.full_name || meta.client_name || user.email?.split("@")[0] || "Neighbor",
     client_avatar_url: profile?.avatar_url || meta.client_avatar_url || fallbackAvatar,
     client_location_public: toPublicLocation(profile?.location || profile?.address || meta.client_location || ""),
     client_email_verified: Boolean(profile?.email_verified ?? meta.client_email_verified ?? user.email_confirmed_at),
@@ -112,8 +112,9 @@ if (window.NLINK_SERVICE_TAGS && categoryTagsEl && categoryInput) {
   window.NLINK_SERVICE_TAGS.renderTagPicker({
     container: categoryTagsEl,
     input: categoryInput,
-    options: window.NLINK_SERVICE_TAGS.allServiceTags,
+    options: window.NLINK_SERVICE_TAGS.allServices || window.NLINK_SERVICE_TAGS.allServiceTags,
     multiple: false,
+    canonicalize: toCanonicalService,
   });
 }
 
@@ -152,7 +153,7 @@ const renderJobs = async () => {
   if (!user) return;
   const profile = await selectClientProfile(user.id);
   const meta = user.user_metadata || {};
-  const clientName = profile?.full_name || meta.client_name || user.email?.split("@")[0] || "Client";
+  const clientName = profile?.full_name || meta.client_name || user.email?.split("@")[0] || "Neighbor";
   const clientAvatar = profile?.avatar_url || meta.client_avatar_url || fallbackAvatar;
   const clientArea = toPublicLocation(profile?.location || profile?.address || meta.client_location || "");
 
@@ -236,7 +237,7 @@ form?.addEventListener("submit", async (event) => {
   if (!user) return;
 
   const title = titleInput.value.trim();
-  const category = toCanonicalTag(categoryInput.value);
+  const category = toCanonicalService(categoryInput.value);
   const description = descriptionInput.value.trim();
   const location = locationInput.value.trim();
   const budgetMin = Number(budgetMinInput.value);

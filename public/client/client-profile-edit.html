@@ -8,14 +8,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" href="../favicon.ico" />
-  <title>NLink - Edit Client Profile</title>
+  <title>PlugFeed - Edit Neighbor Profile</title>
 </head>
 <body class="profile-edit-page">
   <main class="screen client-profile-edit">
     <header class="topbar minimal">
       <a class="ghost-button" href="../client/client-profile.html">Back</a>
       <div class="topbar-title">
-        <p class="kicker">Edit profile</p>
+        <p class="kicker">Profile</p>
         <h1>Edit profile</h1>
       </div>
       <span></span>
@@ -40,18 +40,24 @@
           <div class="upload-field">
             <span>Or choose a preset banner color</span>
             <div class="banner-presets" id="client-banner-presets">
-              <button type="button" class="color-swatch" data-banner-color="#0f172a" style="--swatch:#0f172a;" aria-label="Navy"></button>
-              <button type="button" class="color-swatch" data-banner-color="#1f2937" style="--swatch:#1f2937;" aria-label="Charcoal"></button>
-              <button type="button" class="color-swatch" data-banner-color="#1d4ed8" style="--swatch:#1d4ed8;" aria-label="Blue"></button>
-              <button type="button" class="color-swatch" data-banner-color="#0b8a6a" style="--swatch:#0b8a6a;" aria-label="Green"></button>
-              <button type="button" class="color-swatch" data-banner-color="#7c3aed" style="--swatch:#7c3aed;" aria-label="Indigo"></button>
-              <button type="button" class="color-swatch" data-banner-color="#b45309" style="--swatch:#b45309;" aria-label="Amber"></button>
+              <button type="button" class="color-swatch" data-banner-color="#ef4444" style="--swatch:#ef4444;" aria-label="Red"></button>
+              <button type="button" class="color-swatch" data-banner-color="#f97316" style="--swatch:#f97316;" aria-label="Orange"></button>
+              <button type="button" class="color-swatch" data-banner-color="#facc15" style="--swatch:#facc15;" aria-label="Yellow"></button>
+              <button type="button" class="color-swatch" data-banner-color="#84cc16" style="--swatch:#84cc16;" aria-label="Lime"></button>
+              <button type="button" class="color-swatch" data-banner-color="#22c55e" style="--swatch:#22c55e;" aria-label="Green"></button>
+              <button type="button" class="color-swatch" data-banner-color="#14b8a6" style="--swatch:#14b8a6;" aria-label="Teal"></button>
+              <button type="button" class="color-swatch" data-banner-color="#3b82f6" style="--swatch:#3b82f6;" aria-label="Blue"></button>
+              <button type="button" class="color-swatch" data-banner-color="#8b5cf6" style="--swatch:#8b5cf6;" aria-label="Purple"></button>
+              <button type="button" class="color-swatch" data-banner-color="#ec4899" style="--swatch:#ec4899;" aria-label="Pink"></button>
+              <button type="button" class="color-swatch" data-banner-color="#a16207" style="--swatch:#a16207;" aria-label="Brown"></button>
+              <button type="button" class="color-swatch" data-banner-color="#64748b" style="--swatch:#64748b;" aria-label="Slate"></button>
+              <button type="button" class="color-swatch" data-banner-color="#111827" style="--swatch:#111827;" aria-label="Black"></button>
             </div>
           </div>
           <div class="client-hero client-edit-preview">
             <div class="client-hero-bg" id="client-edit-hero-bg"></div>
             <div class="client-avatar-wrap">
-              <img src="../assets/nlinkiconblk.png" alt="Profile preview" id="client-edit-avatar-preview" />
+              <img src="../assets/blankpropic.png" alt="Profile preview" id="client-edit-avatar-preview" />
             </div>
           </div>
         </article>
@@ -196,6 +202,7 @@
 
   <nav class="bottom-nav">
     <a href="../client/discover.html">Discover</a>
+    <a href="../client/community.html">Community</a>
     <a href="../client/client-jobs.html">Jobs</a>
     <a href="../client/client-messages.html">Messages</a>
     <a class="active" href="../client/client-profile.html">Profile</a>

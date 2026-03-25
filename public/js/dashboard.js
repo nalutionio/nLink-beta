@@ -6,6 +6,7 @@ const clientReady = Boolean(supabase);
 const statusEl = document.getElementById("dashboard-status");
 const form = document.getElementById("profile-form");
 const nameInput = document.getElementById("profile-name");
+const mainCategoryInput = document.getElementById("profile-main-category");
 const categoryInput = document.getElementById("profile-category");
 const locationInput = document.getElementById("profile-location");
 const budgetInput = document.getElementById("profile-budget");
@@ -66,29 +67,79 @@ const labelProfile = labels.profile || {};
 const labelPricing = labels.pricing || {};
 const labelActions = labels.actions || {};
 const labelBeta = labels.beta || {};
-const serviceTagOptions = window.NLINK_SERVICE_TAGS?.allServiceTags || [];
+const serviceCategories = window.NLINK_SERVICE_TAGS?.categories || [];
+const allServices = window.NLINK_SERVICE_TAGS?.allServices || window.NLINK_SERVICE_TAGS?.allServiceTags || [];
+const toCanonicalCategory = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalCategory
+    ? window.NLINK_SERVICE_TAGS.toCanonicalCategory(value)
+    : String(value || "").trim()
+);
+const toCanonicalService = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalService
+    ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
+    : String(value || "").trim()
+);
+const inferCategoryForService = (service) => (
+  window.NLINK_SERVICE_TAGS?.inferCategoryForService
+    ? window.NLINK_SERVICE_TAGS.inferCategoryForService(service)
+    : ""
+);
+const getServicesForCategory = (category) => (
+  window.NLINK_SERVICE_TAGS?.getServicesForCategory
+    ? window.NLINK_SERVICE_TAGS.getServicesForCategory(category)
+    : []
+);
+const getTagsForService = (service) => (
+  window.NLINK_SERVICE_TAGS?.getTagsForService
+    ? window.NLINK_SERVICE_TAGS.getTagsForService(service)
+    : []
+);
 
-if (categoryInput && serviceTagOptions.length) {
-  const existing = new Set(Array.from(categoryInput.options).map((option) => option.value));
-  serviceTagOptions.forEach((tag) => {
-    if (existing.has(tag)) return;
+const populateMainCategoryOptions = (selected = "") => {
+  if (!mainCategoryInput) return;
+  const selectedValue = toCanonicalCategory(selected);
+  mainCategoryInput.innerHTML = '<option value="">Select a category</option>';
+  const base = serviceCategories.length ? serviceCategories : [];
+  const options = selectedValue && !base.includes(selectedValue) ? [...base, selectedValue] : base;
+  options.forEach((category) => {
     const option = document.createElement("option");
-    option.value = tag;
-    option.textContent = tag;
+    option.value = category;
+    option.textContent = category;
+    mainCategoryInput.appendChild(option);
+  });
+  mainCategoryInput.value = selectedValue || "";
+};
+
+const populatePrimaryServiceOptions = (categoryValue = "", selected = "") => {
+  if (!categoryInput) return;
+  const selectedService = toCanonicalService(selected);
+  const byCategory = getServicesForCategory(categoryValue);
+  const list = byCategory.length ? byCategory : allServices;
+  categoryInput.innerHTML = '<option value="">Select a service</option>';
+  const options = selectedService && !list.includes(selectedService) ? [...list, selectedService] : list;
+  options.forEach((service) => {
+    const option = document.createElement("option");
+    option.value = service;
+    option.textContent = service;
     categoryInput.appendChild(option);
   });
-}
+  categoryInput.value = selectedService || "";
+};
 
-if (servicesInput && serviceTagOptions.length) {
-  const existing = new Set(Array.from(servicesInput.options).map((option) => option.value));
-  serviceTagOptions.forEach((tag) => {
-    if (existing.has(tag)) return;
+const populateServiceTagOptions = (serviceValue = "", selectedValues = []) => {
+  if (!servicesInput) return;
+  const tags = getTagsForService(serviceValue);
+  const selected = Array.isArray(selectedValues) ? selectedValues : normalizeServices(selectedValues || "");
+  const options = tags.length ? tags : selected;
+  servicesInput.innerHTML = "";
+  options.forEach((tag) => {
     const option = document.createElement("option");
     option.value = tag;
     option.textContent = tag;
+    option.selected = selected.includes(tag);
     servicesInput.appendChild(option);
   });
-}
+};
 
 const state = {
   user: null,
@@ -105,6 +156,8 @@ const state = {
     reviews: [],
   },
   meta: {
+    serviceCategory: "",
+    primaryService: "",
     tagline: "",
     services: [],
     availability: "",
@@ -377,6 +430,8 @@ const renderDashboardComments = () => {
 
 const syncMetaFromInputs = () => {
   state.meta = {
+    serviceCategory: toCanonicalCategory(mainCategoryInput?.value.trim() || inferCategoryForService(categoryInput?.value.trim() || "")),
+    primaryService: toCanonicalService(categoryInput?.value.trim() || ""),
     tagline: taglineInput?.value.trim() || "",
     services: getSelectedServiceTags(),
     availability: availabilityInput?.value.trim() || "",
@@ -397,6 +452,15 @@ const syncMetaFromInputs = () => {
 };
 
 const applyMetaToInputs = () => {
+  const resolvedPrimaryService = toCanonicalService(state.meta.primaryService || state.provider?.category || "");
+  const resolvedServiceCategory = toCanonicalCategory(
+    state.meta.serviceCategory
+    || inferCategoryForService(resolvedPrimaryService)
+    || "",
+  );
+  populateMainCategoryOptions(resolvedServiceCategory);
+  populatePrimaryServiceOptions(resolvedServiceCategory, resolvedPrimaryService);
+  populateServiceTagOptions(resolvedPrimaryService, state.meta.services || []);
   if (taglineInput) taglineInput.value = state.meta.tagline || "";
   setSelectedServiceTags(state.meta.services || []);
   if (availabilityInput) availabilityInput.value = state.meta.availability || "";
@@ -416,6 +480,8 @@ const applyMetaToInputs = () => {
 };
 
 const normalizeMeta = (value) => ({
+  serviceCategory: value?.service_category || value?.serviceCategory || "",
+  primaryService: value?.primary_service || value?.primaryService || "",
   tagline: value?.tagline || "",
   services: Array.isArray(value?.services) ? value.services : [],
   availability: value?.availability || "",
@@ -448,6 +514,8 @@ const pickBestMetaRow = (rows) => {
     let total = 0;
     total += statusPriority(row?.listing_status) * 100;
     if (Array.isArray(row?.services) && row.services.length > 0) total += 1;
+    if (row?.service_category) total += 1;
+    if (row?.primary_service) total += 1;
     if (row?.phone) total += 1;
     if (row?.address) total += 1;
     if (row?.pricing_details) total += 1;
@@ -478,9 +546,22 @@ const getListingStatusFromMetadata = () => {
   return (status === "published" || status === "paused" || status === "draft") ? status : null;
 };
 
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
+};
+
 const persistListingStatusToMetadata = async (status) => {
   if (!supabase || !state.user?.id || !status) return;
-  const metadata = state.user.user_metadata || {};
+  const metadata = sanitizeAuthMetadata(state.user.user_metadata || {});
   const current = metadata.provider_listing_status;
   if (current === status) return;
   const payload = {
@@ -683,7 +764,7 @@ const loadProviderMetrics = async () => {
         reviewRows = jobReviewsResult.data.map((row) => ({
           rating: row.rating,
           text: row.review_text || "",
-          reviewer_name: row.reviewer_role === "client" ? "Client" : "Anonymous",
+          reviewer_name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
         }));
         reviewError = null;
       } else {
@@ -762,7 +843,7 @@ const loadProviderMetrics = async () => {
 };
 
 const updateProviderRow = async (changes) => {
-  if (!state.provider?.id) throw new Error("Provider profile not found.");
+  if (!state.provider?.id) throw new Error("Plug profile not found.");
   const providerId = state.provider.id;
   const { data: ownerScopedRows, error: ownerScopedError } = await supabase
     .from("providers")
@@ -776,7 +857,7 @@ const updateProviderRow = async (changes) => {
     await reloadProviderById(providerId);
     const applied = state.provider
       && Object.entries(changes).every(([key, value]) => state.provider[key] === value);
-    if (!applied) throw new Error("Provider update did not persist.");
+    if (!applied) throw new Error("Plug update did not persist.");
     localStorage.setItem(primaryProviderKey, state.provider.id);
     return state.provider;
   }
@@ -866,7 +947,7 @@ const updateProviderRow = async (changes) => {
     await reloadProviderById(providerId);
     const appliedFallback = state.provider
       && Object.entries(changes).every(([key, value]) => state.provider[key] === value);
-    if (!appliedFallback) throw new Error("Provider update did not persist.");
+    if (!appliedFallback) throw new Error("Plug update did not persist.");
     localStorage.setItem(primaryProviderKey, state.provider.id);
     return state.provider;
   }
@@ -904,22 +985,34 @@ const loadProviderMetaFromBackend = async () => {
     return;
   }
 
+  let profileRows = [];
   const { data, error } = await supabase
     .from("provider_profiles")
-    .select("tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
+    .select("service_category,primary_service,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
     .eq("provider_id", state.provider.id)
     .limit(10);
+  profileRows = Array.isArray(data) ? data : [];
 
   if (error) {
-    if (error.code === "42P01" || error.code === "42703") {
+    if (error.code === "42P01") {
       profileMetaBackendAvailable = false;
       state.meta = normalizeMeta(localMeta || state.meta);
       return;
     }
-    throw error;
+    if (error.code === "42703" || error.code === "PGRST204") {
+      const fallback = await supabase
+        .from("provider_profiles")
+        .select("tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
+        .eq("provider_id", state.provider.id)
+        .limit(10);
+      if (fallback.error) throw fallback.error;
+      profileRows = Array.isArray(fallback.data) ? fallback.data : [];
+    } else {
+      throw error;
+    }
   }
 
-  const picked = pickBestMetaRow(data);
+  const picked = pickBestMetaRow(profileRows);
   state.meta = normalizeMeta(picked || localMeta || state.meta);
   const metadataStatus = getListingStatusFromMetadata();
   if (metadataStatus) state.meta.listingStatus = metadataStatus;
@@ -942,6 +1035,8 @@ const saveProviderMetaToBackend = async () => {
   const payload = {
     provider_id: state.provider.id,
     owner_id: state.user.id,
+    service_category: state.meta.serviceCategory || null,
+    primary_service: state.meta.primaryService || null,
     tagline: state.meta.tagline || null,
     services: Array.isArray(state.meta.services) ? state.meta.services : [],
     availability: state.meta.availability || null,
@@ -1071,11 +1166,10 @@ const updatePreview = () => {
   }
 
   const metadataAvatar = state.user?.user_metadata?.provider_avatar_url || "";
-  const metadataBanner = state.user?.user_metadata?.provider_banner_url || "";
-  const bannerSrc = provider.banner_url || provider.hero_url || metadataBanner || "../assets/nlinkblack.png";
+  const bannerSrc = provider.banner_url || provider.hero_url || "../assets/plugFeedlogo-rmbg.png";
   const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/nlinkiconblk.png";
   if (dashboardHeadlineEl) {
-    dashboardHeadlineEl.textContent = `Good morning, ${provider.name || "Provider"}.`;
+    dashboardHeadlineEl.textContent = `Good morning, ${provider.name || "Plug"}.`;
   }
   if (providerNameHeaderEl) providerNameHeaderEl.textContent = provider.name || (labelCommon.unavailable || "Not provided");
   if (providerAvatarHeaderEl) providerAvatarHeaderEl.src = avatarSrc;
@@ -1480,11 +1574,10 @@ const renderFullProfileMarkup = () => {
     : `<p class="muted">${labelRating.noReviews || "No reviews yet"}</p>`;
 
   const metadataAvatar = state.user?.user_metadata?.provider_avatar_url || "";
-  const metadataBanner = state.user?.user_metadata?.provider_banner_url || "";
   return `
     <div class="profile-banner-wrap">
       <div class="profile-banner">
-        <img src="${provider.banner_url || provider.hero_url || metadataBanner || "../assets/nlinkblack.png"}" alt="${provider.name || "Business"} banner" />
+        <img src="${provider.banner_url || provider.hero_url || "../assets/plugFeedlogo-rmbg.png"}" alt="${provider.name || "Business"} banner" />
         <div class="profile-banner-overlay"></div>
       </div>
       <div class="profile-avatar">
@@ -1687,9 +1780,11 @@ const getProviderPayloadFromForm = () => {
   if (!nameInput || !categoryInput || !locationInput || !budgetInput || !descriptionInput) return null;
   const budgetRange = parseBudgetRange(budgetInput.value.trim());
   if (!budgetRange) return null;
+  const primaryService = toCanonicalService(categoryInput.value.trim());
+  if (!primaryService) return null;
   return {
     name: nameInput.value.trim(),
-    category: categoryInput.value.trim(),
+    category: primaryService,
     location: locationInput.value.trim(),
     budget_min: budgetRange.min,
     budget_max: budgetRange.max,
@@ -1709,7 +1804,7 @@ const ensureProviderExistsForUpload = async () => {
 
 const init = async () => {
   if (!clientReady) {
-    setStatus("Supabase is not configured. Provider profile editing is disabled.", "error");
+    setStatus("Supabase is not configured. Plug profile editing is disabled.", "error");
     return;
   }
 
@@ -1763,10 +1858,10 @@ const init = async () => {
     state.provider = resolvedProvider;
     localStorage.setItem(primaryProviderKey, resolvedProvider.id);
     if (nameInput) nameInput.value = resolvedProvider.name || "";
-    if (categoryInput) {
-      ensureSelectHasOption(categoryInput, resolvedProvider.category || "");
-      categoryInput.value = resolvedProvider.category || "";
-    }
+    const primaryService = toCanonicalService(resolvedProvider.category || "");
+    const serviceCategory = toCanonicalCategory(inferCategoryForService(primaryService) || "");
+    if (mainCategoryInput) populateMainCategoryOptions(serviceCategory);
+    if (categoryInput) populatePrimaryServiceOptions(serviceCategory, primaryService);
     if (locationInput) locationInput.value = resolvedProvider.location || "";
     if (budgetInput) budgetInput.value = `${resolvedProvider.budget_min || 0}-${resolvedProvider.budget_max || 0}`;
     if (descriptionInput) descriptionInput.value = resolvedProvider.description || "";
@@ -1807,6 +1902,17 @@ const updateStateFromForm = () => {
 };
 
 form?.addEventListener("input", updateStateFromForm);
+mainCategoryInput?.addEventListener("change", () => {
+  const selectedCategory = toCanonicalCategory(mainCategoryInput.value);
+  populatePrimaryServiceOptions(selectedCategory, "");
+  populateServiceTagOptions("", []);
+  updateStateFromForm();
+});
+categoryInput?.addEventListener("change", () => {
+  const selectedService = toCanonicalService(categoryInput.value);
+  populateServiceTagOptions(selectedService, state.meta.services || []);
+  updateStateFromForm();
+});
 
 const saveProfile = async ({ desiredStatus = null, redirectAfterSave = false } = {}) => {
   if (!state.provider || !nameInput || !categoryInput || !locationInput || !budgetInput || !descriptionInput) return false;
@@ -2044,6 +2150,10 @@ galleryUpload?.addEventListener("change", async (event) => {
     event.target.value = "";
   }
 });
+
+populateMainCategoryOptions(mainCategoryInput?.value || "");
+populatePrimaryServiceOptions(mainCategoryInput?.value || "", categoryInput?.value || "");
+populateServiceTagOptions(categoryInput?.value || "", getSelectedServiceTags());
 
 init();
 

@@ -2,6 +2,10 @@
 
 Mobile-first swipe-based business discovery marketplace (beta).
 
+## Current Planning Doc
+- `PHASE0_PRODUCT_LOCK.md` Product rules, terminology lock, Community MVP scope, and KPI baseline for PlugFeed Phase 0.
+- `PHASE1_FOUNDATION_PLAN.md` Step-by-step execution plan for Community schema + guardrails.
+
 ## Quick Start
 - Run `./serve.sh` from project root.
 - Open `http://localhost:5173/shared/auth-choice.html`.
@@ -94,6 +98,14 @@ Run this to enable client-provider job messaging:
 ### Patch For Dual-Role Guardrails
 Run this to prevent self-proposals/self-messaging (client+provider same account):
 - `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/self_interaction_guards.sql`
+
+### Community Phase 1 Foundation
+Run this to create Community data model + role guardrails baseline:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/community_phase1_foundation.sql`
+Then run verification:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/community_phase1_verification.sql`
+Then run behavior tests:
+- `/Users/aanyahcook/Documents/naluprojects/nLink-beta/supabase/community_phase1_behavior_tests.sql`
 
 ## Smoke Test Checklist (Before Every Push)
 1. Auth flow:

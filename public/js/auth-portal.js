@@ -59,6 +59,18 @@ const getRolesFromMetadata = (metadata) => {
 };
 
 const userHasRole = (user, role) => getRolesFromMetadata(user?.user_metadata).includes(role);
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
+};
 
 const hasProviderProfile = async (userId) => {
   if (!authSupabase || !userId) return false;
@@ -153,7 +165,7 @@ const handleSubmit = async (event) => {
         if (!providerExists && isOnboardingComplete(user, pageRole)) {
           await authSupabase.auth.signOut();
           setStatus(
-            "Provider profile not found. Use Provider Create Account with the same email/password to re-enable provider access.",
+            "Plug profile not found. Use Plug Create Account with the same email/password to re-enable plug access.",
             "error",
           );
           return;
@@ -203,7 +215,7 @@ const handleSubmit = async (event) => {
         const nextRoles = [...existingRoles, pageRole];
         const { error: updateError } = await authSupabase.auth.updateUser({
           data: {
-            ...(existingUser.user_metadata || {}),
+            ...sanitizeAuthMetadata(existingUser.user_metadata || {}),
             roles: nextRoles,
             role: existingUser.user_metadata?.role || nextRoles[0] || "client",
             provider_business_name: pageRole === "provider"
@@ -215,7 +227,7 @@ const handleSubmit = async (event) => {
         if (updateError) throw updateError;
 
         setLastActiveRole(pageRole);
-        setStatus(`${pageRole === "provider" ? "Provider" : "Client"} access added. Redirecting...`, "success");
+        setStatus(`${pageRole === "provider" ? "Plug" : "Neighbor"} access added. Redirecting...`, "success");
         window.setTimeout(() => {
           window.location.href = routeAfterAuth(existingData.user, pageRole);
         }, 900);
@@ -256,7 +268,7 @@ const setupVerifyPendingPage = async () => {
   const query = new URLSearchParams(window.location.search);
   const role = query.get("role") || pending?.role || "client";
   const email = query.get("email") || pending?.email || "";
-  const roleLabel = role === "provider" ? "Provider" : "Client";
+  const roleLabel = role === "provider" ? "Plug" : "Neighbor";
 
   setText("verify-role-label", roleLabel);
   setText("verify-email-value", email || "your email");

@@ -71,8 +71,8 @@ const renderThreads = () => {
     item.className = `message-thread-item ${state.selectedProviderId === provider.providerId ? "active" : ""}`;
     item.type = "button";
     item.innerHTML = `
-      <img class="message-thread-avatar" src="${provider.providerAvatar || fallbackAvatar}" alt="${provider.providerName || "Provider"}" />
-      <strong>${provider.providerName || "Provider"}</strong>
+      <img class="message-thread-avatar" src="${provider.providerAvatar || fallbackAvatar}" alt="${provider.providerName || "Plug"}" />
+      <strong>${provider.providerName || "Plug"}</strong>
       <p class="muted">${provider.jobCount > 0 ? `${provider.jobCount} ${provider.jobCount === 1 ? "job" : "jobs"}` : "Direct chat"}</p>
       <span class="message-thread-kind ${provider.channel === "direct" ? "direct" : "job"}">${provider.channel === "direct" ? "Direct" : "Job"}</span>
       <p class="muted">${provider.preview || "No messages yet."}</p>
@@ -99,7 +99,7 @@ const renderMessages = () => {
     return;
   }
 
-  if (threadTitleEl) threadTitleEl.textContent = provider.providerName || "Provider";
+  if (threadTitleEl) threadTitleEl.textContent = provider.providerName || "Plug";
   if (sendEl) sendEl.disabled = false;
 
   const rows = provider.messages || [];
@@ -210,7 +210,7 @@ const hydrate = async () => {
     if (!providersById[row.provider_id]) {
       providersById[row.provider_id] = {
         providerId: row.provider_id,
-        providerName: row.providers?.name || "Provider",
+        providerName: row.providers?.name || "Plug",
         providerOwnerId: row.providers?.owner_id || "",
         providerAvatar: row.providers?.avatar_url || fallbackAvatar,
         preview: "",
@@ -241,7 +241,7 @@ const hydrate = async () => {
     if (!providersById[row.provider_id]) {
       providersById[row.provider_id] = {
         providerId: row.provider_id,
-        providerName: "Provider",
+        providerName: "Plug",
         providerAvatar: fallbackAvatar,
         preview: "",
         lastMessageAt: row.created_at,
@@ -270,7 +270,7 @@ const hydrate = async () => {
     if (!providersById[row.provider_id]) {
       providersById[row.provider_id] = {
         providerId: row.provider_id,
-        providerName: "Provider",
+        providerName: "Plug",
         providerAvatar: fallbackAvatar,
         preview: "",
         lastMessageAt: row.created_at,
@@ -294,7 +294,7 @@ const hydrate = async () => {
   Object.values(providersById).forEach((provider) => {
     const meta = providerMetaById[provider.providerId];
     if (!meta) return;
-    if (!provider.providerName || provider.providerName === "Provider") {
+    if (!provider.providerName || provider.providerName === "Plug") {
       provider.providerName = meta.name || provider.providerName;
     }
     if (!provider.providerAvatar || provider.providerAvatar === fallbackAvatar) {
@@ -308,7 +308,7 @@ const hydrate = async () => {
   if (queryProviderId && !state.providers.find((provider) => provider.providerId === queryProviderId)) {
     state.providers.unshift({
       providerId: queryProviderId,
-      providerName: previewProvider?.name || queryProviderName || "Provider",
+      providerName: previewProvider?.name || queryProviderName || "Plug",
       providerOwnerId: previewProvider?.owner_id || "",
       providerAvatar: previewProvider?.avatar_url || queryProviderAvatar || fallbackAvatar,
       preview: "",
@@ -324,7 +324,7 @@ const hydrate = async () => {
   if (queryProviderId) {
     const existing = state.providers.find((provider) => provider.providerId === queryProviderId);
     if (existing) {
-      if ((!existing.providerName || existing.providerName === "Provider") && queryProviderName) {
+      if ((!existing.providerName || existing.providerName === "Plug") && queryProviderName) {
         existing.providerName = queryProviderName;
       }
       if ((!existing.providerAvatar || existing.providerAvatar === fallbackAvatar) && queryProviderAvatar) {

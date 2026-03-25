@@ -12,7 +12,9 @@ const statusEl = document.getElementById("provider-onboarding-status");
 const stepCounterEl = document.getElementById("provider-step-counter");
 
 const nameInput = document.getElementById("provider-name");
+const mainCategoryInput = document.getElementById("provider-main-category");
 const categoryInput = document.getElementById("provider-category");
+const serviceTagsInput = document.getElementById("provider-service-tags");
 const locationInput = document.getElementById("provider-location");
 const budgetInput = document.getElementById("provider-budget");
 const descriptionInput = document.getElementById("provider-description");
@@ -31,15 +33,60 @@ const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif"]);
 
-if (window.NLINK_SERVICE_TAGS && categoryInput) {
-  const tags = window.NLINK_SERVICE_TAGS.allServiceTags || [];
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
+};
+
+if (window.NLINK_SERVICE_TAGS && mainCategoryInput) {
+  const categories = window.NLINK_SERVICE_TAGS.categories || [];
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    mainCategoryInput?.appendChild(option);
+  });
+}
+
+const resetServiceOptions = (categoryValue = "") => {
+  if (!categoryInput) return;
+  categoryInput.innerHTML = '<option value="">Select a service</option>';
+  const services = window.NLINK_SERVICE_TAGS?.getServicesForCategory?.(categoryValue) || [];
+  services.forEach((service) => {
+    const option = document.createElement("option");
+    option.value = service;
+    option.textContent = service;
+    categoryInput.appendChild(option);
+  });
+};
+
+const resetServiceTagOptions = (serviceValue = "") => {
+  if (!serviceTagsInput) return;
+  serviceTagsInput.innerHTML = "";
+  const tags = window.NLINK_SERVICE_TAGS?.getTagsForService?.(serviceValue) || [];
   tags.forEach((tag) => {
     const option = document.createElement("option");
     option.value = tag;
     option.textContent = tag;
-    categoryInput.appendChild(option);
+    serviceTagsInput.appendChild(option);
   });
-}
+};
+
+const getSelectedServiceTags = () => {
+  if (!serviceTagsInput) return [];
+  return Array.from(serviceTagsInput.selectedOptions)
+    .map((option) => option.value)
+    .filter(Boolean)
+    .slice(0, 8);
+};
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
@@ -111,8 +158,8 @@ const renderStep = () => {
 };
 
 const validateStep = () => {
-  if (stepIndex === 0 && (!nameInput.value.trim() || !categoryInput.value.trim())) {
-    setStatus("Add business name and category.", "error");
+  if (stepIndex === 0 && (!nameInput.value.trim() || !mainCategoryInput?.value.trim() || !categoryInput.value.trim())) {
+    setStatus("Add business name, category, and primary service.", "error");
     return false;
   }
   if (stepIndex === 1) {
@@ -287,6 +334,9 @@ form?.addEventListener("submit", async (event) => {
     const profilePayload = {
       provider_id: providerId,
       owner_id: user.id,
+      service_category: mainCategoryInput?.value.trim() || "",
+      primary_service: categoryInput.value.trim(),
+      services: getSelectedServiceTags(),
       listing_status: "draft",
       profile_completion: 0,
     };
@@ -301,6 +351,7 @@ form?.addEventListener("submit", async (event) => {
       const legacyPayload = {
         provider_id: providerId,
         owner_id: user.id,
+        services: getSelectedServiceTags(),
       };
       if (phoneFromMetadata) legacyPayload.phone = phoneFromMetadata;
       const { error: legacyProfileError } = await providerOnboardSupabase
@@ -315,13 +366,12 @@ form?.addEventListener("submit", async (event) => {
 
     const { error: metadataError } = await providerOnboardSupabase.auth.updateUser({
       data: {
-        ...(user.user_metadata || {}),
+        ...sanitizeAuthMetadata(user.user_metadata || {}),
         role: user.user_metadata?.role || "provider",
         roles,
         onboarding_provider_complete: true,
         provider_business_name: providerPayload.name,
         provider_avatar_url: finalProviderPayload.avatar_url || "",
-        provider_banner_url: finalProviderPayload.banner_url || "",
       },
     });
     if (metadataError) throw metadataError;
@@ -370,4 +420,16 @@ bannerPresetWrap?.querySelectorAll("[data-banner-color]").forEach((button) => {
   });
 });
 
+mainCategoryInput?.addEventListener("change", () => {
+  const nextCategory = mainCategoryInput.value.trim();
+  resetServiceOptions(nextCategory);
+  resetServiceTagOptions("");
+});
+
+categoryInput?.addEventListener("change", () => {
+  resetServiceTagOptions(categoryInput.value.trim());
+});
+
 prefillFromMetadata();
+resetServiceOptions(mainCategoryInput?.value || "");
+resetServiceTagOptions(categoryInput?.value || "");

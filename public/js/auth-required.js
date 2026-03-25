@@ -30,6 +30,10 @@ const injectRoleSwitch = (roles, path) => {
   const targetRole = isProviderArea ? "client" : "provider";
   if ((targetRole === "client" && !hasClient) || (targetRole === "provider" && !hasProvider)) return;
 
+  const isClientProfilePage = path.includes("/client/client-profile.html");
+  const isProviderProfilePage = path.includes("/provider/profile.html");
+  if (!(isClientProfilePage || isProviderProfilePage)) return;
+
   const header = document.querySelector(".topbar, .app-header");
   if (!header) return;
 
@@ -41,7 +45,9 @@ const injectRoleSwitch = (roles, path) => {
     header.appendChild(switchLink);
   }
 
-  switchLink.textContent = targetRole === "provider" ? "Switch to Provider" : "Switch to Client";
+  switchLink.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">swap_horiz</span>';
+  switchLink.setAttribute("aria-label", targetRole === "provider" ? "Switch to Plug" : "Switch to Neighbor");
+  switchLink.title = targetRole === "provider" ? "Switch to Plug" : "Switch to Neighbor";
   switchLink.href = dashboardForRole(targetRole);
   switchLink.addEventListener("click", () => {
     localStorage.setItem("nlink_last_role", targetRole);

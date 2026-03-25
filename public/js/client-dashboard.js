@@ -84,7 +84,7 @@ const renderPreviousProviders = (rows, providerById) => {
   }
   rows.slice(0, 3).forEach((row) => {
     const provider = providerById[row.provider_id] || null;
-    const name = provider?.name || "Provider";
+    const name = provider?.name || "Plug";
     const avatar = provider?.avatar_url || fallbackAvatar;
     const location = provider?.location || "";
     const item = document.createElement("div");

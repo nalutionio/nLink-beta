@@ -13,8 +13,8 @@
   const infoAddressEl = document.getElementById("client-info-address");
   const infoLocationEl = document.getElementById("client-info-location");
 
-  const fallbackAvatar = "../assets/nlinkiconblk.png";
-  const fallbackName = (email) => (email ? email.split("@")[0] : "Client");
+  const fallbackAvatar = "../assets/blankpropic.png";
+  const fallbackName = (email) => (email ? email.split("@")[0] : "Neighbor");
   const isMissingColumnError = (error) => Boolean(error)
     && ["42703", "PGRST204", "PGRST205"].includes(error.code);
 

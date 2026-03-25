@@ -15,6 +15,19 @@ const locationInput = document.getElementById("client-location");
 
 let stepIndex = 0;
 
+const sanitizeAuthMetadata = (metadata = {}) => {
+  const next = { ...(metadata || {}) };
+  const dropDataImage = (key) => {
+    if (typeof next[key] === "string" && next[key].startsWith("data:image/")) delete next[key];
+  };
+  dropDataImage("client_banner_url");
+  dropDataImage("provider_banner_url");
+  if (next.client_property_profile && typeof next.client_property_profile === "object") {
+    delete next.client_property_profile;
+  }
+  return next;
+};
+
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
   statusEl.textContent = message;
@@ -72,7 +85,7 @@ form?.addEventListener("submit", async (event) => {
     }
 
     const metadata = {
-      ...(user.user_metadata || {}),
+      ...sanitizeAuthMetadata(user.user_metadata || {}),
       onboarding_client_complete: true,
       client_name: nameInput.value.trim(),
       client_location: locationInput.value.trim(),

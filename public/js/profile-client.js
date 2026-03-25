@@ -22,8 +22,8 @@ const propertyCompletionEl = document.getElementById("client-property-completion
 const viewFullProfileButton = document.getElementById("client-view-full-profile");
 let fullProfileState = null;
 
-const fallbackName = (email) => (email ? email.split("@")[0] : "Client");
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackName = (email) => (email ? email.split("@")[0] : "Neighbor");
+const fallbackAvatar = "../assets/blankpropic.png";
 
 const isMissingColumnError = (error) => Boolean(error)
   && ["42703", "PGRST204", "PGRST205"].includes(error.code);
@@ -247,7 +247,7 @@ const loadClientProfile = async () => {
     publicAvatarEl.src = `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
   }
 
-  const bannerUrl = profile?.banner_url || meta.client_banner_url || "";
+  const bannerUrl = profile?.banner_url || "";
   if (heroBgEl && bannerUrl) {
     heroBgEl.style.backgroundImage = `linear-gradient(180deg, rgba(15,23,42,0.2), rgba(15,23,42,0.45)), url('${bannerUrl}')`;
     heroBgEl.style.backgroundSize = "cover";
@@ -267,9 +267,7 @@ const loadClientProfile = async () => {
   }
   const dbOrMetaProfile = (profile?.property_profile && typeof profile.property_profile === "object")
     ? profile.property_profile
-    : (meta.client_property_profile && typeof meta.client_property_profile === "object")
-      ? meta.client_property_profile
-      : {};
+    : {};
   const localProfile = getLocalPropertyProfile();
   const propertyProfile = hasPropertyProfileContent(localProfile)
     ? localProfile

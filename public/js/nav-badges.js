@@ -92,7 +92,7 @@
     box.innerHTML = `
       <div class="nav-badge-legend-card">
         <p><strong>Badge Guide</strong></p>
-        <p>${isProvider ? "Messages = unread client threads • Proposals = newly accepted jobs." : "Messages = unread provider threads • Jobs = proposal status updates."}</p>
+        <p>${isProvider ? "Messages = unread Neighbor threads • Proposals = newly accepted jobs." : "Messages = unread Plug threads • Jobs = proposal status updates."}</p>
         <button class="ghost-button compact" type="button" data-action="close">Got it</button>
       </div>
     `;
