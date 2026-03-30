@@ -29,6 +29,24 @@
         </div>
         <input type="hidden" id="community-post-type" value="ask" />
         <div id="community-post-type-chips" class="community-type-chips"></div>
+        <div class="grid-2">
+          <label class="input-field">
+            <span>Service Category (optional)</span>
+            <select id="community-service-category">
+              <option value="">Select category</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Service (optional)</span>
+            <select id="community-service-name">
+              <option value="">Select service</option>
+            </select>
+          </label>
+        </div>
+        <label class="input-field">
+          <span>Tags (optional)</span>
+          <select id="community-service-tags" multiple size="3"></select>
+        </label>
         <div class="community-compose-actions">
           <button class="ghost-button compact community-quick-action" type="button" data-composer-action="photo" aria-label="Add photo">
             <span class="material-symbols-rounded" aria-hidden="true">image</span>

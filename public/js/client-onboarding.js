@@ -14,6 +14,11 @@ const nameInput = document.getElementById("client-name");
 const locationInput = document.getElementById("client-location");
 
 let stepIndex = 0;
+const normalizeLocation = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
+);
 
 const sanitizeAuthMetadata = (metadata = {}) => {
   const next = { ...(metadata || {}) };
@@ -84,11 +89,20 @@ form?.addEventListener("submit", async (event) => {
       return;
     }
 
+    const normalizedLocation = normalizeLocation(locationInput.value);
+    const validation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(normalizedLocation)
+      || Promise.resolve({ ok: true, normalized: normalizedLocation }));
+    if (!validation.ok) {
+      setStatus(validation.message || "Enter a valid location.", "error");
+      return;
+    }
+    const verifiedLocation = validation.normalized || normalizedLocation;
+    if (locationInput) locationInput.value = verifiedLocation;
     const metadata = {
       ...sanitizeAuthMetadata(user.user_metadata || {}),
       onboarding_client_complete: true,
       client_name: nameInput.value.trim(),
-      client_location: locationInput.value.trim(),
+      client_location: verifiedLocation,
       role: user.user_metadata?.role || "client",
       roles: Array.isArray(user.user_metadata?.roles)
         ? Array.from(new Set([...user.user_metadata.roles, "client"]))
@@ -105,7 +119,7 @@ form?.addEventListener("submit", async (event) => {
         email: user.email,
         email_verified: Boolean(user.email_confirmed_at),
         full_name: nameInput.value.trim(),
-        location: locationInput.value.trim(),
+        location: verifiedLocation,
       }, { onConflict: "user_id" });
     if (profileError) {
       if (!(profileError.code === "42703" || profileError.code === "PGRST204" || profileError.code === "PGRST205")) {

@@ -177,24 +177,17 @@ const loadClientsByIds = async (clientIds) => {
   if (!supabase || !Array.isArray(clientIds) || !clientIds.length) return {};
   const ids = [...new Set(clientIds.filter(Boolean))];
   if (!ids.length) return {};
-  const queries = [
-    "user_id,full_name,avatar_url",
-    "user_id,nick_name,avatar_url",
-    "user_id,avatar_url",
-  ];
-  for (let i = 0; i < queries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(queries[i])
-      .in("user_id", ids);
-    if (!error && Array.isArray(data)) {
-      return data.reduce((acc, row) => {
-        if (row?.user_id) acc[row.user_id] = row;
-        return acc;
-      }, {});
-    }
-    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return {};
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .in("user_id", ids);
+  if (!error && Array.isArray(data)) {
+    return data.reduce((acc, row) => {
+      if (row?.user_id) acc[row.user_id] = row;
+      return acc;
+    }, {});
   }
+  if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return {};
   return {};
 };
 

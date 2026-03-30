@@ -225,10 +225,21 @@ form?.addEventListener("submit", async (event) => {
     }
 
     const budget = parseBudgetRange(budgetInput.value.trim()) || { min: 0, max: 0 };
+    const normalizedLocation = window.NLINK_SERVICE_TAGS?.normalizeLocation
+      ? window.NLINK_SERVICE_TAGS.normalizeLocation(locationInput.value)
+      : String(locationInput.value || "").trim();
+    const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(normalizedLocation)
+      || Promise.resolve({ ok: true, normalized: normalizedLocation }));
+    if (!locationValidation.ok) {
+      setStatus(locationValidation.message || "Enter a valid location.", "error");
+      return;
+    }
+    const verifiedLocation = locationValidation.normalized || normalizedLocation;
+    if (locationInput) locationInput.value = verifiedLocation;
     const providerPayload = {
       name: nameInput.value.trim(),
       category: categoryInput.value.trim(),
-      location: locationInput.value.trim(),
+      location: verifiedLocation,
       budget_min: budget.min,
       budget_max: budget.max,
       description: descriptionInput.value.trim(),

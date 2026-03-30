@@ -46,6 +46,11 @@ const toCanonicalTag = (value) => (
     ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
     : String(value || "").trim()
 );
+const normalizeLocation = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
+);
 let editMode = false;
 let jobEventsTableAvailable = true;
 let jobReviewsTableAvailable = true;
@@ -334,13 +339,21 @@ const saveInlineEdit = async () => {
   const title = editTitleInput?.value.trim() || "";
   const category = toCanonicalTag(editCategoryInput?.value || "");
   const description = editDescriptionInput?.value.trim() || "";
-  const location = editLocationInput?.value.trim() || "";
+  const location = normalizeLocation(editLocationInput?.value || "");
+  const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(location)
+    || Promise.resolve({ ok: true, normalized: location }));
+  if (!locationValidation.ok) {
+    setEditStatus(locationValidation.message || "Enter a valid location.", "error");
+    return;
+  }
+  const verifiedLocation = locationValidation.normalized || location;
+  if (editLocationInput) editLocationInput.value = verifiedLocation;
   const budgetMin = Number(editBudgetMinInput?.value);
   const budgetMax = Number(editBudgetMaxInput?.value);
   const sqftValue = editSqftInput?.value ? Number(editSqftInput.value) : null;
   const timeline = editTimelineInput?.value.trim() || "";
 
-  if (!title || !category || !description || !location) {
+  if (!title || !category || !description || !verifiedLocation) {
     setEditStatus("Complete all required fields.", "error");
     return;
   }
@@ -356,7 +369,7 @@ const saveInlineEdit = async () => {
       title,
       category,
       description,
-      location,
+      location: verifiedLocation,
       budget_min: budgetMin,
       budget_max: budgetMax,
       sqft: Number.isFinite(sqftValue) ? sqftValue : null,

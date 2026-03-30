@@ -7,7 +7,9 @@ const statusEl = document.getElementById("job-status");
 const jobList = document.getElementById("job-list");
 
 const titleInput = document.getElementById("job-title");
-const categoryInput = document.getElementById("job-category");
+const serviceCategoryInput = document.getElementById("job-service-category");
+const serviceNameInput = document.getElementById("job-service-name");
+const serviceTagsInput = document.getElementById("job-service-tags");
 const descriptionInput = document.getElementById("job-description");
 const budgetMinInput = document.getElementById("job-budget-min");
 const budgetMaxInput = document.getElementById("job-budget-max");
@@ -15,7 +17,6 @@ const sqftInput = document.getElementById("job-sqft");
 const timelineInput = document.getElementById("job-timeline");
 const locationInput = document.getElementById("job-location");
 const photosInput = document.getElementById("job-photos");
-const categoryTagsEl = document.getElementById("job-category-tags");
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
@@ -26,6 +27,21 @@ const toCanonicalService = (value) => (
   window.NLINK_SERVICE_TAGS?.toCanonicalService
     ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
     : String(value || "").trim()
+);
+const toCanonicalCategory = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalCategory
+    ? window.NLINK_SERVICE_TAGS.toCanonicalCategory(value)
+    : String(value || "").trim()
+);
+const toCanonicalTag = (value) => (
+  window.NLINK_SERVICE_TAGS?.toCanonicalTag
+    ? window.NLINK_SERVICE_TAGS.toCanonicalTag(value)
+    : String(value || "").trim()
+);
+const normalizeLocation = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
 );
 
 const setStatus = (message, type = "") => {
@@ -70,22 +86,13 @@ const isMissingColumnError = (error) => Boolean(error)
   && ["42703", "PGRST204", "PGRST205"].includes(error.code);
 
 const selectClientProfile = async (userId) => {
-  const tries = [
-    "full_name,avatar_url,location,address",
-    "full_name,avatar_url,location",
-    "full_name,avatar_url,address",
-    "full_name,avatar_url",
-    "full_name",
-  ];
-  for (let i = 0; i < tries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!error) return data || null;
-    if (!isMissingColumnError(error)) return null;
-  }
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (!isMissingColumnError(error)) return null;
   return null;
 };
 
@@ -108,14 +115,44 @@ const getClientSnapshot = async (user) => {
   };
 };
 
-if (window.NLINK_SERVICE_TAGS && categoryTagsEl && categoryInput) {
-  window.NLINK_SERVICE_TAGS.renderTagPicker({
-    container: categoryTagsEl,
-    input: categoryInput,
-    options: window.NLINK_SERVICE_TAGS.allServices || window.NLINK_SERVICE_TAGS.allServiceTags,
-    multiple: false,
-    canonicalize: toCanonicalService,
+const resetServiceOptions = () => {
+  if (!serviceNameInput) return;
+  const selectedCategory = toCanonicalCategory(serviceCategoryInput?.value || "");
+  const services = window.NLINK_SERVICE_TAGS?.getServicesForCategory?.(selectedCategory) || [];
+  serviceNameInput.innerHTML = '<option value="">Select a service</option>';
+  services.forEach((service) => {
+    const option = document.createElement("option");
+    option.value = service;
+    option.textContent = service;
+    serviceNameInput.appendChild(option);
   });
+  resetTagOptions();
+};
+
+const resetTagOptions = () => {
+  if (!serviceTagsInput) return;
+  const selectedService = toCanonicalService(serviceNameInput?.value || "");
+  const tags = window.NLINK_SERVICE_TAGS?.getTagsForService?.(selectedService) || [];
+  serviceTagsInput.innerHTML = "";
+  tags.forEach((tag) => {
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = tag;
+    serviceTagsInput.appendChild(option);
+  });
+};
+
+if (window.NLINK_SERVICE_TAGS && serviceCategoryInput) {
+  serviceCategoryInput.innerHTML = '<option value="">Select a category</option>';
+  (window.NLINK_SERVICE_TAGS.categories || []).forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    serviceCategoryInput.appendChild(option);
+  });
+  serviceCategoryInput.addEventListener("change", resetServiceOptions);
+  serviceNameInput?.addEventListener("change", resetTagOptions);
+  resetServiceOptions();
 }
 
 const normalizeJobStatus = (status) => {
@@ -237,13 +274,26 @@ form?.addEventListener("submit", async (event) => {
   if (!user) return;
 
   const title = titleInput.value.trim();
-  const category = toCanonicalService(categoryInput.value);
+  const serviceCategory = toCanonicalCategory(serviceCategoryInput?.value || "");
+  const serviceName = toCanonicalService(serviceNameInput?.value || "");
+  const selectedServiceTags = Array.from(serviceTagsInput?.selectedOptions || [])
+    .map((option) => toCanonicalTag(option.value))
+    .filter(Boolean)
+    .slice(0, 6);
   const description = descriptionInput.value.trim();
-  const location = locationInput.value.trim();
+  const location = normalizeLocation(locationInput.value);
+  const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(location)
+    || Promise.resolve({ ok: true, normalized: location }));
+  if (!locationValidation.ok) {
+    setStatus(locationValidation.message || "Enter a valid location.", "error");
+    return;
+  }
+  const verifiedLocation = locationValidation.normalized || location;
+  if (locationInput) locationInput.value = verifiedLocation;
   const budgetMin = Number(budgetMinInput.value);
   const budgetMax = Number(budgetMaxInput.value);
 
-  if (!title || !category || !description || !location) {
+  if (!title || !serviceCategory || !serviceName || !description || !verifiedLocation) {
     setStatus("Complete all required fields.", "error");
     return;
   }
@@ -257,13 +307,13 @@ form?.addEventListener("submit", async (event) => {
   const payload = {
     client_id: user.id,
     title,
-    category,
+    category: serviceName,
     description,
     budget_min: budgetMin,
     budget_max: budgetMax,
     sqft: sqftInput.value ? Number(sqftInput.value) : null,
     timeline: timelineInput.value.trim(),
-    location,
+    location: verifiedLocation,
     status: "open",
     ...(await getClientSnapshot(user)),
   };
@@ -279,7 +329,12 @@ form?.addEventListener("submit", async (event) => {
     return;
   }
 
-  await logJobEvent(inserted.id, "job_created", { source: "client_jobs_form" });
+  await logJobEvent(inserted.id, "job_created", {
+    source: "client_jobs_form",
+    service_category: serviceCategory,
+    service_name: serviceName,
+    service_tags: selectedServiceTags,
+  });
 
   const files = Array.from(photosInput.files || []).slice(0, MAX_JOB_PHOTOS);
   if (files.length) {

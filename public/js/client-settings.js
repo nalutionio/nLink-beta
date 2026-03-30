@@ -19,20 +19,13 @@
     && ["42703", "PGRST204", "PGRST205"].includes(error.code);
 
   const selectClientProfile = async (userId) => {
-    const tries = [
-      "full_name,email,phone,avatar_url,address,location",
-      "full_name,email,phone,avatar_url,location",
-      "full_name,email,phone,avatar_url",
-    ];
-    for (const select of tries) {
-      const { data, error } = await supabase
-        .from("clients")
-        .select(select)
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (!error) return data || null;
-      if (!isMissingColumnError(error)) return null;
-    }
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!error) return data || null;
+    if (!isMissingColumnError(error)) return null;
     return null;
   };
 

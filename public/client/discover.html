@@ -30,13 +30,19 @@
           <div id="discover-filters-content">
             <div class="filter-row">
               <div class="filter-field">
-                <label for="category">Service Category</label>
+                <label for="plug-search">Search Plug</label>
+                <input id="plug-search" placeholder="Name, service, tag, city, ZIP" />
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="filter-field">
+                <label for="category">Category</label>
                 <select id="category">
                   <option value="all">All</option>
                 </select>
               </div>
               <div class="filter-field">
-                <label for="service-tags-filter">Tags (Optional)</label>
+                <label for="service-tags-filter">Tags (optional)</label>
                 <select id="service-tags-filter" class="services-select filter-tags-select" multiple size="5" aria-label="Filter by tags">
                   <option value="" disabled selected>Select one or more tags</option>
                 </select>
@@ -44,24 +50,24 @@
             </div>
             <div class="filter-row">
               <div class="filter-field">
-                <label for="location-search">Location (ZIP or Town)</label>
-                <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken, NJ)" />
+                <label for="location-search">Location</label>
+                <input id="location-search" list="location-options" placeholder="ZIP or town (e.g., 07030, Hoboken)" />
                 <datalist id="location-options"></datalist>
               </div>
             </div>
             <div class="filter-row">
               <div class="filter-field">
-                <label for="budget-min">Budget Min ($)</label>
+                <label for="budget-min">Min $</label>
                 <input type="number" id="budget-min" placeholder="50" min="0" />
               </div>
               <div class="filter-field">
-                <label for="budget-max">Budget Max ($)</label>
+                <label for="budget-max">Max $</label>
                 <input type="number" id="budget-max" placeholder="500" min="0" />
               </div>
             </div>
             <div class="filter-row">
               <div class="filter-field">
-                <label for="rating-min">Min Rating</label>
+                <label for="rating-min">Rating</label>
                 <select id="rating-min">
                   <option value="0">Any</option>
                   <option value="3.5">3.5+</option>
@@ -70,6 +76,7 @@
                 </select>
               </div>
               <button class="primary-button" id="apply-filters">Apply Filters</button>
+              <button class="ghost-button" id="reset-filters" type="button">Reset</button>
             </div>
           </div>
         </section>

@@ -5,18 +5,6 @@
 
 const storageKey = "nlink_saved";
 const supabase = typeof window.getNlinkSupabaseClient === "function" ? window.getNlinkSupabaseClient() : null;
-const createPublicSupabaseClient = () => {
-  const config = window.NLINK_SUPABASE || {};
-  if (!window.supabase || !config.url || !config.anonKey) return null;
-  return window.supabase.createClient(config.url, config.anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-};
-const publicSupabase = createPublicSupabaseClient();
 const GUEST_SWIPE_LIMIT = 5;
 const labels = window.NLINK_UI_LABELS || {};
 const labelCommon = labels.common || {};
@@ -94,10 +82,11 @@ const getTagsForService = (service) => (
     ? window.NLINK_SERVICE_TAGS.getTagsForService(service)
     : []
 );
-const normalizeLocationValue = (value) => String(value || "")
-  .replace(/\s+/g, " ")
-  .replace(/\s*,\s*$/, "")
-  .trim();
+const normalizeLocationValue = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
+);
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -686,15 +675,19 @@ const closeProfileModal = () => {
 const isSwipePage = () => document.getElementById("card-stack");
 
 const initSwipePage = () => {
+  const discoverParams = new URLSearchParams(window.location.search);
+  const focusProviderId = discoverParams.get("plug") || "";
   const cardStack = document.getElementById("card-stack");
   const emptyState = document.getElementById("empty-state");
   const passButton = document.getElementById("pass-button");
   const saveButton = document.getElementById("save-button");
   const applyFiltersButton = document.getElementById("apply-filters");
+  const resetFiltersButton = document.getElementById("reset-filters");
   const topActionLink = document.querySelector(".app-header .ghost-button");
 
   const categorySelect = document.getElementById("category");
   const tagFilterSelect = document.getElementById("service-tags-filter");
+  const plugSearchInput = document.getElementById("plug-search");
   const locationInput = document.getElementById("location-search");
   const locationOptions = document.getElementById("location-options");
   const budgetMinInput = document.getElementById("budget-min");
@@ -711,6 +704,8 @@ const initSwipePage = () => {
     user: null,
     isGuest: true,
     swipesUsed: 0,
+    focusProviderId,
+    focusConsumed: false,
   };
 
   const setupGuestUi = () => {
@@ -925,14 +920,6 @@ const initSwipePage = () => {
     let { data, error } = await readClient
       .from("providers")
       .select("id,name,category,location,budget_min,budget_max,description,hero_url,banner_url,avatar_url,created_at");
-    if ((error || !Array.isArray(data)) && publicSupabase && isTransportError(error)) {
-      const retry = await publicSupabase
-        .from("providers")
-        .select("id,name,category,location,budget_min,budget_max,description,hero_url,banner_url,avatar_url,created_at");
-      data = retry.data;
-      error = retry.error;
-      readClient = publicSupabase;
-    }
     if (error || !Array.isArray(data)) return [];
 
     const providerIds = data.map((item) => item.id).filter(Boolean);
@@ -981,45 +968,22 @@ const initSwipePage = () => {
 
     const reviewsByProviderId = {};
     if (providerIds.length > 0 && providerReviewsTableAvailable) {
-      const { data: reviewRows, error: reviewError } = await readClient
-        .from("provider_reviews")
-        .select("*")
-        .in("provider_id", providerIds);
-      if (!reviewError && Array.isArray(reviewRows) && reviewRows.length > 0) {
-        reviewRows.forEach((row) => {
+      const { data: jobReviewRows, error: jobReviewError } = await readClient
+        .from("job_reviews")
+        .select("provider_id,rating,review_text,reviewer_role")
+        .in("provider_id", providerIds)
+        .eq("reviewee_role", "provider");
+      if (!jobReviewError && Array.isArray(jobReviewRows)) {
+        jobReviewRows.forEach((row) => {
           if (!reviewsByProviderId[row.provider_id]) reviewsByProviderId[row.provider_id] = [];
           reviewsByProviderId[row.provider_id].push({
-            name: row.reviewer_name || row.name || "Anonymous",
+            name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
             rating: Number(row.rating) || 0,
-            text: row.text || row.comment || row.body || "",
+            text: row.review_text || "",
           });
         });
-      } else {
-        const fallbackToJobReviews = (
-          !reviewError
-          || reviewError?.code === "42P01"
-          || reviewError?.code === "PGRST205"
-          || reviewError?.status === 404
-        );
-        if (fallbackToJobReviews) {
-          const { data: jobReviewRows, error: jobReviewError } = await readClient
-            .from("job_reviews")
-            .select("provider_id,rating,review_text,reviewer_role")
-            .in("provider_id", providerIds)
-            .eq("reviewee_role", "provider");
-          if (!jobReviewError && Array.isArray(jobReviewRows)) {
-            jobReviewRows.forEach((row) => {
-              if (!reviewsByProviderId[row.provider_id]) reviewsByProviderId[row.provider_id] = [];
-              reviewsByProviderId[row.provider_id].push({
-                name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
-                rating: Number(row.rating) || 0,
-                text: row.review_text || "",
-              });
-            });
-          } else if (jobReviewError?.code === "42P01" || jobReviewError?.code === "PGRST205" || jobReviewError?.status === 404) {
-            providerReviewsTableAvailable = false;
-          }
-        }
+      } else if (jobReviewError?.code === "42P01" || jobReviewError?.code === "PGRST205" || jobReviewError?.status === 404) {
+        providerReviewsTableAvailable = false;
       }
     }
 
@@ -1082,10 +1046,11 @@ const initSwipePage = () => {
     return mappedProviders.filter((provider) => provider.listingStatus === "published");
   };
 
-  const applyFilters = () => {
+  const applyFilters = ({ collapseOnMobile = false } = {}) => {
     const category = categorySelect.value;
     const selectedCategory = category === "all" ? "all" : toCanonicalDiscoveryTerm(category);
     const selectedTags = getSelectedTagFilters();
+    const searchQuery = String(plugSearchInput?.value || "").trim().toLowerCase();
     const location = (locationInput?.value || "").trim().toLowerCase();
     const minBudget = Number(budgetMinInput.value) || 0;
     const maxBudget = Number(budgetMaxInput.value) || Number.POSITIVE_INFINITY;
@@ -1096,22 +1061,61 @@ const initSwipePage = () => {
       const providerTags = Array.isArray(provider.services)
         ? provider.services.map((tag) => toCanonicalTag(tag))
         : [];
+      const searchable = [
+        provider.name || "",
+        provider.category || "",
+        provider.location || "",
+        provider.zip || "",
+        ...providerTags,
+      ].join(" ").toLowerCase();
+      const matchesSearch = !searchQuery || searchable.includes(searchQuery);
       const matchesTags = selectedTags.length === 0
         || selectedTags.every((tag) => providerTags.includes(tag));
       const matchesBudget = provider.budgetMax >= minBudget && provider.budgetMin <= maxBudget;
       const matchesRating = provider.rating >= minRating;
-      return matchesCategory && matchesTags && matchesBudget && matchesRating;
+      return matchesCategory && matchesSearch && matchesTags && matchesBudget && matchesRating;
     });
     const strictLocation = baseFiltered.filter((provider) => matchesLocationStrict(provider, location));
     state.filtered = strictLocation.length || !location
       ? strictLocation
       : baseFiltered.filter((provider) => matchesLocationRelaxed(provider, location));
 
+    if (state.focusProviderId) {
+      const focusedFromFiltered = state.filtered.find((provider) => provider.id === state.focusProviderId);
+      if (focusedFromFiltered) {
+        state.filtered = [focusedFromFiltered, ...state.filtered.filter((provider) => provider.id !== state.focusProviderId)];
+      } else {
+        const focusedFromAll = state.providers.find((provider) => provider.id === state.focusProviderId);
+        if (focusedFromAll) {
+          state.filtered = [focusedFromAll, ...state.filtered];
+        }
+      }
+      if (!state.focusConsumed && state.filtered[0]?.id === state.focusProviderId) {
+        state.focusConsumed = true;
+      }
+    }
+
     state.currentIndex = 0;
     renderStack();
-    if (window.matchMedia("(max-width: 900px)").matches) {
+    if (collapseOnMobile && window.matchMedia("(max-width: 900px)").matches) {
       setDiscoverFiltersVisible(false);
     }
+  };
+
+  const resetFilters = () => {
+    if (plugSearchInput) plugSearchInput.value = "";
+    if (categorySelect) categorySelect.value = "all";
+    buildTagFilterOptions("all", false);
+    if (tagFilterSelect) {
+      Array.from(tagFilterSelect.options).forEach((option) => {
+        option.selected = false;
+      });
+    }
+    if (locationInput) locationInput.value = "";
+    if (budgetMinInput) budgetMinInput.value = "";
+    if (budgetMaxInput) budgetMaxInput.value = "";
+    if (ratingMinSelect) ratingMinSelect.value = "0";
+    applyFilters({ collapseOnMobile: true });
   };
 
   const renderStack = () => {
@@ -1247,7 +1251,9 @@ const initSwipePage = () => {
     swipeCard(topCard, direction);
   };
 
-  applyFiltersButton.addEventListener("click", applyFilters);
+  applyFiltersButton.addEventListener("click", () => applyFilters({ collapseOnMobile: true }));
+  resetFiltersButton?.addEventListener("click", resetFilters);
+  plugSearchInput?.addEventListener("input", applyFilters);
   categorySelect?.addEventListener("change", () => {
     buildTagFilterOptions(categorySelect.value || "all", true);
   });
@@ -1268,6 +1274,14 @@ const initSwipePage = () => {
     }
     if (state.user) localStorage.setItem("nlink_last_role", "client");
     setupGuestUi();
+    if (state.user && locationInput && !locationInput.value.trim()) {
+      const profileLocation = window.NLINK_SERVICE_TAGS?.normalizeLocation
+        ? window.NLINK_SERVICE_TAGS.normalizeLocation(state.user.user_metadata?.client_location || "")
+        : String(state.user.user_metadata?.client_location || "").trim();
+      if (profileLocation) {
+        locationInput.value = profileLocation;
+      }
+    }
     const remoteProviders = await loadSupabaseProviders();
     state.providers = remoteProviders;
     refreshOptions();

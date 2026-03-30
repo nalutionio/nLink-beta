@@ -94,6 +94,11 @@ const getTagsForService = (service) => (
     ? window.NLINK_SERVICE_TAGS.getTagsForService(service)
     : []
 );
+const normalizeLocation = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
+);
 
 const populateMainCategoryOptions = (selected = "") => {
   if (!mainCategoryInput) return;
@@ -1785,7 +1790,7 @@ const getProviderPayloadFromForm = () => {
   return {
     name: nameInput.value.trim(),
     category: primaryService,
-    location: locationInput.value.trim(),
+    location: normalizeLocation(locationInput.value),
     budget_min: budgetRange.min,
     budget_max: budgetRange.max,
     description: descriptionInput.value.trim(),
@@ -1799,6 +1804,13 @@ const ensureProviderExistsForUpload = async () => {
   if (!payload) {
     throw new Error("Save profile details first (name, category, location, budget) before uploading images.");
   }
+  const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(payload.location)
+    || Promise.resolve({ ok: true, normalized: payload.location }));
+  if (!locationValidation.ok) {
+    throw new Error(locationValidation.message || "Enter a valid location before uploading images.");
+  }
+  payload.location = locationValidation.normalized || payload.location;
+  if (locationInput) locationInput.value = payload.location;
   state.provider = await createProvider(payload);
 };
 
@@ -1921,6 +1933,14 @@ const saveProfile = async ({ desiredStatus = null, redirectAfterSave = false } =
     setStatus("Add a budget range like 80-400.", "error");
     return false;
   }
+  const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(payload.location)
+    || Promise.resolve({ ok: true, normalized: payload.location }));
+  if (!locationValidation.ok) {
+    setStatus(locationValidation.message || "Enter a valid location.", "error");
+    return false;
+  }
+  payload.location = locationValidation.normalized || payload.location;
+  if (locationInput) locationInput.value = payload.location;
 
   try {
     if (!state.user) {

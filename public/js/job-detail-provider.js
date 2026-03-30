@@ -196,21 +196,13 @@ const formatMemberSince = (value) => {
 
 const loadClientProfile = async (clientId) => {
   if (!supabase || !clientId) return null;
-  const tries = [
-    "full_name,avatar_url,location,address,property_profile",
-    "full_name,avatar_url,location,address",
-    "full_name,avatar_url,location",
-    "full_name,avatar_url",
-  ];
-  for (let i = 0; i < tries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .eq("user_id", clientId)
-      .maybeSingle();
-    if (!error) return data || null;
-    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return null;
-  }
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("user_id", clientId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return null;
   return null;
 };
 

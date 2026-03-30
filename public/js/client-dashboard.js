@@ -17,8 +17,12 @@ const pendingRequestsEl = document.getElementById("dashboard-pending-requests");
 const storageKey = "nlink_saved";
 const fallbackAvatar = "../assets/nlinkiconblk.png";
 
-const isMissingColumnError = (error) => Boolean(error)
-  && ["42703", "PGRST204", "PGRST205"].includes(error.code);
+const isMissingColumnError = (error) => {
+  if (!error) return false;
+  if (["42703", "PGRST204", "PGRST205"].includes(error.code)) return true;
+  const msg = `${error.message || ""} ${error.details || ""}`.toLowerCase();
+  return msg.includes("column") && (msg.includes("does not exist") || msg.includes("schema cache"));
+};
 
 const getSaved = () => {
   try {
@@ -29,22 +33,13 @@ const getSaved = () => {
 };
 
 const selectClientProfile = async (userId) => {
-  const tries = [
-    "id,full_name,nick_name,email,phone,avatar_url,banner_url,location,address",
-    "id,full_name,nick_name,email,phone,avatar_url,location,address",
-    "id,full_name,nick_name,email,phone,avatar_url,location",
-    "id,full_name,nick_name,email,phone,avatar_url",
-  ];
-
-  for (let i = 0; i < tries.length; i += 1) {
-    const { data, error } = await dashboardSupabase
-      .from("clients")
-      .select(tries[i])
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!error) return data || null;
-    if (!isMissingColumnError(error)) return null;
-  }
+  const { data, error } = await dashboardSupabase
+    .from("clients")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (!isMissingColumnError(error)) return null;
   return null;
 };
 

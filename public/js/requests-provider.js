@@ -141,25 +141,17 @@ const openClientFullProfileModal = (clientId, jobId) => {
 const loadClientProfiles = async (clientIds) => {
   const ids = Array.from(new Set(clientIds.filter(Boolean)));
   if (!ids.length) return;
-  const queries = [
-    "user_id,full_name,avatar_url,location,address,property_profile,created_at",
-    "user_id,full_name,avatar_url,location,address,property_profile",
-    "user_id,full_name,avatar_url,location,address",
-    "user_id,full_name,avatar_url",
-  ];
-  for (let i = 0; i < queries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(queries[i])
-      .in("user_id", ids);
-    if (!error && Array.isArray(data)) {
-      data.forEach((row) => {
-        if (row?.user_id) clientProfilesById[row.user_id] = row;
-      });
-      return;
-    }
-    if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return;
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .in("user_id", ids);
+  if (!error && Array.isArray(data)) {
+    data.forEach((row) => {
+      if (row?.user_id) clientProfilesById[row.user_id] = row;
+    });
+    return;
   }
+  if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return;
 };
 
 const formatProposalType = (value) => {

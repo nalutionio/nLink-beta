@@ -147,6 +147,134 @@
     return categories.find((category) => categoryServiceMap[category].includes(canonicalService)) || "";
   };
 
+  const usStateByName = {
+    alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA", colorado: "CO",
+    connecticut: "CT", delaware: "DE", florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID",
+    illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA",
+    maine: "ME", maryland: "MD", massachusetts: "MA", michigan: "MI", minnesota: "MN", mississippi: "MS",
+    missouri: "MO", montana: "MT", nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
+    "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK",
+    oregon: "OR", pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+    tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT", virginia: "VA", washington: "WA",
+    "west virginia": "WV", wisconsin: "WI", wyoming: "WY", "district of columbia": "DC",
+  };
+  const usStateAbbrSet = new Set(Object.values(usStateByName));
+  const locationValidationCache = new Map();
+
+  const normalizeLocation = (value) => String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/\s*,\s*$/, "")
+    .trim();
+
+  const toStateAbbr = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const upper = raw.toUpperCase();
+    if (usStateAbbrSet.has(upper)) return upper;
+    return usStateByName[raw.toLowerCase()] || "";
+  };
+
+  const fetchJsonWithTimeout = async (url, timeoutMs = 4500) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const parseCityState = (value) => {
+    const normalized = normalizeLocation(value);
+    const withComma = normalized.match(/^(.+?),\s*([A-Za-z]{2}|[A-Za-z .'-]+)$/);
+    if (withComma) {
+      return { city: withComma[1].trim(), state: withComma[2].trim() };
+    }
+    return null;
+  };
+
+  const validateLocation = async (value) => {
+    const normalized = normalizeLocation(value);
+    if (!normalized) {
+      return { ok: false, message: "Location is required." };
+    }
+    if (locationValidationCache.has(normalized)) {
+      return locationValidationCache.get(normalized);
+    }
+
+    const zipMatch = normalized.match(/^\d{5}$/);
+    if (zipMatch) {
+      try {
+        const zip = zipMatch[0];
+        const data = await fetchJsonWithTimeout(`https://api.zippopotam.us/us/${zip}`);
+        const place = Array.isArray(data?.places) ? data.places[0] : null;
+        if (place?.["place name"] && place?.["state abbreviation"]) {
+          const result = {
+            ok: true,
+            normalized: `${place["place name"]}, ${place["state abbreviation"]}`,
+            city: place["place name"],
+            state: place["state abbreviation"],
+            zip,
+          };
+          locationValidationCache.set(normalized, result);
+          return result;
+        }
+      } catch (_error) {
+        const result = { ok: false, message: "ZIP not recognized. Enter a real US ZIP or City, ST." };
+        locationValidationCache.set(normalized, result);
+        return result;
+      }
+    }
+
+    const parsed = parseCityState(normalized);
+    if (!parsed) {
+      const result = { ok: false, message: "Use City, ST or a 5-digit ZIP." };
+      locationValidationCache.set(normalized, result);
+      return result;
+    }
+
+    const stateAbbr = toStateAbbr(parsed.state);
+    if (!stateAbbr) {
+      const result = { ok: false, message: "Enter a valid US state (e.g., NJ)." };
+      locationValidationCache.set(normalized, result);
+      return result;
+    }
+
+    try {
+      const query = encodeURIComponent(`${parsed.city}, ${stateAbbr}, USA`);
+      const data = await fetchJsonWithTimeout(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=us&q=${query}`,
+      );
+      const first = Array.isArray(data) ? data[0] : null;
+      const address = first?.address || {};
+      const city = address.city || address.town || address.village || address.municipality || parsed.city;
+      const iso = String(address["ISO3166-2-lvl4"] || "");
+      const fromIso = iso.startsWith("US-") ? iso.slice(3) : "";
+      const resolvedState = toStateAbbr(fromIso || address.state || stateAbbr);
+      if (!first || !resolvedState || resolvedState !== stateAbbr) {
+        const result = { ok: false, message: "Location not recognized. Choose a real City, ST." };
+        locationValidationCache.set(normalized, result);
+        return result;
+      }
+      const result = {
+        ok: true,
+        normalized: `${city}, ${resolvedState}`,
+        city,
+        state: resolvedState,
+        zip: address.postcode || "",
+      };
+      locationValidationCache.set(normalized, result);
+      return result;
+    } catch (_error) {
+      const result = { ok: false, message: "Could not verify location right now. Try a 5-digit ZIP." };
+      locationValidationCache.set(normalized, result);
+      return result;
+    }
+  };
+
   const parseInputValues = (value, canonicalizeFn) => String(value || "")
     .split(",")
     .map((item) => canonicalizeFn(item))
@@ -278,6 +406,8 @@
     getServicesForCategory,
     getTagsForService,
     inferCategoryForService,
+    normalizeLocation,
+    validateLocation,
     renderTagPicker,
   };
 })();

@@ -80,6 +80,11 @@ const getLocalPropertyProfile = () => {
     return {};
   }
 };
+const normalizeLocation = (value) => (
+  window.NLINK_SERVICE_TAGS?.normalizeLocation
+    ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
+    : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
+);
 
 const updatePropertyCompletion = () => {
   const fields = [
@@ -156,22 +161,13 @@ const uploadImage = async (fileOrBlob, path) => {
 };
 
 const selectClientProfile = async (userId) => {
-  const tries = [
-    "full_name,nick_name,email,phone,country,gender,address,location,avatar_url,banner_url,property_profile",
-    "full_name,nick_name,email,phone,country,gender,address,location,avatar_url,banner_url",
-    "full_name,nick_name,email,phone,country,gender,address,location,avatar_url",
-    "full_name,nick_name,email,phone,country,gender,address,avatar_url",
-    "full_name,nick_name,email,phone,country,gender,address",
-  ];
-  for (let i = 0; i < tries.length; i += 1) {
-    const { data, error } = await supabase
-      .from("clients")
-      .select(tries[i])
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!error) return data || null;
-    if (!isMissingColumnError(error)) throw error;
-  }
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (!isMissingColumnError(error)) throw error;
   return null;
 };
 
@@ -368,8 +364,21 @@ form?.addEventListener("submit", async (event) => {
   }
 
   setStatus("Saving...", "info");
+  const rawLocation = normalizeLocation(addressInput.value);
+  let verifiedLocation = rawLocation;
+  if (rawLocation) {
+    const locationValidation = await (window.NLINK_SERVICE_TAGS?.validateLocation?.(rawLocation)
+      || Promise.resolve({ ok: true, normalized: rawLocation }));
+    if (!locationValidation.ok) {
+      setStatus(locationValidation.message || "Enter a valid location.", "error");
+      return;
+    }
+    verifiedLocation = locationValidation.normalized || rawLocation;
+  }
+  if (addressInput) addressInput.value = verifiedLocation;
 
   const payload = {
+    location: verifiedLocation,
     full_name: fullNameInput.value.trim(),
     nick_name: nickNameInput.value.trim(),
     email: emailInput.value.trim(),
@@ -377,8 +386,7 @@ form?.addEventListener("submit", async (event) => {
     phone: phoneInput.value.trim(),
     country: countryInput.value,
     gender: genderInput.value,
-    address: addressInput.value.trim(),
-    location: addressInput.value.trim(),
+    address: verifiedLocation,
     avatar_url: state.avatarUrl || null,
     banner_url: state.bannerUrl || null,
     property_profile: {
@@ -405,7 +413,7 @@ form?.addEventListener("submit", async (event) => {
   const metadata = {
     ...sanitizeAuthMetadata(user.user_metadata || {}),
     client_name: fullNameInput.value.trim(),
-    client_location: addressInput.value.trim() || user.user_metadata?.client_location || "",
+    client_location: verifiedLocation || user.user_metadata?.client_location || "",
     client_avatar_url: state.avatarUrl || "",
     client_email_verified: Boolean(user.email_confirmed_at),
   };

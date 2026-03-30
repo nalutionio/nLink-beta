@@ -3,18 +3,6 @@
     ? window.getNlinkSupabaseClient()
     : null;
   if (!supabase) return;
-  const createPublicSupabaseClient = () => {
-    const config = window.NLINK_SUPABASE || {};
-    if (!window.supabase || !config.url || !config.anonKey) return null;
-    return window.supabase.createClient(config.url, config.anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
-  };
-  const publicSupabase = createPublicSupabaseClient();
   let readClient = supabase;
 
   const root = document.getElementById("community-root");
@@ -28,6 +16,9 @@
   const postTypeInput = document.getElementById("community-post-type");
   const postTypeChips = document.getElementById("community-post-type-chips");
   const postBodyInput = document.getElementById("community-post-body");
+  const serviceCategoryInput = document.getElementById("community-service-category");
+  const serviceNameInput = document.getElementById("community-service-name");
+  const serviceTagsInput = document.getElementById("community-service-tags");
   const feedEl = document.getElementById("community-feed");
   const composerAvatarEl = document.getElementById("community-composer-avatar");
 
@@ -47,6 +38,7 @@
       avatarUrl: "",
       subtitle: "",
     },
+    lastPlugAdded: null,
   };
   const fallbackAvatar = "../assets/nlinkiconblk.png";
   const clientFallbackAvatar = "../assets/blankpropic.png";
@@ -163,6 +155,44 @@
     if (!error && data?.id) state.providerId = data.id;
   };
 
+  const loadNeighborProfiles = async (userIds) => {
+    const ids = Array.from(new Set((userIds || []).filter(Boolean)));
+    if (!ids.length) return;
+
+    const viewResult = await readClient
+      .from("community_neighbor_public")
+      .select("user_id,display_name,avatar_url,city_state")
+      .in("user_id", ids);
+
+    if (!viewResult.error && Array.isArray(viewResult.data)) {
+      viewResult.data.forEach((row) => {
+        state.clientsById[row.user_id] = {
+          user_id: row.user_id,
+          full_name: row.display_name || "Neighbor",
+          avatar_url: row.avatar_url || "",
+          city_state: row.city_state || "",
+        };
+      });
+      return;
+    }
+
+    const fallback = await readClient
+      .from("clients")
+      .select("*")
+      .in("user_id", ids);
+
+    if (!fallback.error && Array.isArray(fallback.data)) {
+      fallback.data.forEach((row) => {
+        state.clientsById[row.user_id] = {
+          user_id: row.user_id,
+          full_name: row.full_name || "Neighbor",
+          avatar_url: row.avatar_url || "",
+          city_state: String(row.location || "").trim(),
+        };
+      });
+    }
+  };
+
   const logEvent = async (eventType, postId = null, metadata = {}) => {
     try {
       await supabase
@@ -207,29 +237,58 @@
   };
 
   const selectedComposerTags = () => {
-    return [];
+    return Array.from(serviceTagsInput?.selectedOptions || [])
+      .map((option) => window.NLINK_SERVICE_TAGS?.toCanonicalTag?.(option.value) || option.value)
+      .filter(Boolean)
+      .slice(0, 6);
+  };
+
+  const resetCommunityServiceOptions = () => {
+    if (!serviceNameInput) return;
+    const selectedCategory = window.NLINK_SERVICE_TAGS?.toCanonicalCategory?.(serviceCategoryInput?.value || "")
+      || String(serviceCategoryInput?.value || "").trim();
+    const services = window.NLINK_SERVICE_TAGS?.getServicesForCategory?.(selectedCategory) || [];
+    serviceNameInput.innerHTML = '<option value="">Select service</option>';
+    services.forEach((service) => {
+      const option = document.createElement("option");
+      option.value = service;
+      option.textContent = service;
+      serviceNameInput.appendChild(option);
+    });
+    resetCommunityTagOptions();
+  };
+
+  const resetCommunityTagOptions = () => {
+    if (!serviceTagsInput) return;
+    const selectedService = window.NLINK_SERVICE_TAGS?.toCanonicalService?.(serviceNameInput?.value || "")
+      || String(serviceNameInput?.value || "").trim();
+    const tags = window.NLINK_SERVICE_TAGS?.getTagsForService?.(selectedService) || [];
+    serviceTagsInput.innerHTML = "";
+    tags.forEach((tag) => {
+      const option = document.createElement("option");
+      option.value = tag;
+      option.textContent = tag;
+      serviceTagsInput.appendChild(option);
+    });
+  };
+
+  const getSavedProviderIds = () => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("nlink_saved") || "[]");
+      if (!Array.isArray(parsed)) return [];
+      return Array.from(new Set(parsed.map((item) => item?.id).filter(Boolean)));
+    } catch (_error) {
+      return [];
+    }
   };
 
   const loadFeed = async () => {
-    let { data, error } = await readClient
+    const { data, error } = await readClient
       .from("community_posts")
       .select("*")
       .eq("is_archived", false)
       .order("created_at", { ascending: false })
       .limit(60);
-    if ((error || !Array.isArray(data)) && publicSupabase && isTransportError(error)) {
-      const retry = await publicSupabase
-        .from("community_posts")
-        .select("*")
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false })
-        .limit(60);
-      data = retry.data;
-      error = retry.error;
-      readClient = publicSupabase;
-    } else {
-      readClient = supabase;
-    }
     if (error) throw error;
     state.feed = Array.isArray(data) ? data : [];
   };
@@ -252,15 +311,7 @@
       });
     }
 
-    if (clientIds.length) {
-      const { data } = await readClient
-        .from("clients")
-        .select("user_id,full_name,avatar_url")
-        .in("user_id", clientIds);
-      (data || []).forEach((row) => {
-        state.clientsById[row.user_id] = row;
-      });
-    }
+    await loadNeighborProfiles(clientIds);
   };
 
   const hydratePostDetails = async () => {
@@ -297,15 +348,7 @@
       });
     }
 
-    if (commentClientIds.length) {
-      const { data: clientRows } = await readClient
-        .from("clients")
-        .select("user_id,full_name,avatar_url")
-        .in("user_id", commentClientIds);
-      (clientRows || []).forEach((row) => {
-        state.clientsById[row.user_id] = row;
-      });
-    }
+    await loadNeighborProfiles(commentClientIds);
 
     state.reactionsByPostId = {};
     (reactions || []).forEach((reaction) => {
@@ -318,9 +361,38 @@
       if (!state.plugsByPostId[plug.post_id]) state.plugsByPostId[plug.post_id] = [];
       state.plugsByPostId[plug.post_id].push(plug);
     });
+
+    const pluggedProviderIds = Array.from(new Set((plugs || [])
+      .map((plug) => plug.plugged_provider_id)
+      .filter(Boolean)));
+    if (pluggedProviderIds.length) {
+      const { data: pluggedProviders } = await readClient
+        .from("providers")
+        .select("id,name,category,avatar_url")
+        .in("id", pluggedProviderIds);
+      (pluggedProviders || []).forEach((row) => {
+        state.providersById[row.id] = row;
+      });
+    }
   };
 
   const loadProviderOptions = async () => {
+    if (activeRole === "client") {
+      const savedIds = getSavedProviderIds();
+      if (!savedIds.length) {
+        state.providerOptions = [];
+        return;
+      }
+      const { data } = await supabase
+        .from("providers")
+        .select("id,name,category")
+        .in("id", savedIds)
+        .order("name", { ascending: true })
+        .limit(100);
+      state.providerOptions = Array.isArray(data) ? data : [];
+      return;
+    }
+
     const { data } = await supabase
       .from("providers")
       .select("id,name,category")
@@ -350,9 +422,10 @@
       ? (state.user.user_metadata?.client_name || "")
       : "";
     const name = client?.full_name || post.author_name || "Community Neighbor";
+    const locationHint = String(client?.city_state || "").trim();
     return {
       displayName: selfMetaName || name,
-      subtitle: post.author_subtitle || "Neighbor",
+      subtitle: post.author_subtitle || (locationHint ? `Neighbor • ${locationHint}` : "Neighbor"),
       avatarUrl: client?.avatar_url || selfMetaAvatar || post.author_avatar_url || clientFallbackAvatar,
       roleLabel: "client",
     };
@@ -386,14 +459,79 @@
     if (!plugs.length) return "";
     const items = plugs.slice(0, 2).map((plug) => {
       const provider = state.providersById[plug.plugged_provider_id];
-      return `<li><strong>${escapeHtml(provider?.name || "Plug")}</strong>${plug.note ? ` — ${escapeHtml(plug.note)}` : ""}</li>`;
+      const isNew = Boolean(
+        state.lastPlugAdded
+        && state.lastPlugAdded.postId === postId
+        && state.lastPlugAdded.providerId === plug.plugged_provider_id,
+      );
+      return `<li class="${isNew ? "community-plug-highlight" : ""}"><strong>${escapeHtml(provider?.name || "Plug")}</strong>${plug.note ? ` — ${escapeHtml(plug.note)}` : ""}</li>`;
     }).join("");
     return `
       <div class="community-plug-list">
         <p class="muted">Plugged in this thread</p>
         <ul>${items}</ul>
+        ${plugs.length > 2 ? `<button type="button" class="ghost-button compact community-plug-more" data-action="view-all-plugs">View All</button>` : ""}
       </div>
     `;
+  };
+
+  const openAllPlugsModal = (postId) => {
+    const existing = document.getElementById("community-all-plugs-modal");
+    if (existing) existing.remove();
+    const plugs = state.plugsByPostId[postId] || [];
+    if (!plugs.length) return;
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.id = "community-all-plugs-modal";
+    modal.setAttribute("aria-hidden", "false");
+    modal.innerHTML = `
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Plugged Pros</h3>
+          <button class="ghost-button" data-action="close">Close</button>
+        </div>
+        <div class="community-plug-list">
+          <ul>
+            ${plugs.map((plug) => {
+              const provider = state.providersById[plug.plugged_provider_id];
+              const isNew = Boolean(
+                state.lastPlugAdded
+                && state.lastPlugAdded.postId === postId
+                && state.lastPlugAdded.providerId === plug.plugged_provider_id,
+              );
+              return `<li class="${isNew ? "community-plug-highlight" : ""}"><strong>${escapeHtml(provider?.name || "Plug")}</strong>${plug.note ? ` — ${escapeHtml(plug.note)}` : ""}</li>`;
+            }).join("")}
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    modal.querySelector("[data-action='close']")?.addEventListener("click", close);
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) close();
+    });
+  };
+
+  const getPrimaryProviderIdForPost = (post) => {
+    if (post?.author_role === "provider" && post.author_provider_id) return post.author_provider_id;
+    const plugs = state.plugsByPostId[post?.id] || [];
+    return plugs[0]?.plugged_provider_id || "";
+  };
+
+  const submitReport = async ({ targetType, targetId, reason }) => {
+    const reportReason = String(reason || "").trim();
+    if (!targetType || !targetId || !reportReason) return { ok: false, error: new Error("Missing report fields.") };
+    const { error } = await supabase
+      .from("community_reports")
+      .insert({
+        target_type: targetType,
+        target_id: targetId,
+        reporter_user_id: state.user.id,
+        reason: reportReason.slice(0, 400),
+      });
+    if (error) return { ok: false, error };
+    return { ok: true };
   };
 
   const renderFeed = () => {
@@ -414,9 +552,13 @@
       const tags = Array.isArray(post.tags) ? post.tags.filter(Boolean) : [];
       const commentCount = comments.length;
       const rawBody = String(post.body || "");
+      const commentPlaceholder = activeRole === "provider"
+        ? "Share helpful guidance (no contact info/links)..."
+        : "Add a comment...";
       const shouldTruncate = rawBody.length > 220;
       const bodyPreview = shouldTruncate ? `${rawBody.slice(0, 220).trim()}…` : rawBody;
       const typeLabel = String(post.post_type || "post").replaceAll("_", " ");
+      const primaryProviderId = getPrimaryProviderIdForPost(post);
       return `
         <article class="community-post" data-post-id="${post.id}">
           <div class="community-post-head">
@@ -456,9 +598,7 @@
             <button class="community-action-btn" data-action="plug"><span class="material-symbols-rounded">person_add</span>Plug</button>
           </div>
           <div class="community-cta-row">
-            ${post.author_role === "provider" && post.author_provider_id
-              ? `<button class="ghost-button compact" data-action="viewplug">View Plug</button>`
-              : ""}
+            ${primaryProviderId ? '<button class="ghost-button compact" data-action="viewplug">View Plug</button>' : ""}
             <button class="ghost-button compact" data-action="swipe">Swipe Local Plugs</button>
             <button class="ghost-button compact" data-action="job">Post Job</button>
           </div>
@@ -467,17 +607,21 @@
               ${comments.length
                 ? comments.map((comment) => {
                   const commentAuthor = getCommentAuthor(comment);
+                  const providerTipBadge = comment.author_role === "provider"
+                    ? '<span class="community-pro-tip-badge">Pro Tip</span>'
+                    : "";
                   return `
                     <div class="community-comment-row">
                       <img class="community-comment-avatar" src="${escapeHtml(commentAuthor.avatarUrl)}" alt="${escapeHtml(commentAuthor.displayName)}" />
-                      <p><strong>${escapeHtml(commentAuthor.displayName)}:</strong> ${escapeHtml(comment.body)}</p>
+                      <p><strong>${escapeHtml(commentAuthor.displayName)}:</strong> ${escapeHtml(comment.body)} ${providerTipBadge}</p>
+                      <button type="button" class="ghost-button compact" data-action="report-comment" data-comment-id="${comment.id}">Report</button>
                     </div>
                   `;
                 }).join("")
                 : "<p class='muted'>No comments yet.</p>"}
             </div>
             <form class="community-comment-form">
-              <input type="text" name="comment" placeholder="Add a comment..." maxlength="500" required />
+              <input type="text" name="comment" placeholder="${escapeHtml(commentPlaceholder)}" maxlength="500" required />
               <button class="primary-button" type="submit">Send</button>
             </form>
           </div>
@@ -558,11 +702,14 @@
               ${state.providerOptions.map((provider) => `<option value="${provider.id}">${escapeHtml(provider.name || "Plug")} (${escapeHtml(provider.category || "Service")})</option>`).join("")}
             </select>
           </label>
+          ${activeRole === "client" && !state.providerOptions.length
+            ? `<p class="muted">No saved Plugs yet.</p><a class="ghost-button compact" href="${escapeHtml(discoveryHref)}">Find Plugs</a>`
+            : ""}
           <label class="input-field">
             <span>Note (optional)</span>
             <input type="text" id="community-plug-note" maxlength="300" placeholder="Why this Plug is a good fit" />
           </label>
-          <button class="primary-button" type="submit">Save Plug</button>
+          <button class="primary-button" type="submit" ${!state.providerOptions.length ? "disabled" : ""}>Save Plug</button>
         </form>
       </div>
     `;
@@ -591,8 +738,10 @@
         return;
       }
       await logEvent("community_plug_created", postId, { plugged_provider_id: providerId });
+      state.lastPlugAdded = { postId, providerId, at: Date.now() };
       close();
       await refreshFeed();
+      setStatus("Plug added.", "success");
     });
   };
 
@@ -629,7 +778,34 @@
     if (action === "report-post") {
       const reason = window.prompt("Report reason (optional):", "Spam or inappropriate");
       if (reason === null) return;
-      setStatus("Report submitted. Thank you.", "success");
+      const submitted = await submitReport({
+        targetType: "post",
+        targetId: postId,
+        reason: reason.trim() || "Spam or inappropriate",
+      });
+      if (!submitted.ok) {
+        setStatus(getErrorText(submitted.error, "Could not submit report."), "error");
+        return;
+      }
+      setStatus("Report submitted.", "success");
+      return;
+    }
+
+    if (action === "report-comment") {
+      const commentId = button.dataset.commentId || "";
+      if (!commentId) return;
+      const reason = window.prompt("Report reason:", "Spam or inappropriate");
+      if (reason === null) return;
+      const submitted = await submitReport({
+        targetType: "comment",
+        targetId: commentId,
+        reason: reason.trim() || "Spam or inappropriate",
+      });
+      if (!submitted.ok) {
+        setStatus(getErrorText(submitted.error, "Could not submit report."), "error");
+        return;
+      }
+      setStatus("Comment reported.", "success");
       return;
     }
 
@@ -679,11 +855,16 @@
       openPlugModal(postId);
       return;
     }
+    if (action === "view-all-plugs") {
+      openAllPlugsModal(postId);
+      return;
+    }
     if (action === "viewplug") {
       const post = state.feed.find((item) => item.id === postId);
-      if (post?.author_provider_id) {
-        await logEvent("community_cta_view_plug", postId, { provider_id: post.author_provider_id });
-        window.location.href = `${discoveryHref}?plug=${encodeURIComponent(post.author_provider_id)}`;
+      const providerId = getPrimaryProviderIdForPost(post);
+      if (providerId) {
+        await logEvent("community_cta_view_plug", postId, { provider_id: providerId });
+        window.location.href = `${discoveryHref}?plug=${encodeURIComponent(providerId)}`;
       }
       return;
     }
@@ -695,7 +876,9 @@
     if (action === "job") {
       await logEvent("community_cta_post_job", postId, { target: jobsHref });
       window.location.href = jobsHref;
+      return;
     }
+    
   };
 
   const onFeedSubmit = async (event) => {
@@ -724,6 +907,10 @@
       setStatus("Add a post message first.", "error");
       return;
     }
+    const selectedServiceCategory = window.NLINK_SERVICE_TAGS?.toCanonicalCategory?.(serviceCategoryInput?.value || "")
+      || String(serviceCategoryInput?.value || "").trim();
+    const selectedServiceName = window.NLINK_SERVICE_TAGS?.toCanonicalService?.(serviceNameInput?.value || "")
+      || String(serviceNameInput?.value || "").trim();
     const payload = {
       author_user_id: state.user.id,
       author_role: activeRole,
@@ -733,8 +920,8 @@
       post_type: postTypeInput?.value || (activeRole === "provider" ? "showcase" : "ask"),
       body,
       location_text: null,
-      service_category: null,
-      service_name: null,
+      service_category: selectedServiceCategory || null,
+      service_name: selectedServiceName || null,
       tags: selectedComposerTags(),
     };
     if (activeRole === "provider") payload.author_provider_id = state.providerId;
@@ -748,6 +935,7 @@
       });
       await logEvent("community_post_created", data?.id || null, { role: activeRole, post_type: payload.post_type });
       postForm.reset();
+      resetCommunityServiceOptions();
       await refreshFeed();
       setStatus("Post published.", "success");
     } catch (error) {
@@ -785,7 +973,7 @@
         const metaAvatar = user.user_metadata?.client_avatar_url || "";
         const { data: clientRow } = await supabase
           .from("clients")
-          .select("full_name,avatar_url")
+          .select("*")
           .eq("user_id", user.id)
           .limit(1)
           .maybeSingle();
@@ -804,6 +992,25 @@
     }
 
     setupComposerOptions();
+    if (window.NLINK_SERVICE_TAGS && serviceCategoryInput) {
+      serviceCategoryInput.innerHTML = '<option value="">Select category</option>';
+      (window.NLINK_SERVICE_TAGS.categories || []).forEach((category) => {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        serviceCategoryInput.appendChild(option);
+      });
+      serviceCategoryInput.addEventListener("change", resetCommunityServiceOptions);
+      serviceNameInput?.addEventListener("change", resetCommunityTagOptions);
+      resetCommunityServiceOptions();
+    }
+    if (postForm && !postForm.querySelector(".community-composer-hint")) {
+      const hint = document.createElement("p");
+      hint.className = "community-composer-hint";
+      hint.textContent = "Keep it service-related. No phone, email, or links.";
+      const actions = postForm.querySelector(".community-compose-actions");
+      postForm.insertBefore(hint, actions || null);
+    }
     try {
       await loadProviderOptions();
     } catch (_error) {

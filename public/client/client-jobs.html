@@ -30,11 +30,20 @@
           <input type="text" id="job-title" placeholder="Paint kitchen + living room" required />
         </label>
         <label class="input-field">
-          <span>Category</span>
-          <input type="hidden" id="job-category" />
-          <div class="tag-picker-wrap">
-            <div id="job-category-tags" class="tag-picker"></div>
-          </div>
+          <span>Service Category</span>
+          <select id="job-service-category" required>
+            <option value="">Select a category</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Service</span>
+          <select id="job-service-name" required>
+            <option value="">Select a service</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Service Tags (optional)</span>
+          <select id="job-service-tags" multiple size="4"></select>
         </label>
         <label class="input-field">
           <span>Description</span>
@@ -63,6 +72,7 @@
         <label class="input-field">
           <span>Location</span>
           <input type="text" id="job-location" placeholder="Hoboken, NJ" required />
+          <small class="muted">Use ZIP or City, ST (e.g., 07030 or Hoboken, NJ).</small>
         </label>
         <label class="upload-field">
           <span>Upload photos</span>
