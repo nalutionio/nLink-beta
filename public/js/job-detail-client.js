@@ -56,6 +56,29 @@ let jobEventsTableAvailable = true;
 let jobReviewsTableAvailable = true;
 let reviewTarget = null;
 
+const normalizeRequestStatus = (status) => {
+  const raw = String(status || "pending").toLowerCase();
+  if (raw === "closed") return "completed";
+  return raw;
+};
+
+const requestStatusLabel = (status) => {
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "completed") return "Completed";
+  if (normalized === "accepted") return "Accepted";
+  if (normalized === "declined") return "Declined";
+  return "Pending";
+};
+
+const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
+  const statuses = (Array.isArray(requestRows) ? requestRows : [])
+    .map((row) => String(row?.status || "").toLowerCase())
+    .filter(Boolean);
+  if (statuses.includes("closed")) return "closed";
+  if (statuses.includes("accepted")) return "in_progress";
+  return String(jobStatus || "open").toLowerCase();
+};
+
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
@@ -253,11 +276,38 @@ const updateJobStatus = async (nextStatus) => {
 
 const updateRequestStatus = async (requestId, nextStatus) => {
   if (!supabase || !jobId || !requestId) return;
-  await supabase
-    .from("job_requests")
-    .update({ status: nextStatus })
-    .eq("id", requestId)
-    .eq("job_id", jobId);
+  if (nextStatus === "accepted") {
+    const acceptResult = await supabase
+      .from("job_requests")
+      .update({ status: "accepted" })
+      .eq("id", requestId)
+      .eq("job_id", jobId);
+    if (acceptResult.error) return;
+
+    const { data: siblingPending } = await supabase
+      .from("job_requests")
+      .select("id")
+      .eq("job_id", jobId)
+      .neq("id", requestId)
+      .eq("status", "pending");
+    // Keep the state machine clear: one accepted proposal per job.
+    if (Array.isArray(siblingPending) && siblingPending.length) {
+      const siblingIds = siblingPending.map((row) => row.id).filter(Boolean);
+      if (siblingIds.length) {
+        await supabase
+          .from("job_requests")
+          .update({ status: "declined" })
+          .in("id", siblingIds);
+      }
+    }
+  } else {
+    const result = await supabase
+      .from("job_requests")
+      .update({ status: nextStatus })
+      .eq("id", requestId)
+      .eq("job_id", jobId);
+    if (result.error) return;
+  }
 
   if (nextStatus === "accepted") await logJobEvent("request_accepted", { request_id: requestId });
   if (nextStatus === "declined") await logJobEvent("request_declined", { request_id: requestId });
@@ -267,6 +317,12 @@ const updateRequestStatus = async (requestId, nextStatus) => {
     await supabase
       .from("jobs")
       .update({ status: "in_progress" })
+      .eq("id", jobId);
+  }
+  if (nextStatus === "closed") {
+    await supabase
+      .from("jobs")
+      .update({ status: "closed" })
       .eq("id", jobId);
   }
   await render();
@@ -449,11 +505,13 @@ const render = async () => {
   if (!editMode) setEditMode(false);
   setReviewMode(null);
 
+  const requests = await loadRequests();
+  const displayJobStatus = deriveDisplayJobStatus(job.status, requests);
+
   if (titleEl) titleEl.textContent = job.title;
-  const jobStatus = job.status || "open";
-  if (statusEl) statusEl.textContent = jobStatus;
-  if (closeButton) closeButton.disabled = jobStatus === "closed";
-  if (reopenButton) reopenButton.disabled = jobStatus === "open" || jobStatus === "in_progress";
+  if (statusEl) statusEl.textContent = displayJobStatus;
+  if (closeButton) closeButton.disabled = displayJobStatus === "closed";
+  if (reopenButton) reopenButton.disabled = displayJobStatus === "open" || displayJobStatus === "in_progress";
   if (metaLocationEl) metaLocationEl.textContent = job.location || "Not set";
   if (metaBudgetEl) metaBudgetEl.textContent = `$${job.budget_min || 0} - $${job.budget_max || 0}`;
   if (metaSizeEl) metaSizeEl.textContent = job.sqft ? `${job.sqft} sqft` : "Not provided";
@@ -464,7 +522,6 @@ const render = async () => {
   renderPhotos();
 
   if (requestsEl) {
-    const requests = await loadRequests();
     const myReviews = await loadMyReviews(user.id);
     const reviewedProviderIds = new Set(myReviews.map((row) => row.provider_id).filter(Boolean));
     requestsEl.innerHTML = "";
@@ -474,10 +531,11 @@ const render = async () => {
       requests.forEach((request) => {
         const card = document.createElement("article");
         card.className = "job-card";
-        const isPending = (request.status || "pending") === "pending";
-        const isAccepted = request.status === "accepted";
-        const isClosed = request.status === "closed";
-        const canRate = isClosed
+        const normalizedStatus = normalizeRequestStatus(request.status);
+        const isPending = normalizedStatus === "pending";
+        const isAccepted = normalizedStatus === "accepted";
+        const isCompleted = normalizedStatus === "completed";
+        const canRate = isCompleted
           && Boolean(request.provider_id)
           && Boolean(request.providers?.owner_id)
           && !reviewedProviderIds.has(request.provider_id);
@@ -491,13 +549,13 @@ const render = async () => {
             ${request.proposal_notes ? `<p class="muted">${request.proposal_notes}</p>` : ""}
           </div>
           <div class="job-actions">
-            <span class="pill">${request.status || "pending"}</span>
+            <span class="pill">${requestStatusLabel(request.status)}</span>
             ${isPending ? `
               <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline Proposal</button>
               <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
             ` : ""}
-            ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Closed</button>` : ""}
-            ${(isPending || isAccepted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `
+            ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Completed</button>` : ""}
+            ${(isPending || isAccepted || isCompleted) && request.provider_id && request.providers?.owner_id !== user.id ? `
               <a
                 class="ghost-button"
                 href="../client/client-messages.html?job=${jobId}&provider=${encodeURIComponent(request.provider_id)}${request.providers?.name ? `&providerName=${encodeURIComponent(request.providers.name)}` : ""}${request.providers?.avatar_url ? `&providerAvatar=${encodeURIComponent(request.providers.avatar_url)}` : ""}"

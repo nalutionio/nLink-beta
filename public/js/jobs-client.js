@@ -21,7 +21,7 @@ const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
-const fallbackAvatar = "../assets/blankpropic.png";
+const fallbackAvatar = "../assets/neighborpp.png";
 let jobEventsTableAvailable = true;
 const toCanonicalService = (value) => (
   window.NLINK_SERVICE_TAGS?.toCanonicalService
@@ -161,6 +161,15 @@ const normalizeJobStatus = (status) => {
   return status || "open";
 };
 
+const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
+  const statuses = (Array.isArray(requestRows) ? requestRows : [])
+    .map((row) => String(row?.status || "").toLowerCase())
+    .filter(Boolean);
+  if (statuses.includes("closed")) return "closed";
+  if (statuses.includes("accepted")) return "in_progress";
+  return normalizeJobStatus(jobStatus);
+};
+
 const uploadJobPhoto = async (file, jobId, index) => {
   let uploadBlob = file;
   let contentType = file.type || "image/jpeg";
@@ -203,6 +212,18 @@ const renderJobs = async () => {
   if (error || !jobs) return;
 
   const jobIds = jobs.map((job) => job.id);
+  const requestRowsByJobId = {};
+  if (jobIds.length) {
+    const { data: requestRows } = await supabase
+      .from("job_requests")
+      .select("job_id,status")
+      .in("job_id", jobIds);
+    (requestRows || []).forEach((row) => {
+      if (!row?.job_id) return;
+      if (!requestRowsByJobId[row.job_id]) requestRowsByJobId[row.job_id] = [];
+      requestRowsByJobId[row.job_id].push(row);
+    });
+  }
   let photos = [];
   if (jobIds.length) {
     const { data } = await supabase
@@ -214,8 +235,8 @@ const renderJobs = async () => {
 
   const renderJobCard = (job) => {
     const photo = photos.find((item) => item.job_id === job.id);
-    const thumb = photo?.url || "../assets/nlinkiconblk.png";
-    const status = normalizeJobStatus(job.status);
+    const thumb = photo?.url || "../assets/jobrequestpic.png";
+    const status = deriveDisplayJobStatus(job.status, requestRowsByJobId[job.id] || []);
 
     const card = document.createElement("a");
     card.className = `job-card job-link-card ${status === "closed" ? "job-card-closed" : ""}`.trim();

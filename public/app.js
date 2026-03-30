@@ -181,7 +181,7 @@ const hydrateSavedProviders = async (savedProviders) => {
       reviewCount: 0,
       heroImage: row.hero_url || "../assets/plugFeedlogo-rmbg.png",
       bannerImage: row.banner_url || row.hero_url || "../assets/plugFeedlogo-rmbg.png",
-      avatar: row.avatar_url || row.hero_url || "../assets/nlinkiconblk.png",
+      avatar: row.avatar_url || row.hero_url || "../assets/plugprofilepic.png",
       description: row.description || "",
       services: meta.services || [],
       availability: meta.availability || "",
@@ -347,7 +347,7 @@ const getDisplayImages = (provider) => {
   const cropped = typeof getCroppedImages === "function" ? getCroppedImages(provider.id) : null;
   return {
     banner: cropped?.banner || provider.bannerImage || provider.heroImage || "../assets/plugFeedlogo-rmbg.png",
-    avatar: cropped?.avatar || provider.avatar || provider.heroImage || "../assets/nlinkiconblk.png",
+    avatar: cropped?.avatar || provider.avatar || provider.heroImage || "../assets/plugprofilepic.png",
     hero: provider.heroImage || "../assets/plugFeedlogo-rmbg.png",
   };
 };
@@ -1004,7 +1004,7 @@ const initSwipePage = () => {
       reviewCount: reviewsByProviderId[item.id]?.length || 0,
       heroImage: item.hero_url || "../assets/plugFeedlogo-rmbg.png",
       bannerImage: item.banner_url || item.hero_url || "../assets/plugFeedlogo-rmbg.png",
-      avatar: item.avatar_url || item.hero_url || "../assets/nlinkiconblk.png",
+      avatar: item.avatar_url || item.hero_url || "../assets/plugprofilepic.png",
       description: item.description || "",
       services: meta.services || [],
       availability: meta.availability || "",

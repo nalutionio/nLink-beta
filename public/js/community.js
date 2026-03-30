@@ -11,6 +11,7 @@
   const activeRole = root.dataset.role === "provider" ? "provider" : "client";
   const discoveryHref = root.dataset.discoveryHref || "../client/discover.html";
   const jobsHref = root.dataset.jobsHref || "../client/client-jobs.html";
+  const jobsCtaLabel = activeRole === "provider" ? "Find Jobs" : "Post Job";
   const statusEl = document.getElementById("community-status");
   const postForm = document.getElementById("community-post-form");
   const postTypeInput = document.getElementById("community-post-type");
@@ -40,8 +41,8 @@
     },
     lastPlugAdded: null,
   };
-  const fallbackAvatar = "../assets/nlinkiconblk.png";
-  const clientFallbackAvatar = "../assets/blankpropic.png";
+  const fallbackAvatar = "../assets/plugprofilepic.png";
+  const clientFallbackAvatar = "../assets/neighborpp.png";
   const hiddenPostsStorageKey = () => `plugfeed_hidden_posts_${state.user?.id || "guest"}`;
 
   const loadHiddenPostIds = () => {
@@ -600,7 +601,7 @@
           <div class="community-cta-row">
             ${primaryProviderId ? '<button class="ghost-button compact" data-action="viewplug">View Plug</button>' : ""}
             <button class="ghost-button compact" data-action="swipe">Swipe Local Plugs</button>
-            <button class="ghost-button compact" data-action="job">Post Job</button>
+            <button class="ghost-button compact" data-action="job">${jobsCtaLabel}</button>
           </div>
           <div class="community-comments hidden">
             <div class="community-comment-list">
@@ -962,13 +963,13 @@
           .limit(1)
           .maybeSingle();
         const metaAvatar = user.user_metadata?.provider_avatar_url || "";
-        const avatar = providerRow?.avatar_url || metaAvatar || "../assets/nlinkiconblk.png";
+        const avatar = providerRow?.avatar_url || metaAvatar || "../assets/plugprofilepic.png";
         state.currentAuthor = {
           name: providerRow?.name || user.user_metadata?.provider_business_name || "Plug",
           avatarUrl: avatar,
           subtitle: `${providerRow?.category || "Service"} • Verified Plug`,
         };
-        setSafeAvatar(composerAvatarEl, avatar, "../assets/nlinkiconblk.png");
+        setSafeAvatar(composerAvatarEl, avatar, "../assets/plugprofilepic.png");
       } else {
         const metaAvatar = user.user_metadata?.client_avatar_url || "";
         const { data: clientRow } = await supabase

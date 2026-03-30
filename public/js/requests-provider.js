@@ -83,7 +83,7 @@ const openClientFullProfileModal = (clientId, jobId) => {
     : {};
   const completion = propertyCompletionCount(property);
   const name = profile.full_name || job.client_name || "Neighbor";
-  const avatar = profile.avatar_url || job.client_avatar_url || "../assets/blankpropic.png";
+  const avatar = profile.avatar_url || job.client_avatar_url || "../assets/neighborpp.png";
   const location = toPublicLocation(profile.location || profile.address || job.client_location_public || job.location || "");
   const memberSince = formatMemberSince(profile.created_at || job.created_at);
   const chips = [];
@@ -171,14 +171,87 @@ const formatEstimate = (min, max) => {
   return "Not set";
 };
 
-const markRequestCompleted = async (requestId, providerId) => {
+const normalizeRequestStatus = (status) => {
+  const raw = String(status || "pending").toLowerCase();
+  if (raw === "closed") return "completed";
+  return raw;
+};
+
+const requestStatusLabel = (status) => {
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "completed") return "Completed";
+  if (normalized === "accepted") return "Accepted";
+  if (normalized === "declined") return "Declined";
+  return "Pending";
+};
+
+const deriveDisplayRequestStatus = (request, acceptedJobIdSet = new Set()) => {
+  const normalized = normalizeRequestStatus(request?.status);
+  const jobStatus = String(request?.jobs?.status || "").toLowerCase();
+  const hasAcceptedSibling = Boolean(request?.jobs?.id && acceptedJobIdSet.has(request.jobs.id));
+  if (normalized === "pending" && hasAcceptedSibling) {
+    return "declined";
+  }
+  if (normalized === "pending" && (jobStatus === "in_progress" || jobStatus === "closed")) {
+    return "declined";
+  }
+  if (normalized === "accepted" && jobStatus === "closed") {
+    return "completed";
+  }
+  return normalized;
+};
+
+const buildOverflowMenu = ({
+  jobId = "",
+  clientId = "",
+  clientName = "",
+  clientAvatar = "",
+  canMessage = false,
+  canComplete = false,
+  requestId = "",
+}) => {
+  const actions = [];
+  if (clientId) {
+    actions.push(`<button class="proposal-menu-item" data-client-view="${clientId}" data-job-id="${jobId}" type="button">View Neighbor</button>`);
+  }
+  if (canMessage && clientId && clientId !== providerUserId) {
+    actions.push(`
+      <a
+        class="proposal-menu-item"
+        href="../provider/provider-messages.html?job=${encodeURIComponent(jobId || "")}&client=${encodeURIComponent(clientId || "")}${clientName ? `&clientName=${encodeURIComponent(clientName)}` : ""}${clientAvatar ? `&clientAvatar=${encodeURIComponent(clientAvatar)}` : ""}"
+      >Message</a>
+    `);
+  }
+  if (canComplete && requestId) {
+    actions.push(`<button class="proposal-menu-item" data-request-action="complete" data-request-id="${requestId}" data-job-id="${jobId}" type="button">Mark Completed</button>`);
+  }
+  if (!actions.length) return "";
+  return `
+    <div class="proposal-menu-wrap">
+      <button class="ghost-button compact proposal-more-btn" data-action="proposal-menu-toggle" type="button" aria-expanded="false" aria-label="More actions">⋯</button>
+      <div class="proposal-overflow-menu hidden">
+        ${actions.join("")}
+      </div>
+    </div>
+  `;
+};
+
+const markRequestCompleted = async (requestId, providerId, jobId = null) => {
   if (!supabase || !requestId || !providerId) return false;
   const { error } = await supabase
     .from("job_requests")
     .update({ status: "closed" })
     .eq("id", requestId)
     .eq("provider_id", providerId);
-  return !error;
+  if (error) return false;
+  if (jobId) {
+    // Best effort: if provider-side job update is allowed, keep job-level state in sync.
+    await supabase
+      .from("jobs")
+      .update({ status: "closed" })
+      .eq("id", jobId);
+  }
+  return true;
 };
 
 const renderRequests = async () => {
@@ -188,8 +261,8 @@ const renderRequests = async () => {
   Object.keys(clientInitiatedByThread).forEach((key) => delete clientInitiatedByThread[key]);
 
   const queries = [
-    "id,status,created_at,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,jobs(id,title,location,budget_min,budget_max,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at)",
-    "id,status,created_at,jobs(id,title,location,budget_min,budget_max,client_id,created_at)",
+    "id,status,created_at,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,jobs(id,title,location,budget_min,budget_max,status,client_id,client_name,client_avatar_url,client_location_public,client_email_verified,created_at)",
+    "id,status,created_at,jobs(id,title,location,budget_min,budget_max,status,client_id,created_at)",
   ];
   let data = [];
   for (let i = 0; i < queries.length; i += 1) {
@@ -209,6 +282,12 @@ const renderRequests = async () => {
   }
 
   const requests = data || [];
+  const acceptedJobIdSet = new Set(
+    requests
+      .filter((req) => normalizeRequestStatus(req.status) === "accepted")
+      .map((req) => req.jobs?.id)
+      .filter(Boolean),
+  );
   requests.forEach((req) => {
     if (req?.jobs?.id) jobsById[req.jobs.id] = req.jobs;
   });
@@ -244,9 +323,10 @@ const renderRequests = async () => {
       });
     }
   }
-  const pending = requests.filter((req) => (req.status || "pending") === "pending");
-  const active = requests.filter((req) => req.status === "accepted");
-  const closed = requests.filter((req) => req.status === "closed" || req.status === "declined");
+  const pending = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "pending");
+  const active = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "accepted");
+  const completed = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "completed");
+  const declined = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "declined");
 
   if (pendingEl) {
     pendingEl.innerHTML = "";
@@ -254,13 +334,24 @@ const renderRequests = async () => {
       pendingEl.innerHTML = "<p class='muted'>No proposals yet.</p>";
     } else {
       const renderCard = (req) => {
-        const thumb = photosByJobId[req.jobs?.id] || "../assets/nlinkiconblk.png";
+        const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
         const card = document.createElement("article");
         card.className = "job-card proposal-card";
-        const status = req.status || "pending";
+        const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
         const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
-        const canMessage = status === "accepted" && clientInitiatedByThread[threadKey];
+        const canMessage = (status === "accepted" || status === "completed") && clientInitiatedByThread[threadKey];
+        const profile = req.jobs?.client_id ? clientProfilesById[req.jobs.client_id] : null;
+        const overflowMenu = buildOverflowMenu({
+          jobId: req.jobs?.id || "",
+          clientId: req.jobs?.client_id || "",
+          clientName: profile?.full_name || req.jobs?.client_name || "",
+          clientAvatar: profile?.avatar_url || req.jobs?.client_avatar_url || "",
+          canMessage,
+          canComplete: status === "accepted",
+          requestId: req.id,
+        });
         card.innerHTML = `
+          ${overflowMenu ? `<div class="proposal-card-corner">${overflowMenu}</div>` : ""}
           <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
           <div class="job-card-body proposal-body">
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
@@ -270,15 +361,7 @@ const renderRequests = async () => {
             ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
           <div class="job-actions proposal-actions">
-            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : "status-pending"}">${status}</span>
-            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Neighbor</button>` : ""}
-            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
-              <a
-                class="ghost-button"
-                href="../provider/provider-messages.html?job=${encodeURIComponent(req.jobs?.id || "")}&client=${encodeURIComponent(req.jobs?.client_id || "")}${req.jobs?.client_name ? `&clientName=${encodeURIComponent(req.jobs.client_name)}` : ""}${req.jobs?.client_avatar_url ? `&clientAvatar=${encodeURIComponent(req.jobs.client_avatar_url)}` : ""}"
-              >Message</a>
-            ` : ""}
-            ${status === "accepted" ? `<button class="ghost-button" data-request-action="complete" data-request-id="${req.id}" type="button">Mark Completed</button>` : ""}
+            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : status === "completed" ? "status-closed" : "status-pending"}">${requestStatusLabel(status)}</span>
             <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
@@ -305,16 +388,34 @@ const renderRequests = async () => {
 
   if (closedEl) {
     closedEl.innerHTML = "";
+    const closed = [...completed, ...declined];
     if (closed.length === 0) {
       closedEl.innerHTML = "<p class='muted'>No closed proposals.</p>";
     } else {
-      closed.forEach((req) => {
-        const thumb = photosByJobId[req.jobs?.id] || "../assets/nlinkiconblk.png";
+      if (completed.length) {
+        const completedTitle = document.createElement("p");
+        completedTitle.className = "job-group-title";
+        completedTitle.textContent = "Completed";
+        closedEl.appendChild(completedTitle);
+      }
+      completed.forEach((req) => {
+        const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
         const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
         const canMessage = clientInitiatedByThread[threadKey];
+        const profile = req.jobs?.client_id ? clientProfilesById[req.jobs.client_id] : null;
+        const overflowMenu = buildOverflowMenu({
+          jobId: req.jobs?.id || "",
+          clientId: req.jobs?.client_id || "",
+          clientName: profile?.full_name || req.jobs?.client_name || "",
+          clientAvatar: profile?.avatar_url || req.jobs?.client_avatar_url || "",
+          canMessage,
+          canComplete: false,
+          requestId: req.id,
+        });
         const card = document.createElement("article");
         card.className = "job-card proposal-card job-card-closed";
         card.innerHTML = `
+          ${overflowMenu ? `<div class="proposal-card-corner">${overflowMenu}</div>` : ""}
           <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
           <div class="job-card-body proposal-body">
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
@@ -323,14 +424,32 @@ const renderRequests = async () => {
             ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
           <div class="job-actions proposal-actions">
-            <span class="pill proposal-status status-closed">Closed</span>
-            ${req.jobs?.client_id ? `<button class="ghost-button" data-client-view="${req.jobs?.client_id}" data-job-id="${req.jobs?.id || ""}" type="button">View Neighbor</button>` : ""}
-            ${canMessage && req.jobs?.client_id && req.jobs.client_id !== providerUserId ? `
-              <a
-                class="ghost-button"
-                href="../provider/provider-messages.html?job=${encodeURIComponent(req.jobs?.id || "")}&client=${encodeURIComponent(req.jobs?.client_id || "")}${req.jobs?.client_name ? `&clientName=${encodeURIComponent(req.jobs.client_name)}` : ""}${req.jobs?.client_avatar_url ? `&clientAvatar=${encodeURIComponent(req.jobs.client_avatar_url)}` : ""}"
-              >Message</a>
-            ` : ""}
+            <span class="pill proposal-status status-closed">Completed</span>
+            <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
+          </div>
+        `;
+        closedEl.appendChild(card);
+      });
+      if (declined.length) {
+        const declinedTitle = document.createElement("p");
+        declinedTitle.className = "job-group-title";
+        declinedTitle.textContent = "Declined";
+        closedEl.appendChild(declinedTitle);
+      }
+      declined.forEach((req) => {
+        const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
+        const card = document.createElement("article");
+        card.className = "job-card proposal-card job-card-closed";
+        card.innerHTML = `
+          <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
+          <div class="job-card-body proposal-body">
+            <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
+            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+          </div>
+          <div class="job-actions proposal-actions">
+            <span class="pill proposal-status">Declined</span>
+            <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
         closedEl.appendChild(card);
@@ -340,13 +459,37 @@ const renderRequests = async () => {
 };
 
 document.addEventListener("click", (event) => {
+  const closeAllOverflowMenus = () => {
+    document.querySelectorAll(".proposal-overflow-menu").forEach((menu) => menu.classList.add("hidden"));
+    document.querySelectorAll("button[data-action='proposal-menu-toggle']").forEach((btn) => btn.setAttribute("aria-expanded", "false"));
+  };
+
+  const menuToggle = event.target.closest("button[data-action='proposal-menu-toggle']");
+  if (menuToggle) {
+    const wrap = menuToggle.closest(".proposal-menu-wrap");
+    const menu = wrap?.querySelector(".proposal-overflow-menu");
+    const willOpen = Boolean(menu?.classList.contains("hidden"));
+    closeAllOverflowMenus();
+    if (willOpen && menu) {
+      menu.classList.remove("hidden");
+      menuToggle.setAttribute("aria-expanded", "true");
+    }
+    return;
+  }
+
+  if (!event.target.closest(".proposal-menu-wrap")) {
+    closeAllOverflowMenus();
+  }
+
   const actionButton = event.target.closest("button[data-request-action='complete']");
   if (actionButton) {
+    closeAllOverflowMenus();
     const requestId = actionButton.dataset.requestId || "";
+    const jobId = actionButton.dataset.jobId || "";
     if (!requestId) return;
     actionButton.disabled = true;
     actionButton.textContent = "Saving...";
-    loadProviderId().then((providerId) => markRequestCompleted(requestId, providerId))
+    loadProviderId().then((providerId) => markRequestCompleted(requestId, providerId, jobId || null))
       .then((ok) => {
         if (ok) {
           renderRequests();
@@ -360,6 +503,7 @@ document.addEventListener("click", (event) => {
 
   const button = event.target.closest("button[data-client-view]");
   if (!button) return;
+  closeAllOverflowMenus();
   const clientId = button.dataset.clientView || "";
   const jobId = button.dataset.jobId || "";
   if (!clientId || !jobId) return;

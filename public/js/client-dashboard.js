@@ -15,7 +15,7 @@ const completedJobsEl = document.getElementById("dashboard-completed-jobs");
 const pendingRequestsEl = document.getElementById("dashboard-pending-requests");
 
 const storageKey = "nlink_saved";
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackAvatar = "../assets/plugprofilepic.png";
 
 const isMissingColumnError = (error) => {
   if (!error) return false;

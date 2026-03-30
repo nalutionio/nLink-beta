@@ -22,7 +22,7 @@ const state = {
   chatOpen: false,
 };
 
-const fallbackAvatar = "../assets/nlinkiconblk.png";
+const fallbackAvatar = "../assets/plugprofilepic.png";
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;

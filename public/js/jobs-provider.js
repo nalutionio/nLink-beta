@@ -219,7 +219,7 @@ const renderJobs = async () => {
   filtered.forEach((job) => {
     if (providerUserId && job.client_id === providerUserId) return;
     const photo = photos.find((item) => item.job_id === job.id);
-    const thumb = photo?.url || "../assets/nlinkiconblk.png";
+    const thumb = photo?.url || "../assets/jobrequestpic.png";
     const requestStatus = requestStatusByJobId[job.id];
     const canMessage = requestStatus === "accepted" && clientInitiatedByJobId[job.id];
     const card = document.createElement("div");

@@ -32,7 +32,7 @@ const propertyPhotoUploadName = document.getElementById("property-photo-upload-n
 const propertyPhotoEditor = document.getElementById("property-photo-editor");
 const propertyCompletionEl = document.getElementById("property-completion");
 
-const fallbackAvatar = "../assets/blankpropic.png";
+const fallbackAvatar = "../assets/neighborpp.png";
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 
 const state = {
@@ -85,6 +85,14 @@ const normalizeLocation = (value) => (
     ? window.NLINK_SERVICE_TAGS.normalizeLocation(value)
     : String(value || "").replace(/\s+/g, " ").replace(/\s*,\s*$/, "").trim()
 );
+
+const toPublicLocation = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  return raw;
+};
 
 const updatePropertyCompletion = () => {
   const fields = [
@@ -194,6 +202,35 @@ const upsertClientProfile = async (userId, payload) => {
   }
 
   throw new Error("Could not save profile with current client schema.");
+};
+
+const syncClientSnapshotToJobs = async (userId, snapshot) => {
+  if (!supabase || !userId || !snapshot) return;
+  const workingPayload = {
+    client_name: snapshot.client_name || null,
+    client_avatar_url: snapshot.client_avatar_url || null,
+    client_location_public: snapshot.client_location_public || null,
+    client_email_verified: Boolean(snapshot.client_email_verified),
+  };
+  const attemptedMissingColumns = new Set();
+
+  for (let i = 0; i < 8; i += 1) {
+    const payload = Object.fromEntries(
+      Object.entries(workingPayload).filter(([, value]) => value !== undefined),
+    );
+    if (!Object.keys(payload).length) return;
+    const { error } = await supabase
+      .from("jobs")
+      .update(payload)
+      .eq("client_id", userId);
+    if (!error) return;
+    if (!isMissingColumnError(error)) return;
+
+    const missingColumn = getMissingColumnFromError(error);
+    if (!missingColumn || attemptedMissingColumns.has(missingColumn)) return;
+    attemptedMissingColumns.add(missingColumn);
+    delete workingPayload[missingColumn];
+  }
 };
 
 const loadProfile = async () => {
@@ -418,8 +455,16 @@ form?.addEventListener("submit", async (event) => {
     client_email_verified: Boolean(user.email_confirmed_at),
   };
   const { error: metadataError } = await supabase.auth.updateUser({ data: metadata });
+
+  await syncClientSnapshotToJobs(user.id, {
+    client_name: fullNameInput.value.trim(),
+    client_avatar_url: state.avatarUrl || "",
+    client_location_public: toPublicLocation(verifiedLocation),
+    client_email_verified: Boolean(user.email_confirmed_at),
+  });
+
   if (metadataError) {
-    setStatus(metadataError.message || "Saved profile, but could not update account metadata.", "error");
+    setStatus(metadataError.message || "Profile saved, but account metadata update had an issue.", "error");
     return;
   }
 

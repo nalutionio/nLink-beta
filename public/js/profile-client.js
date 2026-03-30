@@ -23,7 +23,7 @@ const viewFullProfileButton = document.getElementById("client-view-full-profile"
 let fullProfileState = null;
 
 const fallbackName = (email) => (email ? email.split("@")[0] : "Neighbor");
-const fallbackAvatar = "../assets/blankpropic.png";
+const fallbackAvatar = "../assets/neighborpp.png";
 
 const isMissingColumnError = (error) => {
   if (!error) return false;

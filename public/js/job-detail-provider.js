@@ -54,6 +54,20 @@ let canRateClient = false;
 let currentRequestStatus = null;
 let proposalExpanded = true;
 
+const normalizeRequestStatus = (status) => {
+  const raw = String(status || "pending").toLowerCase();
+  if (raw === "closed") return "completed";
+  return raw;
+};
+
+const requestStatusLabel = (status) => {
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "completed") return "Completed";
+  if (normalized === "accepted") return "Accepted";
+  if (normalized === "declined") return "Declined";
+  return "Pending";
+};
+
 const HOME_SERVICE_HINTS = [
   "roof", "painting", "paint", "plumbing", "electric", "electrical", "hvac", "cleaning",
   "lawn", "gutters", "handyman", "solar", "contractor", "home improvement",
@@ -246,7 +260,7 @@ const openClientFullProfileModal = () => {
     : [];
   const completion = propertyCompletionCount(profile);
   const name = currentClientProfile?.full_name || currentJob.client_name || "Neighbor";
-  const avatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "../assets/blankpropic.png";
+  const avatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "../assets/neighborpp.png";
   const location = toPublicLocation(currentClientProfile?.location || currentClientProfile?.address || currentJob.client_location_public || currentJob.location || "");
   const memberSince = formatMemberSince(currentJob.created_at);
 
@@ -366,7 +380,7 @@ const renderProposalSummary = (request) => {
   }
   if (request.proposal_notes) lines.push(`Notes: ${request.proposal_notes}`);
   proposalSummaryCopy.innerHTML = lines.map((line) => `<p>${line}</p>`).join("");
-  proposalSummaryStatus.textContent = request.status || "pending";
+  proposalSummaryStatus.textContent = requestStatusLabel(request.status);
   proposalSummaryPanel.classList.remove("hidden");
 };
 
@@ -390,7 +404,8 @@ const setProposalLocked = (locked, request = null) => {
 
 const canMessageClientNow = async () => {
   if (!supabase || !providerId || !jobId || !currentJob?.client_id) return false;
-  if (currentRequestStatus !== "accepted") return false;
+  const normalized = normalizeRequestStatus(currentRequestStatus);
+  if (!(normalized === "accepted" || normalized === "completed")) return false;
   const { data, error } = await supabase
     .from("job_messages")
     .select("id")
@@ -410,8 +425,10 @@ const updateMessageLinkState = async () => {
     const params = new URLSearchParams();
     params.set("job", jobId);
     params.set("client", currentJob.client_id);
-    if (currentJob.client_name) params.set("clientName", currentJob.client_name);
-    if (currentJob.client_avatar_url) params.set("clientAvatar", currentJob.client_avatar_url);
+    const clientName = currentClientProfile?.full_name || currentJob.client_name || "";
+    const clientAvatar = currentClientProfile?.avatar_url || currentJob.client_avatar_url || "";
+    if (clientName) params.set("clientName", clientName);
+    if (clientAvatar) params.set("clientAvatar", clientAvatar);
     messageClientLink.href = `../provider/provider-messages.html?${params.toString()}`;
     messageClientLink.classList.remove("hidden");
     return;
@@ -435,7 +452,7 @@ const renderJob = async () => {
 
   currentClientProfile = await loadClientProfile(job.client_id);
   if (clientAvatarEl) {
-    clientAvatarEl.src = currentClientProfile?.avatar_url || job.client_avatar_url || "../assets/blankpropic.png";
+    clientAvatarEl.src = currentClientProfile?.avatar_url || job.client_avatar_url || "../assets/neighborpp.png";
   }
   if (clientNameEl) {
     clientNameEl.textContent = currentClientProfile?.full_name || job.client_name || "Neighbor";
@@ -500,7 +517,7 @@ const refreshReviewEligibility = async () => {
     .eq("job_id", jobId)
     .eq("provider_id", providerId)
     .maybeSingle();
-  const hasCompletedRelationship = requestRow && (requestRow.status === "accepted" || requestRow.status === "closed");
+  const hasCompletedRelationship = requestRow && normalizeRequestStatus(requestRow.status) === "completed";
   const myReview = await loadMyReview();
   canRateClient = Boolean(hasCompletedRelationship && !myReview && currentJob?.client_id);
   if (reviewToggleButton) reviewToggleButton.classList.toggle("hidden", !canRateClient);
@@ -562,7 +579,14 @@ const requestQuote = async () => {
     hydrateProposalForm(currentJob, existing);
     setProposalLocked(true, existing);
     currentRequestStatus = existing.status || "pending";
-    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Proposal Sent";
+    const normalized = normalizeRequestStatus(existing.status);
+    requestButton.textContent = normalized === "accepted"
+      ? "Accepted"
+      : normalized === "completed"
+        ? "Completed"
+        : normalized === "declined"
+          ? "Declined"
+        : "Proposal Sent";
     requestButton.disabled = true;
     setStatus("Proposal already sent.", "success");
     await updateMessageLinkState();
@@ -633,7 +657,14 @@ const init = async () => {
   }
   currentRequestStatus = existing?.status || null;
   if (existing) {
-    requestButton.textContent = existing.status === "accepted" ? "Accepted" : "Proposal Sent";
+    const normalized = normalizeRequestStatus(existing.status);
+    requestButton.textContent = normalized === "accepted"
+      ? "Accepted"
+      : normalized === "completed"
+        ? "Completed"
+        : normalized === "declined"
+          ? "Declined"
+        : "Proposal Sent";
     requestButton.disabled = true;
   }
   await updateMessageLinkState();

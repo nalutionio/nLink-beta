@@ -1172,7 +1172,7 @@ const updatePreview = () => {
 
   const metadataAvatar = state.user?.user_metadata?.provider_avatar_url || "";
   const bannerSrc = provider.banner_url || provider.hero_url || "../assets/plugFeedlogo-rmbg.png";
-  const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/nlinkiconblk.png";
+  const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/plugprofilepic.png";
   if (dashboardHeadlineEl) {
     dashboardHeadlineEl.textContent = `Good morning, ${provider.name || "Plug"}.`;
   }
@@ -1586,7 +1586,7 @@ const renderFullProfileMarkup = () => {
         <div class="profile-banner-overlay"></div>
       </div>
       <div class="profile-avatar">
-        <img src="${provider.avatar_url || metadataAvatar || "../assets/nlinkiconblk.png"}" alt="${provider.name || "Business"} logo" />
+        <img src="${provider.avatar_url || metadataAvatar || "../assets/plugprofilepic.png"}" alt="${provider.name || "Business"} logo" />
       </div>
     </div>
     <div class="card-content full-profile">
@@ -1736,7 +1736,7 @@ const renderCardPreviewMarkup = () => {
   const provider = state.provider;
   if (!provider) return `<p class="muted">${labelProfile.noProfile || "No profile data yet."}</p>`;
   const metadataAvatar = state.user?.user_metadata?.provider_avatar_url || "";
-  const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/nlinkiconblk.png";
+  const avatarSrc = provider.avatar_url || metadataAvatar || "../assets/plugprofilepic.png";
   const ratingText = state.metrics.ratingAverage > 0 ? `★ ${state.metrics.ratingAverage.toFixed(1)}` : "★ New";
   return `
     <article class="card preview-card-inner">

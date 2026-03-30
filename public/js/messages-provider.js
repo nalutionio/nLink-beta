@@ -23,7 +23,7 @@ const state = {
   chatOpen: false,
 };
 
-const fallbackAvatar = "../assets/blankpropic.png";
+const fallbackAvatar = "../assets/neighborpp.png";
 
 const setStatus = (message, type = "") => {
   if (!statusEl) return;
