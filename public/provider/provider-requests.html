@@ -21,7 +21,7 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h3>Pending Proposals</h3>
+        <h3>Active Proposals</h3>
         <span class="badge">Beta</span>
       </div>
       <div class="job-list" id="request-list"></div>
@@ -30,8 +30,11 @@
     <section class="panel">
       <div class="panel-header">
         <h3>Closed</h3>
+        <button class="ghost-button" id="request-closed-toggle" type="button" aria-expanded="true">Hide</button>
       </div>
-      <div class="job-list" id="request-closed"></div>
+      <div id="request-closed-wrap">
+        <div class="job-list" id="request-closed"></div>
+      </div>
     </section>
   </main>
 

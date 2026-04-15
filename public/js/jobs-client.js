@@ -5,6 +5,11 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 const form = document.getElementById("job-form");
 const statusEl = document.getElementById("job-status");
 const jobList = document.getElementById("job-list");
+const myJobsPanel = document.getElementById("my-jobs-panel");
+const jobFormTitleEl = document.getElementById("job-form-title");
+const jobSubmitButton = document.getElementById("job-submit-button");
+const jobFormToggleButton = document.getElementById("job-form-toggle");
+const jobFormContent = document.getElementById("job-form-content");
 
 const titleInput = document.getElementById("job-title");
 const serviceCategoryInput = document.getElementById("job-service-category");
@@ -17,12 +22,16 @@ const sqftInput = document.getElementById("job-sqft");
 const timelineInput = document.getElementById("job-timeline");
 const locationInput = document.getElementById("job-location");
 const photosInput = document.getElementById("job-photos");
+const urlParams = new URLSearchParams(window.location.search);
+const directProviderId = String(urlParams.get("direct_provider_id") || "").trim();
+const directProviderName = String(urlParams.get("direct_provider_name") || "").trim();
 const MAX_JOB_PHOTOS = 6;
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "tif", "tiff"]);
 const fallbackAvatar = "../assets/neighborpp.png";
 let jobEventsTableAvailable = true;
+let targetProviderColumnAvailable = null;
 const toCanonicalService = (value) => (
   window.NLINK_SERVICE_TAGS?.toCanonicalService
     ? window.NLINK_SERVICE_TAGS.toCanonicalService(value)
@@ -84,6 +93,25 @@ const logJobEvent = async (jobId, eventType, metadata = {}) => {
 
 const isMissingColumnError = (error) => Boolean(error)
   && ["42703", "PGRST204", "PGRST205"].includes(error.code);
+
+const isMissingTargetProviderColumn = (error) => Boolean(error)
+  && (
+    error.code === "42703"
+    || error.code === "PGRST204"
+    || error.code === "PGRST205"
+    || String(error.message || "").toLowerCase().includes("target_provider_id")
+  );
+
+const checkTargetProviderColumn = async () => {
+  if (!supabase) return false;
+  if (targetProviderColumnAvailable !== null) return targetProviderColumnAvailable;
+  const { error } = await supabase
+    .from("jobs")
+    .select("target_provider_id")
+    .limit(1);
+  targetProviderColumnAvailable = !isMissingTargetProviderColumn(error);
+  return targetProviderColumnAvailable;
+};
 
 const selectClientProfile = async (userId) => {
   const { data, error } = await supabase
@@ -339,15 +367,45 @@ form?.addEventListener("submit", async (event) => {
     ...(await getClientSnapshot(user)),
   };
 
-  const { data: inserted, error } = await supabase
+  if (directProviderId) {
+    const hasTargetProviderColumn = await checkTargetProviderColumn();
+    if (!hasTargetProviderColumn) {
+      setStatus("Direct request is not enabled yet. Please run the direct request DB migration first.", "error");
+      return;
+    }
+    payload.target_provider_id = directProviderId;
+  }
+
+  const insertResult = await supabase
     .from("jobs")
     .insert(payload)
     .select("id")
     .single();
+  const { data: inserted, error } = insertResult;
 
   if (error || !inserted) {
     setStatus(error?.message || "Could not post job.", "error");
     return;
+  }
+
+  if (directProviderId) {
+    const directRequestPayload = {
+      job_id: inserted.id,
+      provider_id: directProviderId,
+      status: "requested",
+      proposal_notes: "Direct request from Neighbor profile booking.",
+    };
+    const { error: directRequestError } = await supabase
+      .from("job_requests")
+      .insert(directRequestPayload);
+    if (directRequestError) {
+      setStatus(directRequestError.message || "Job posted, but direct request could not be sent.", "error");
+      await renderJobs();
+      return;
+    }
+    await logJobEvent(inserted.id, "direct_request_created", {
+      target_provider_id: directProviderId,
+    });
   }
 
   await logJobEvent(inserted.id, "job_created", {
@@ -391,8 +449,68 @@ form?.addEventListener("submit", async (event) => {
   }
 
   form.reset();
-  setStatus("Job posted.", "success");
+  setStatus(
+    directProviderId
+      ? `Direct request sent${directProviderName ? ` to ${directProviderName}` : ""}.`
+      : "Job posted.",
+    "success",
+  );
   await renderJobs();
 });
 
+const initDirectRequestMode = async () => {
+  if (!directProviderId) return;
+  if (myJobsPanel) myJobsPanel.classList.add("hidden");
+  if (jobFormTitleEl) jobFormTitleEl.textContent = "Direct Request Details";
+  if (jobSubmitButton) jobSubmitButton.textContent = "Send Direct Request";
+  if (jobFormContent) jobFormContent.classList.remove("hidden");
+  if (jobFormToggleButton) jobFormToggleButton.textContent = "Collapse";
+  const hasTargetProviderColumn = await checkTargetProviderColumn();
+  if (!hasTargetProviderColumn) {
+    setStatus("Direct request is not enabled yet. Please run the direct request DB migration first.", "error");
+    if (jobSubmitButton) jobSubmitButton.disabled = true;
+    return;
+  }
+  if (jobSubmitButton) jobSubmitButton.disabled = false;
+  const user = await getSessionUser();
+  if (!user) return;
+  const { data: provider, error } = await supabase
+    .from("providers")
+    .select("id,name,owner_id,category,location")
+    .eq("id", directProviderId)
+    .maybeSingle();
+  if (!error && provider?.owner_id && provider.owner_id === user.id) {
+    setStatus("You cannot create a direct request to your own Plug account.", "error");
+    return;
+  }
+  if (provider?.name) {
+    setStatus(`Direct request mode: this job will be sent to ${provider.name} only.`, "info");
+  } else if (directProviderName) {
+    setStatus(`Direct request mode: this job will be sent to ${directProviderName} only.`, "info");
+  } else {
+    setStatus("Direct request mode: this job will be sent to one Plug only.", "info");
+  }
+  if (provider?.category && !serviceNameInput?.value) {
+    const inferredCategory = window.NLINK_SERVICE_TAGS?.inferCategoryForService?.(provider.category) || "";
+    if (inferredCategory && serviceCategoryInput) {
+      serviceCategoryInput.value = toCanonicalCategory(inferredCategory);
+      resetServiceOptions();
+    }
+    if (serviceNameInput) {
+      serviceNameInput.value = toCanonicalService(provider.category);
+      resetTagOptions();
+    }
+  }
+  if (provider?.location && locationInput && !locationInput.value.trim()) {
+    locationInput.value = normalizeLocation(provider.location);
+  }
+};
+
+jobFormToggleButton?.addEventListener("click", () => {
+  if (!jobFormContent) return;
+  const isHidden = jobFormContent.classList.toggle("hidden");
+  jobFormToggleButton.textContent = isHidden ? "Expand" : "Collapse";
+});
+
+initDirectRequestMode();
 renderJobs();

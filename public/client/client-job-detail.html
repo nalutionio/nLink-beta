@@ -122,6 +122,24 @@
         <span class="badge">Beta</span>
       </div>
       <div class="job-list" id="job-requests"></div>
+      <div class="modal-form hidden" id="client-booking-wrap">
+        <h4>Appointment</h4>
+        <p class="muted" id="client-booking-summary">No appointment availability yet.</p>
+        <div class="job-list" id="client-booking-slots"></div>
+        <label class="input-field">
+          <span>Note to Plug (optional)</span>
+          <textarea id="client-booking-note" rows="2" placeholder="Gate code, preferred contact, parking notes..."></textarea>
+        </label>
+        <label class="input-field hidden" id="client-booking-address-wrap">
+          <span>Service Address (shared with Plug)</span>
+          <input id="client-booking-address" type="text" placeholder="123 Main St, Apt 2, Town, ST 00000" />
+        </label>
+        <div class="job-actions">
+          <button class="primary-button hidden" id="client-booking-confirm" type="button">Confirm Selected Slot</button>
+          <button class="ghost-button hidden" id="client-booking-share-address" type="button">Share Address</button>
+        </div>
+        <div class="auth-status" id="client-booking-status"></div>
+      </div>
       <div class="modal-form hidden" id="client-review-form-wrap">
         <h4 id="client-review-title">Rate Plug</h4>
         <label class="input-field">

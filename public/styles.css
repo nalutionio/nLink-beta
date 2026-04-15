@@ -221,6 +221,31 @@ a {
   padding: 0;
 }
 
+.compact-topbar .header-actions {
+  margin-left: auto;
+}
+
+.community-activity-btn {
+  position: relative;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.community-activity-btn .material-symbols-rounded {
+  font-size: 1.15rem;
+}
+
+.community-activity-btn .nav-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+}
+
 .minimal-kicker .brand-link {
   display: none;
 }
@@ -298,6 +323,7 @@ a {
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
+  min-width: 0;
 }
 
 .proposal-fields .check-list label {
@@ -1556,6 +1582,7 @@ a {
 .proposal-overflow-menu {
   position: absolute;
   right: 0;
+  left: auto;
   top: calc(100% + 6px);
   z-index: 6;
   min-width: 170px;
@@ -1567,6 +1594,11 @@ a {
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.proposal-overflow-menu.align-left {
+  left: 0;
+  right: auto;
 }
 
 .proposal-menu-item {
@@ -2121,6 +2153,9 @@ a {
   font-family: inherit;
   font-size: 0.9rem;
   width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -2288,6 +2323,56 @@ a {
   padding: 10px 10px 8px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   overflow: hidden;
+}
+
+.community-post.community-post-highlight {
+  box-shadow: 0 0 0 2px rgba(121, 184, 0, 0.5), 0 18px 32px rgba(15, 23, 42, 0.08);
+}
+
+.activity-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.activity-item {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  width: 100%;
+  background: #fff;
+}
+
+.activity-item.unread {
+  border-color: rgba(121, 184, 0, 0.45);
+  background: rgba(121, 184, 0, 0.08);
+}
+
+.activity-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.activity-body {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.activity-time {
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .community-post-head {
@@ -2736,6 +2821,11 @@ a {
   font-size: 0.75rem;
 }
 
+.capacity-pill {
+  background: rgba(100, 116, 139, 0.16);
+  color: #5f6d87;
+}
+
 .rating {
   font-weight: 600;
   color: var(--ink);
@@ -3019,6 +3109,22 @@ a {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 500;
+}
+
+.message-thread-unread {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: #79b800;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
 }
 
 .message-thread-kind {

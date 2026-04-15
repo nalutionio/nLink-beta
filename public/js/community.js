@@ -22,6 +22,8 @@
   const serviceTagsInput = document.getElementById("community-service-tags");
   const feedEl = document.getElementById("community-feed");
   const composerAvatarEl = document.getElementById("community-composer-avatar");
+  const activityButtonEl = document.getElementById("community-activity-btn");
+  const activityBadgeEl = document.getElementById("community-activity-badge");
 
   const state = {
     user: null,
@@ -40,7 +42,10 @@
       subtitle: "",
     },
     lastPlugAdded: null,
+    notifications: [],
+    notificationActorRoleById: {},
   };
+  let notificationChannel = null;
   const fallbackAvatar = "../assets/plugprofilepic.png";
   const clientFallbackAvatar = "../assets/neighborpp.png";
   const hiddenPostsStorageKey = () => `plugfeed_hidden_posts_${state.user?.id || "guest"}`;
@@ -67,6 +72,17 @@
     if (!statusEl) return;
     statusEl.textContent = message || "";
     statusEl.className = `auth-status ${type}`.trim();
+  };
+
+  const setActivityBadge = (count) => {
+    if (!activityBadgeEl) return;
+    const value = Number(count || 0);
+    if (value > 0) {
+      activityBadgeEl.textContent = value > 99 ? "99+" : String(value);
+      activityBadgeEl.classList.remove("hidden");
+    } else {
+      activityBadgeEl.classList.add("hidden");
+    }
   };
 
   const setSafeAvatar = (imgEl, preferredUrl, fallbackUrl) => {
@@ -208,6 +224,201 @@
     } catch (_error) {
       // non-blocking
     }
+  };
+
+  const loadActivityNotifications = async () => {
+    if (!state.user?.id) return;
+    const { data, error } = await supabase
+      .from("community_notifications")
+      .select("*")
+      .eq("recipient_user_id", state.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error && isTransportError(error)) throw error;
+    state.notifications = Array.isArray(data) ? data : [];
+    setActivityBadge(state.notifications.filter((item) => !item.is_read).length);
+  };
+
+  const hydrateNotificationActors = async () => {
+    const actorIds = Array.from(new Set((state.notifications || []).map((item) => item.actor_user_id).filter(Boolean)));
+    if (!actorIds.length) return;
+    state.notificationActorRoleById = {};
+
+    const commentNotificationRows = (state.notifications || [])
+      .filter((item) => item.source_type === "comment" && item.source_id)
+      .map((item) => ({ notificationId: item.id, sourceId: item.source_id }));
+    if (commentNotificationRows.length) {
+      const commentSourceIds = Array.from(new Set(commentNotificationRows.map((item) => item.sourceId)));
+      const { data: commentRows } = await readClient
+        .from("community_comments")
+        .select("id,author_role")
+        .in("id", commentSourceIds);
+      const roleByCommentId = {};
+      (commentRows || []).forEach((row) => {
+        if (row?.id) roleByCommentId[row.id] = row.author_role || "";
+      });
+      commentNotificationRows.forEach((item) => {
+        state.notificationActorRoleById[item.notificationId] = roleByCommentId[item.sourceId] || "";
+      });
+    }
+
+    const reactionNotificationRows = (state.notifications || [])
+      .filter((item) => item.source_type === "reaction" && item.source_id)
+      .map((item) => ({ notificationId: item.id, sourceId: item.source_id }));
+    if (reactionNotificationRows.length) {
+      const reactionSourceIds = Array.from(new Set(reactionNotificationRows.map((item) => item.sourceId)));
+      const { data: reactionRows } = await readClient
+        .from("community_reactions")
+        .select("id,actor_role")
+        .in("id", reactionSourceIds);
+      const roleByReactionId = {};
+      (reactionRows || []).forEach((row) => {
+        if (row?.id) roleByReactionId[row.id] = row.actor_role || "";
+      });
+      reactionNotificationRows.forEach((item) => {
+        state.notificationActorRoleById[item.notificationId] = roleByReactionId[item.sourceId] || state.notificationActorRoleById[item.notificationId] || "";
+      });
+    }
+
+    await loadNeighborProfiles(actorIds);
+    const { data: providerRows } = await readClient
+      .from("providers")
+      .select("id,name,avatar_url,owner_id,category")
+      .in("owner_id", actorIds);
+    (providerRows || []).forEach((row) => {
+      if (row?.id) state.providersById[row.id] = row;
+    });
+  };
+
+  const getActivityActor = (notification) => {
+    const actorUserId = notification.actor_user_id;
+    const client = state.clientsById[actorUserId];
+    const provider = Object.values(state.providersById).find((item) => item?.owner_id === actorUserId);
+    const hintedRole = state.notificationActorRoleById[notification.id] || "";
+
+    if (hintedRole === "client" && client) {
+      return {
+        name: client.full_name || "Neighbor",
+        avatar: client.avatar_url || clientFallbackAvatar,
+      };
+    }
+    if (hintedRole === "provider" && provider) {
+      return {
+        name: provider.name || "Plug",
+        avatar: provider.avatar_url || fallbackAvatar,
+      };
+    }
+    if (provider) {
+      return {
+        name: provider.name || "Plug",
+        avatar: provider.avatar_url || fallbackAvatar,
+      };
+    }
+    if (client) {
+      return {
+        name: client.full_name || "Neighbor",
+        avatar: client.avatar_url || clientFallbackAvatar,
+      };
+    }
+    return { name: "Neighbor", avatar: clientFallbackAvatar };
+  };
+
+  const closeActivityModal = () => {
+    document.getElementById("community-activity-modal")?.remove();
+  };
+
+  const focusPost = (postId) => {
+    if (!postId) return;
+    const card = feedEl?.querySelector(`[data-post-id="${postId}"]`);
+    if (!card) return;
+    card.classList.add("community-post-highlight");
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    const commentsWrap = card.querySelector(".community-comments");
+    commentsWrap?.classList.remove("hidden");
+    window.setTimeout(() => card.classList.remove("community-post-highlight"), 2200);
+  };
+
+  const markActivityRead = async (notificationIds = []) => {
+    if (!notificationIds.length) return;
+    const nowIso = new Date().toISOString();
+    await supabase
+      .from("community_notifications")
+      .update({ is_read: true, read_at: nowIso })
+      .in("id", notificationIds);
+    state.notifications = state.notifications.map((item) => (
+      notificationIds.includes(item.id)
+        ? { ...item, is_read: true, read_at: nowIso }
+        : item
+    ));
+    setActivityBadge(state.notifications.filter((item) => !item.is_read).length);
+  };
+
+  const openActivityModal = async () => {
+    await loadActivityNotifications();
+    await hydrateNotificationActors();
+    closeActivityModal();
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.id = "community-activity-modal";
+    modal.setAttribute("aria-hidden", "false");
+    const items = state.notifications;
+    modal.innerHTML = `
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Activity</h3>
+          <button class="ghost-button" type="button" data-action="close">Close</button>
+        </div>
+        <div class="activity-list">
+          ${items.length ? items.map((item) => {
+            const actor = getActivityActor(item);
+            return `
+              <button class="activity-item ${item.is_read ? "" : "unread"}" type="button" data-action="open-activity" data-id="${item.id}" data-post-id="${item.post_id}">
+                <div class="activity-item-head">
+                  <img class="activity-avatar" src="${escapeHtml(actor.avatar)}" alt="${escapeHtml(actor.name)}" />
+                  <strong>${escapeHtml(actor.name)}</strong>
+                </div>
+                <p class="activity-body">${escapeHtml(item.message || "New activity on your post")}</p>
+                <span class="activity-time">${formatDate(item.created_at)}</span>
+              </button>
+            `;
+          }).join("") : "<p class='muted'>No activity yet.</p>"}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const close = () => closeActivityModal();
+    modal.querySelector("[data-action='close']")?.addEventListener("click", close);
+    modal.addEventListener("click", async (event) => {
+      if (event.target === modal) close();
+      const itemButton = event.target.closest("button[data-action='open-activity']");
+      if (!itemButton) return;
+      const notificationId = itemButton.dataset.id || "";
+      const postId = itemButton.dataset.postId || "";
+      if (notificationId) await markActivityRead([notificationId]);
+      close();
+      if (postId) {
+        focusPost(postId);
+      }
+    });
+    const unreadIds = items.filter((item) => !item.is_read).map((item) => item.id);
+    if (unreadIds.length) {
+      await markActivityRead(unreadIds);
+    }
+  };
+
+  const subscribeActivityNotifications = () => {
+    if (!state.user?.id || notificationChannel) return;
+    notificationChannel = supabase
+      .channel(`community-activity-${state.user.id}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "community_notifications",
+        filter: `recipient_user_id=eq.${state.user.id}`,
+      }, () => {
+        loadActivityNotifications().catch(() => {});
+      })
+      .subscribe();
   };
 
   const setupComposerOptions = () => {
@@ -638,6 +849,7 @@
         await Promise.all([hydrateAuthors(), hydratePostDetails()]);
       });
       renderFeed();
+      await loadActivityNotifications();
     } catch (error) {
       state.feed = [];
       renderFeed();
@@ -656,9 +868,24 @@
           .eq("user_id", state.user.id)
           .eq("reaction_type", "like");
       } else {
-        await supabase
+        const insertPayload = {
+          post_id: postId,
+          user_id: state.user.id,
+          reaction_type: "like",
+          actor_role: activeRole,
+          actor_provider_id: activeRole === "provider" ? state.providerId : null,
+        };
+        const insertWithRole = await supabase
           .from("community_reactions")
-          .insert({ post_id: postId, user_id: state.user.id, reaction_type: "like" });
+          .insert(insertPayload);
+        if (insertWithRole.error && (insertWithRole.error.code === "42703" || insertWithRole.error.code === "PGRST204" || insertWithRole.error.code === "PGRST205")) {
+          const fallback = await supabase
+            .from("community_reactions")
+            .insert({ post_id: postId, user_id: state.user.id, reaction_type: "like" });
+          if (fallback.error) throw fallback.error;
+        } else if (insertWithRole.error) {
+          throw insertWithRole.error;
+        }
         await logEvent("community_reaction_added", postId, { reaction: "like" });
       }
     });
@@ -952,6 +1179,7 @@
       return;
     }
     state.user = user;
+    subscribeActivityNotifications();
     loadHiddenPostIds();
 
     if (composerAvatarEl) {
@@ -1018,6 +1246,10 @@
       // Optional for feed browsing; composer plug modal can still open once reloaded.
     }
     await refreshFeed();
+    const focusPostId = new URLSearchParams(window.location.search).get("post");
+    if (focusPostId) {
+      focusPost(focusPostId);
+    }
     if (state.feed.length) setStatus("Community loaded.", "success");
   };
 
@@ -1057,6 +1289,11 @@
     feedEl.querySelectorAll(".community-post-menu").forEach((menu) => menu.classList.add("hidden"));
   });
   feedEl?.addEventListener("submit", onFeedSubmit);
+  activityButtonEl?.addEventListener("click", () => {
+    openActivityModal().catch((error) => {
+      setStatus(getErrorText(error, "Could not open activity."), "error");
+    });
+  });
 
   init();
 })();

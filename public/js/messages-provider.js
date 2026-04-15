@@ -20,8 +20,16 @@ const state = {
   selectedClientId: null,
   tableAvailable: true,
   directTableAvailable: true,
+  readTableAvailable: true,
+  readByClientId: {},
   chatOpen: false,
 };
+
+let realtimeChannel = null;
+const pageParams = new URLSearchParams(window.location.search);
+const queryClientId = pageParams.get("client");
+const queryClientName = pageParams.get("clientName");
+const queryClientAvatar = pageParams.get("clientAvatar");
 
 const fallbackAvatar = "../assets/neighborpp.png";
 
@@ -70,6 +78,123 @@ const loadProviderId = async () => {
 
 const getSelectedClient = () => state.clients.find((item) => item.clientId === state.selectedClientId) || null;
 
+const getIncomingLatestByClient = (client) => {
+  const incoming = (client?.messages || [])
+    .filter((row) => row?.sender_role === "client")
+    .map((row) => row.created_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  return incoming || "";
+};
+
+const getUnreadCountForClient = (client) => {
+  if (!client) return 0;
+  const lastRead = state.readByClientId[client.clientId] || "";
+  const cutoff = lastRead ? new Date(lastRead).getTime() : 0;
+  return (client.messages || []).filter((row) => {
+    if (row?.sender_role !== "client" || !row?.created_at) return false;
+    return new Date(row.created_at).getTime() > cutoff;
+  }).length;
+};
+
+const markClientThreadRead = async (client) => {
+  if (!supabase || !state.user || !state.providerId || !client?.clientId || !state.readTableAvailable) return;
+  const latestIncoming = getIncomingLatestByClient(client);
+  if (!latestIncoming) return;
+  const current = state.readByClientId[client.clientId] || "";
+  if (current && new Date(current).getTime() >= new Date(latestIncoming).getTime()) return;
+  const payload = {
+    provider_id: state.providerId,
+    client_id: client.clientId,
+    viewer_user_id: state.user.id,
+    viewer_role: "provider",
+    last_read_at: latestIncoming,
+  };
+  const { error } = await supabase
+    .from("message_thread_reads")
+    .upsert(payload, { onConflict: "provider_id,client_id,viewer_user_id,viewer_role" });
+  if (error) {
+    if (isMissingTableError(error)) {
+      state.readTableAvailable = false;
+      return;
+    }
+    return;
+  }
+  state.readByClientId[client.clientId] = latestIncoming;
+};
+
+const loadReadState = async () => {
+  if (!supabase || !state.user || !state.providerId || !state.readTableAvailable) return;
+  const { data, error } = await supabase
+    .from("message_thread_reads")
+    .select("client_id,last_read_at")
+    .eq("viewer_user_id", state.user.id)
+    .eq("viewer_role", "provider")
+    .eq("provider_id", state.providerId);
+  if (error) {
+    if (isMissingTableError(error)) state.readTableAvailable = false;
+    return;
+  }
+  state.readByClientId = Array.isArray(data)
+    ? data.reduce((acc, row) => {
+      if (row?.client_id) acc[row.client_id] = row.last_read_at || "";
+      return acc;
+    }, {})
+    : {};
+};
+
+const markAllClientThreadsRead = async () => {
+  if (!supabase || !state.user || !state.providerId || !state.readTableAvailable) return;
+  const payload = state.clients
+    .map((client) => {
+      const latestIncoming = getIncomingLatestByClient(client);
+      if (!client?.clientId || !latestIncoming) return null;
+      return {
+        provider_id: state.providerId,
+        client_id: client.clientId,
+        viewer_user_id: state.user.id,
+        viewer_role: "provider",
+        last_read_at: latestIncoming,
+      };
+    })
+    .filter(Boolean);
+  if (!payload.length) return;
+  const { error } = await supabase
+    .from("message_thread_reads")
+    .upsert(payload, { onConflict: "provider_id,client_id,viewer_user_id,viewer_role" });
+  if (error) {
+    if (isMissingTableError(error)) state.readTableAvailable = false;
+    return;
+  }
+  payload.forEach((row) => {
+    state.readByClientId[row.client_id] = row.last_read_at;
+  });
+};
+
+const subscribeRealtime = () => {
+  if (!supabase || !state.user || !state.providerId || realtimeChannel) return;
+  realtimeChannel = supabase
+    .channel(`provider-messages-${state.providerId}`)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "job_messages",
+      filter: `provider_id=eq.${state.providerId}`,
+    }, () => {
+      hydrate({ preserveSelection: true, silent: true });
+    })
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "direct_messages",
+      filter: `provider_id=eq.${state.providerId}`,
+    }, () => {
+      hydrate({ preserveSelection: true, silent: true });
+    })
+    .subscribe();
+};
+
 const renderThreads = () => {
   if (!threadListEl) return;
   threadListEl.innerHTML = "";
@@ -88,12 +213,15 @@ const renderThreads = () => {
       <span class="message-thread-kind ${client.channel === "direct" ? "direct" : "job"}">${client.channel === "direct" ? "Direct" : "Job"}</span>
       <p class="muted">${client.preview || "No messages yet."}</p>
       <span class="pill">${formatTime(client.lastMessageAt)}</span>
+      ${getUnreadCountForClient(client) > 0 ? `<span class="message-thread-unread">${getUnreadCountForClient(client) > 99 ? "99+" : getUnreadCountForClient(client)}</span>` : ""}
     `;
     item.addEventListener("click", () => {
       state.selectedClientId = client.clientId;
-      renderThreads();
-      renderMessages();
-      setChatMode(true);
+      markClientThreadRead(client).finally(() => {
+        renderThreads();
+        renderMessages();
+        setChatMode(true);
+      });
     });
     threadListEl.appendChild(item);
   });
@@ -138,7 +266,7 @@ const loadThreads = async () => {
     .from("job_requests")
     .select("job_id,provider_id,status,created_at,jobs(id,title,location,client_id,client_name,client_avatar_url)")
     .eq("provider_id", state.providerId)
-    .eq("status", "accepted")
+    .in("status", ["accepted", "completed", "closed"])
     .order("created_at", { ascending: false });
   if (error || !Array.isArray(data)) return [];
   return data;
@@ -191,18 +319,14 @@ const loadClientsByIds = async (clientIds) => {
   return {};
 };
 
-const hydrate = async () => {
+const hydrate = async ({ preserveSelection = true, silent = false } = {}) => {
   if (!supabase) return;
   const user = await getSessionUser();
   if (!user) return;
   state.user = user;
   state.providerId = await loadProviderId();
   if (!state.providerId) return;
-
-  const params = new URLSearchParams(window.location.search);
-  const queryClientId = params.get("client");
-  const queryClientName = params.get("clientName");
-  const queryClientAvatar = params.get("clientAvatar");
+  subscribeRealtime();
 
   const [threadsRaw, messages, directMessages] = await Promise.all([
     loadThreads(),
@@ -337,11 +461,25 @@ const hydrate = async () => {
     }
   }
 
-  state.selectedClientId = queryClientId || state.clients[0]?.clientId || null;
+  const previousSelected = preserveSelection ? state.selectedClientId : null;
+  state.selectedClientId = previousSelected
+    || queryClientId
+    || state.clients[0]?.clientId
+    || null;
 
+  await loadReadState();
+  const onMessagesPage = window.location.pathname.includes("/provider/provider-messages.html");
+  if (onMessagesPage) {
+    await markAllClientThreadsRead();
+  }
+  const selectedClient = getSelectedClient();
+  if (selectedClient && state.chatOpen) {
+    await markClientThreadRead(selectedClient);
+  }
   renderThreads();
   renderMessages();
   setChatMode(Boolean(state.selectedClientId && (queryClientId || state.chatOpen)));
+  if (!silent) setStatus("");
 };
 
 const sendMessage = async (event) => {
@@ -414,7 +552,7 @@ const sendMessage = async (event) => {
 
   if (inputEl) inputEl.value = "";
   setStatus("Message sent.", "success");
-  await hydrate();
+  await hydrate({ preserveSelection: true, silent: true });
   if (sendEl) sendEl.disabled = false;
 };
 

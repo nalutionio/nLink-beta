@@ -4,10 +4,13 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const pendingEl = document.getElementById("request-list");
 const closedEl = document.getElementById("request-closed");
+const closedWrap = document.getElementById("request-closed-wrap");
+const closedToggleButton = document.getElementById("request-closed-toggle");
 let providerUserId = null;
 const clientInitiatedByThread = {};
 const clientProfilesById = {};
 const jobsById = {};
+let appointmentsTableAvailable = true;
 
 const getSessionUser = async () => {
   if (!supabase) return null;
@@ -37,6 +40,18 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString();
+};
+
+const formatDateTime = (value) => {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 const toPublicLocation = (value) => {
@@ -173,13 +188,14 @@ const formatEstimate = (min, max) => {
 
 const normalizeRequestStatus = (status) => {
   const raw = String(status || "pending").toLowerCase();
-  if (raw === "closed") return "completed";
   return raw;
 };
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "completed") return "Completed";
+  if (normalized === "requested") return "Direct Request";
+  if (normalized === "completed") return "Awaiting Confirmation";
+  if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
   return "Pending";
@@ -196,10 +212,17 @@ const deriveDisplayRequestStatus = (request, acceptedJobIdSet = new Set()) => {
     return "declined";
   }
   if (normalized === "accepted" && jobStatus === "closed") {
-    return "completed";
+    return "closed";
   }
   return normalized;
 };
+
+const isMissingTableError = (error) => Boolean(error)
+  && (
+    error.code === "42P01"
+    || error.code === "PGRST205"
+    || error.status === 404
+  );
 
 const buildOverflowMenu = ({
   jobId = "",
@@ -238,17 +261,25 @@ const buildOverflowMenu = ({
 
 const markRequestCompleted = async (requestId, providerId, jobId = null) => {
   if (!supabase || !requestId || !providerId) return false;
-  const { error } = await supabase
+  let { error } = await supabase
     .from("job_requests")
-    .update({ status: "closed" })
+    .update({ status: "completed" })
     .eq("id", requestId)
     .eq("provider_id", providerId);
-  if (error) return false;
+  if (error) {
+    // Backward compatibility: older DB check constraints may not yet include "completed".
+    const legacy = await supabase
+      .from("job_requests")
+      .update({ status: "closed" })
+      .eq("id", requestId)
+      .eq("provider_id", providerId);
+    error = legacy.error || null;
+    if (error) return false;
+  }
   if (jobId) {
-    // Best effort: if provider-side job update is allowed, keep job-level state in sync.
     await supabase
       .from("jobs")
-      .update({ status: "closed" })
+      .update({ status: "in_progress" })
       .eq("id", jobId);
   }
   return true;
@@ -323,14 +354,42 @@ const renderRequests = async () => {
       });
     }
   }
+  const appointmentByRequestId = {};
+  if (appointmentsTableAvailable) {
+    const requestIds = requests.map((req) => req.id).filter(Boolean);
+    if (requestIds.length) {
+      const { data: appointmentRows, error: appointmentError } = await supabase
+        .from("job_appointments")
+        .select("request_id,status,selected_slot")
+        .in("request_id", requestIds);
+      if (isMissingTableError(appointmentError)) {
+        appointmentsTableAvailable = false;
+      } else if (!appointmentError && Array.isArray(appointmentRows)) {
+        appointmentRows.forEach((row) => {
+          if (row?.request_id) appointmentByRequestId[row.request_id] = row;
+        });
+      }
+    }
+  }
+  const directRequested = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "requested");
   const pending = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "pending");
-  const active = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "accepted");
-  const completed = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "completed");
+  const active = requests.filter((req) => {
+    const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
+    return status === "accepted" || status === "completed";
+  });
+  const scheduled = active.filter((req) => {
+    const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
+    return status === "accepted" && String(appointmentByRequestId[req.id]?.status || "").toLowerCase() === "scheduled";
+  });
+  const accepted = active.filter((req) => {
+    const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
+    return status === "accepted" && String(appointmentByRequestId[req.id]?.status || "").toLowerCase() !== "scheduled";
+  });
   const declined = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "declined");
 
   if (pendingEl) {
     pendingEl.innerHTML = "";
-    if (pending.length === 0 && active.length === 0) {
+    if (pending.length === 0 && active.length === 0 && directRequested.length === 0) {
       pendingEl.innerHTML = "<p class='muted'>No proposals yet.</p>";
     } else {
       const renderCard = (req) => {
@@ -338,8 +397,10 @@ const renderRequests = async () => {
         const card = document.createElement("article");
         card.className = "job-card proposal-card";
         const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
+        const appointment = appointmentByRequestId[req.id] || null;
+        const isScheduled = String(appointment?.status || "").toLowerCase() === "scheduled";
         const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
-        const canMessage = (status === "accepted" || status === "completed") && clientInitiatedByThread[threadKey];
+        const canMessage = (status === "accepted" || status === "completed" || status === "closed") && clientInitiatedByThread[threadKey];
         const profile = req.jobs?.client_id ? clientProfilesById[req.jobs.client_id] : null;
         const overflowMenu = buildOverflowMenu({
           jobId: req.jobs?.id || "",
@@ -357,23 +418,50 @@ const renderRequests = async () => {
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
             <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
             <p class="muted proposal-meta">Proposed ${formatDate(req.created_at)}</p>
-            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+            ${status === "requested" ? `<p class="muted proposal-meta">Neighbor sent this direct request to your Plug profile.</p>` : ""}
+            ${isScheduled ? `<p class="muted proposal-meta">Appointment: ${formatDateTime(appointment?.selected_slot) || "Scheduled"}</p>` : ""}
+            ${status === "requested" ? "" : `<p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>`}
             ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
           <div class="job-actions proposal-actions">
-            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : status === "completed" ? "status-closed" : "status-pending"}">${requestStatusLabel(status)}</span>
+            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : (status === "completed" || status === "closed") ? "status-closed" : "status-pending"}">${isScheduled ? "Scheduled" : requestStatusLabel(status)}</span>
             <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
         pendingEl.appendChild(card);
       };
 
-      if (active.length) {
+      if (scheduled.length) {
+        const scheduledTitle = document.createElement("p");
+        scheduledTitle.className = "job-group-title";
+        scheduledTitle.textContent = "Scheduled";
+        pendingEl.appendChild(scheduledTitle);
+        scheduled.forEach(renderCard);
+      }
+
+      if (accepted.length) {
         const activeTitle = document.createElement("p");
         activeTitle.className = "job-group-title";
         activeTitle.textContent = "Accepted";
         pendingEl.appendChild(activeTitle);
-        active.forEach(renderCard);
+        accepted.forEach(renderCard);
+      }
+
+      const awaitingConfirmation = active.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "completed");
+      if (awaitingConfirmation.length) {
+        const awaitingTitle = document.createElement("p");
+        awaitingTitle.className = "job-group-title";
+        awaitingTitle.textContent = "Awaiting Neighbor Confirmation";
+        pendingEl.appendChild(awaitingTitle);
+        awaitingConfirmation.forEach(renderCard);
+      }
+
+      if (directRequested.length) {
+        const directTitle = document.createElement("p");
+        directTitle.className = "job-group-title";
+        directTitle.textContent = "Direct Requests";
+        pendingEl.appendChild(directTitle);
+        directRequested.forEach(renderCard);
       }
 
       if (pending.length) {
@@ -388,17 +476,18 @@ const renderRequests = async () => {
 
   if (closedEl) {
     closedEl.innerHTML = "";
-    const closed = [...completed, ...declined];
+    const closedRequests = requests.filter((req) => deriveDisplayRequestStatus(req, acceptedJobIdSet) === "closed");
+    const closed = [...closedRequests, ...declined];
     if (closed.length === 0) {
       closedEl.innerHTML = "<p class='muted'>No closed proposals.</p>";
     } else {
-      if (completed.length) {
+      if (closedRequests.length) {
         const completedTitle = document.createElement("p");
         completedTitle.className = "job-group-title";
         completedTitle.textContent = "Completed";
         closedEl.appendChild(completedTitle);
       }
-      completed.forEach((req) => {
+      closedRequests.forEach((req) => {
         const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
         const threadKey = `${req.jobs?.id || ""}:${req.jobs?.client_id || ""}`;
         const canMessage = clientInitiatedByThread[threadKey];
@@ -464,6 +553,17 @@ document.addEventListener("click", (event) => {
     document.querySelectorAll("button[data-action='proposal-menu-toggle']").forEach((btn) => btn.setAttribute("aria-expanded", "false"));
   };
 
+  const positionOverflowMenu = (menu) => {
+    if (!menu) return;
+    menu.classList.remove("align-left");
+    const rect = menu.getBoundingClientRect();
+    const rightOverflow = rect.right - window.innerWidth;
+    const leftOverflow = 0 - rect.left;
+    if (rightOverflow > 0 || leftOverflow > 0) {
+      menu.classList.add("align-left");
+    }
+  };
+
   const menuToggle = event.target.closest("button[data-action='proposal-menu-toggle']");
   if (menuToggle) {
     const wrap = menuToggle.closest(".proposal-menu-wrap");
@@ -472,6 +572,7 @@ document.addEventListener("click", (event) => {
     closeAllOverflowMenus();
     if (willOpen && menu) {
       menu.classList.remove("hidden");
+      positionOverflowMenu(menu);
       menuToggle.setAttribute("aria-expanded", "true");
     }
     return;
@@ -511,3 +612,10 @@ document.addEventListener("click", (event) => {
 });
 
 renderRequests();
+
+closedToggleButton?.addEventListener("click", () => {
+  if (!closedWrap) return;
+  const hidden = closedWrap.classList.toggle("hidden");
+  closedToggleButton.textContent = hidden ? "Show" : "Hide";
+  closedToggleButton.setAttribute("aria-expanded", hidden ? "false" : "true");
+});

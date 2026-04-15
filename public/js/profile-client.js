@@ -20,6 +20,7 @@ const propertyAccessNoteEl = document.getElementById("client-property-access-not
 const propertyPhotosEl = document.getElementById("client-property-photos");
 const propertyCompletionEl = document.getElementById("client-property-completion");
 const viewFullProfileButton = document.getElementById("client-view-full-profile");
+const activeRequestsEl = document.getElementById("profile-active-requests");
 let fullProfileState = null;
 
 const fallbackName = (email) => (email ? email.split("@")[0] : "Neighbor");
@@ -71,6 +72,59 @@ const normalizeJobStatus = (status) => {
   if (status === "accepted") return "in_progress";
   if (!status) return "open";
   return status;
+};
+
+const formatDateTime = (value) => {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const renderActiveRequests = (rows, appointmentByRequestId = {}) => {
+  if (!activeRequestsEl) return;
+  activeRequestsEl.innerHTML = "";
+  if (!rows.length) {
+    activeRequestsEl.innerHTML = "<p class='muted'>No active requests yet.</p>";
+    return;
+  }
+  rows.slice(0, 4).forEach((row) => {
+    const providerName = row.providers?.name || "Plug";
+    const providerAvatar = row.providers?.avatar_url || "../assets/plugprofilepic.png";
+    const status = String(row.status || "pending").toLowerCase();
+    const appointment = appointmentByRequestId[row.id] || null;
+    const isScheduled = String(appointment?.status || "").toLowerCase() === "scheduled";
+    const statusLabel = isScheduled
+      ? "Scheduled"
+      : status === "accepted"
+        ? "Accepted"
+        : status === "requested"
+          ? "Direct Sent"
+          : "Pending";
+    const subtitle = isScheduled
+      ? `Appointment: ${formatDateTime(appointment?.selected_slot) || "Scheduled"}`
+      : `Requested ${new Date(row.created_at).toLocaleDateString()}`;
+    const card = document.createElement("article");
+    card.className = "job-card";
+    card.innerHTML = `
+      <img class="job-thumb" src="${providerAvatar}" alt="${providerName}" />
+      <div class="job-card-body">
+        <h4>${row.jobs?.title || "Job"}</h4>
+        <p class="muted">${providerName} • ${row.jobs?.location || "Location not set"}</p>
+        <p class="muted">${subtitle}</p>
+      </div>
+      <div class="job-actions">
+        <span class="pill">${statusLabel}</span>
+        <a class="ghost-button" href="../client/client-job-detail.html?id=${encodeURIComponent(row.job_id || "")}">View</a>
+      </div>
+    `;
+    activeRequestsEl.appendChild(card);
+  });
 };
 
 const hasPropertyProfileContent = (value) => {
@@ -304,6 +358,29 @@ const loadClientProfile = async () => {
     .in("job_id", jobIds)
     .eq("status", "pending");
   if (statPendingEl) statPendingEl.textContent = String(pendingCount || 0);
+
+  const { data: activeRows } = await supabase
+    .from("job_requests")
+    .select("id,job_id,provider_id,status,created_at,jobs(title,location),providers(name,avatar_url)")
+    .in("job_id", jobIds)
+    .in("status", ["pending", "accepted"])
+    .order("created_at", { ascending: false });
+
+  const activeRequestRows = Array.isArray(activeRows) ? activeRows : [];
+  const appointmentByRequestId = {};
+  if (activeRequestRows.length) {
+    const requestIds = activeRequestRows.map((row) => row.id).filter(Boolean);
+    const { data: appointmentRows, error: appointmentError } = await supabase
+      .from("job_appointments")
+      .select("request_id,status,selected_slot")
+      .in("request_id", requestIds);
+    if (!appointmentError && Array.isArray(appointmentRows)) {
+      appointmentRows.forEach((row) => {
+        if (row?.request_id) appointmentByRequestId[row.request_id] = row;
+      });
+    }
+  }
+  renderActiveRequests(activeRequestRows, appointmentByRequestId);
 };
 
 viewFullProfileButton?.addEventListener("click", openClientFullProfileModal);

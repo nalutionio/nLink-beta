@@ -177,7 +177,7 @@ const init = async () => {
   const { data } = await authSupabase.auth.getSession();
   toggleSignedIn(data.session?.user?.email);
   if (data.session?.user && brandLink) {
-    brandLink.setAttribute("href", "dashboard.html");
+    brandLink.setAttribute("href", "/provider/provider-jobs.html");
   }
 
   authSupabase.auth.onAuthStateChange((_event, session) => {

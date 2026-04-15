@@ -19,8 +19,17 @@ const state = {
   selectedProviderId: null,
   tableAvailable: true,
   directTableAvailable: true,
+  readTableAvailable: true,
+  readByProviderId: {},
   chatOpen: false,
 };
+
+let realtimeChannel = null;
+const pageParams = new URLSearchParams(window.location.search);
+const queryProviderId = pageParams.get("provider");
+const queryJobId = pageParams.get("job");
+const queryProviderName = pageParams.get("providerName");
+const queryProviderAvatar = pageParams.get("providerAvatar");
 
 const fallbackAvatar = "../assets/plugprofilepic.png";
 
@@ -58,6 +67,122 @@ const setChatMode = (isChatOpen) => {
 
 const getSelectedProvider = () => state.providers.find((item) => item.providerId === state.selectedProviderId) || null;
 
+const getIncomingLatestByProvider = (provider) => {
+  const incoming = (provider?.messages || [])
+    .filter((row) => row?.sender_role === "provider")
+    .map((row) => row.created_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  return incoming || "";
+};
+
+const getUnreadCountForProvider = (provider) => {
+  if (!provider) return 0;
+  const lastRead = state.readByProviderId[provider.providerId] || "";
+  const cutoff = lastRead ? new Date(lastRead).getTime() : 0;
+  return (provider.messages || []).filter((row) => {
+    if (row?.sender_role !== "provider" || !row?.created_at) return false;
+    return new Date(row.created_at).getTime() > cutoff;
+  }).length;
+};
+
+const markProviderThreadRead = async (provider) => {
+  if (!supabase || !state.user || !provider?.providerId || !state.readTableAvailable) return;
+  const latestIncoming = getIncomingLatestByProvider(provider);
+  if (!latestIncoming) return;
+  const current = state.readByProviderId[provider.providerId] || "";
+  if (current && new Date(current).getTime() >= new Date(latestIncoming).getTime()) return;
+  const payload = {
+    provider_id: provider.providerId,
+    client_id: state.user.id,
+    viewer_user_id: state.user.id,
+    viewer_role: "client",
+    last_read_at: latestIncoming,
+  };
+  const { error } = await supabase
+    .from("message_thread_reads")
+    .upsert(payload, { onConflict: "provider_id,client_id,viewer_user_id,viewer_role" });
+  if (error) {
+    if (isMissingTableError(error)) {
+      state.readTableAvailable = false;
+      return;
+    }
+    return;
+  }
+  state.readByProviderId[provider.providerId] = latestIncoming;
+};
+
+const loadReadState = async () => {
+  if (!supabase || !state.user || !state.readTableAvailable) return;
+  const { data, error } = await supabase
+    .from("message_thread_reads")
+    .select("provider_id,last_read_at")
+    .eq("viewer_user_id", state.user.id)
+    .eq("viewer_role", "client");
+  if (error) {
+    if (isMissingTableError(error)) state.readTableAvailable = false;
+    return;
+  }
+  state.readByProviderId = Array.isArray(data)
+    ? data.reduce((acc, row) => {
+      if (row?.provider_id) acc[row.provider_id] = row.last_read_at || "";
+      return acc;
+    }, {})
+    : {};
+};
+
+const markAllProviderThreadsRead = async () => {
+  if (!supabase || !state.user || !state.readTableAvailable) return;
+  const payload = state.providers
+    .map((provider) => {
+      const latestIncoming = getIncomingLatestByProvider(provider);
+      if (!provider?.providerId || !latestIncoming) return null;
+      return {
+        provider_id: provider.providerId,
+        client_id: state.user.id,
+        viewer_user_id: state.user.id,
+        viewer_role: "client",
+        last_read_at: latestIncoming,
+      };
+    })
+    .filter(Boolean);
+  if (!payload.length) return;
+  const { error } = await supabase
+    .from("message_thread_reads")
+    .upsert(payload, { onConflict: "provider_id,client_id,viewer_user_id,viewer_role" });
+  if (error) {
+    if (isMissingTableError(error)) state.readTableAvailable = false;
+    return;
+  }
+  payload.forEach((row) => {
+    state.readByProviderId[row.provider_id] = row.last_read_at;
+  });
+};
+
+const subscribeRealtime = () => {
+  if (!supabase || !state.user || realtimeChannel) return;
+  realtimeChannel = supabase
+    .channel(`client-messages-${state.user.id}`)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "job_messages",
+      filter: `client_id=eq.${state.user.id}`,
+    }, () => {
+      hydrate({ preserveSelection: true, silent: true });
+    })
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "direct_messages",
+      filter: `client_id=eq.${state.user.id}`,
+    }, () => {
+      hydrate({ preserveSelection: true, silent: true });
+    })
+    .subscribe();
+};
+
 const renderThreads = () => {
   if (!threadListEl) return;
   threadListEl.innerHTML = "";
@@ -77,12 +202,15 @@ const renderThreads = () => {
       <span class="message-thread-kind ${provider.channel === "direct" ? "direct" : "job"}">${provider.channel === "direct" ? "Direct" : "Job"}</span>
       <p class="muted">${provider.preview || "No messages yet."}</p>
       <span class="pill">${formatTime(provider.lastMessageAt)}</span>
+      ${getUnreadCountForProvider(provider) > 0 ? `<span class="message-thread-unread">${getUnreadCountForProvider(provider) > 99 ? "99+" : getUnreadCountForProvider(provider)}</span>` : ""}
     `;
     item.addEventListener("click", () => {
       state.selectedProviderId = provider.providerId;
-      renderThreads();
-      renderMessages();
-      setChatMode(true);
+      markProviderThreadRead(provider).finally(() => {
+        renderThreads();
+        renderMessages();
+        setChatMode(true);
+      });
     });
     threadListEl.appendChild(item);
   });
@@ -180,23 +308,18 @@ const loadThreads = async () => {
   const { data, error } = await supabase
     .from("job_requests")
     .select("job_id,provider_id,status,created_at,jobs(id,title,location,client_id),providers(id,name,avatar_url,owner_id)")
-    .eq("status", "accepted")
+    .in("status", ["accepted", "completed", "closed"])
     .order("created_at", { ascending: false });
   if (error || !Array.isArray(data)) return [];
   return data.filter((row) => row.jobs?.client_id === state.user.id);
 };
 
-const hydrate = async () => {
+const hydrate = async ({ preserveSelection = true, silent = false } = {}) => {
   if (!supabase) return;
   const user = await getSessionUser();
   if (!user) return;
   state.user = user;
-
-  const params = new URLSearchParams(window.location.search);
-  const queryProviderId = params.get("provider");
-  const queryJobId = params.get("job");
-  const queryProviderName = params.get("providerName");
-  const queryProviderAvatar = params.get("providerAvatar");
+  subscribeRealtime();
 
   const [threadsRaw, messages, directMessages, previewProvider] = await Promise.all([
     loadThreads(),
@@ -332,7 +455,11 @@ const hydrate = async () => {
       }
     }
   }
-  state.selectedProviderId = queryProviderId || state.providers[0]?.providerId || null;
+  const previousSelected = preserveSelection ? state.selectedProviderId : null;
+  state.selectedProviderId = previousSelected
+    || queryProviderId
+    || state.providers[0]?.providerId
+    || null;
 
   if (state.selectedProviderId && queryJobId) {
     const selected = state.providers.find((provider) => provider.providerId === state.selectedProviderId);
@@ -341,9 +468,19 @@ const hydrate = async () => {
     }
   }
 
+  await loadReadState();
+  const onMessagesPage = window.location.pathname.includes("/client/client-messages.html");
+  if (onMessagesPage) {
+    await markAllProviderThreadsRead();
+  }
+  const selectedProvider = getSelectedProvider();
+  if (selectedProvider && state.chatOpen) {
+    await markProviderThreadRead(selectedProvider);
+  }
   renderThreads();
   renderMessages();
   setChatMode(Boolean(state.selectedProviderId && (queryProviderId || state.chatOpen)));
+  if (!silent) setStatus("");
 };
 
 const sendMessage = async (event) => {
@@ -412,7 +549,7 @@ const sendMessage = async (event) => {
   provider.activeJobId = selectedJobId;
   if (inputEl) inputEl.value = "";
   setStatus("Message sent.", "success");
-  await hydrate();
+  await hydrate({ preserveSelection: true, silent: true });
   if (sendEl) sendEl.disabled = false;
 };
 

@@ -42,6 +42,17 @@ const proposalSummaryPanel = document.getElementById("proposal-summary-panel");
 const proposalSummaryCopy = document.getElementById("proposal-summary-copy");
 const proposalSummaryStatus = document.getElementById("proposal-summary-status");
 const proposalToggleView = document.getElementById("proposal-toggle-view");
+const bookingWrap = document.getElementById("provider-booking-wrap");
+const bookingSlot1Input = document.getElementById("provider-slot-1");
+const bookingSlot2Input = document.getElementById("provider-slot-2");
+const bookingSlot3Input = document.getElementById("provider-slot-3");
+const bookingNoteInput = document.getElementById("provider-booking-note");
+const bookingConfirmedWrap = document.getElementById("provider-booking-confirmed-wrap");
+const bookingConfirmedSlotEl = document.getElementById("provider-booking-confirmed-slot");
+const bookingAddressWrap = document.getElementById("provider-booking-address-wrap");
+const bookingAddressEl = document.getElementById("provider-booking-address");
+const bookingSaveButton = document.getElementById("provider-booking-save");
+const bookingStatusEl = document.getElementById("provider-booking-status");
 
 let providerId = null;
 let jobId = null;
@@ -53,16 +64,20 @@ let currentClientProfile = null;
 let canRateClient = false;
 let currentRequestStatus = null;
 let proposalExpanded = true;
+let bookingTableAvailable = true;
+let currentAppointment = null;
+let currentRequestId = null;
 
 const normalizeRequestStatus = (status) => {
   const raw = String(status || "pending").toLowerCase();
-  if (raw === "closed") return "completed";
   return raw;
 };
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "completed") return "Completed";
+  if (normalized === "requested") return "Direct Request";
+  if (normalized === "completed") return "Awaiting Confirmation";
+  if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
   return "Pending";
@@ -115,6 +130,12 @@ const setReviewStatus = (message, type = "") => {
   if (!reviewStatusEl) return;
   reviewStatusEl.textContent = message;
   reviewStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const setBookingStatus = (message, type = "") => {
+  if (!bookingStatusEl) return;
+  bookingStatusEl.textContent = message;
+  bookingStatusEl.className = `auth-status ${type}`.trim();
 };
 
 const setReviewMode = (enabled) => {
@@ -171,6 +192,34 @@ const loadExistingRequest = async () => {
       .maybeSingle();
     if (!error) return data || null;
     if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return null;
+  }
+  return null;
+};
+
+const loadLatestRequestForJobProvider = async () => {
+  if (!supabase || !jobId || !providerId) return null;
+  const { data, error } = await supabase
+    .from("job_requests")
+    .select("id,status")
+    .eq("job_id", jobId)
+    .eq("provider_id", providerId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return null;
+  return Array.isArray(data) && data.length ? data[0] : null;
+};
+
+const loadAppointment = async (requestId) => {
+  if (!supabase || !bookingTableAvailable || !requestId) return null;
+  const { data, error } = await supabase
+    .from("job_appointments")
+    .select("*")
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (isMissingTableError(error)) {
+    bookingTableAvailable = false;
+    return null;
   }
   return null;
 };
@@ -402,10 +451,101 @@ const setProposalLocked = (locked, request = null) => {
   }
 };
 
+const formatLocalDateTime = (isoValue) => {
+  if (!isoValue) return "";
+  const d = new Date(isoValue);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (v) => String(v).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatSlotLabel = (isoValue) => {
+  if (!isoValue) return "";
+  const d = new Date(isoValue);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getProposedSlotsFromProviderInputs = () => {
+  const values = [bookingSlot1Input?.value, bookingSlot2Input?.value, bookingSlot3Input?.value]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .map((date) => date.toISOString());
+  return Array.from(new Set(values)).slice(0, 3);
+};
+
+const hydrateBookingEditor = () => {
+  if (!bookingWrap) return;
+  if (!bookingTableAvailable || !currentRequestId) {
+    bookingWrap.classList.add("hidden");
+    return;
+  }
+  const normalizedStatus = normalizeRequestStatus(currentRequestStatus);
+  const canManageBooking = normalizedStatus === "accepted" || normalizedStatus === "completed" || normalizedStatus === "closed";
+  bookingWrap.classList.toggle("hidden", !canManageBooking);
+  if (!canManageBooking) return;
+
+  const slots = Array.isArray(currentAppointment?.proposed_slots)
+    ? currentAppointment.proposed_slots.slice(0, 3)
+    : [];
+  if (bookingSlot1Input) bookingSlot1Input.value = formatLocalDateTime(slots[0] || "");
+  if (bookingSlot2Input) bookingSlot2Input.value = formatLocalDateTime(slots[1] || "");
+  if (bookingSlot3Input) bookingSlot3Input.value = formatLocalDateTime(slots[2] || "");
+  if (bookingNoteInput) bookingNoteInput.value = currentAppointment?.provider_notes || "";
+  const sharedAddress = String(currentAppointment?.client_shared_address || "").trim();
+  if (bookingAddressEl) bookingAddressEl.textContent = sharedAddress || "No address shared yet.";
+  if (bookingAddressWrap) bookingAddressWrap.classList.toggle("hidden", !sharedAddress);
+  const appointmentStatus = String(currentAppointment?.status || "").toLowerCase();
+  const isScheduled = appointmentStatus === "scheduled";
+  if (bookingConfirmedWrap) bookingConfirmedWrap.classList.toggle("hidden", !isScheduled);
+  if (bookingConfirmedSlotEl) {
+    bookingConfirmedSlotEl.textContent = isScheduled
+      ? `Scheduled for ${formatSlotLabel(currentAppointment?.selected_slot) || "confirmed slot"}`
+      : "Waiting for Neighbor confirmation.";
+  }
+
+  const completed = normalizedStatus === "closed";
+  const awaitingConfirmation = normalizedStatus === "completed";
+  const lockForScheduled = isScheduled || completed || awaitingConfirmation;
+  [bookingSlot1Input, bookingSlot2Input, bookingSlot3Input, bookingNoteInput, bookingSaveButton].forEach((el) => {
+    if (!el) return;
+    el.disabled = lockForScheduled;
+  });
+  [bookingSlot1Input, bookingSlot2Input, bookingSlot3Input].forEach((el) => {
+    el?.closest(".input-field")?.classList.toggle("hidden", isScheduled);
+  });
+  if (bookingSaveButton) {
+    bookingSaveButton.textContent = completed
+      ? "Completed"
+      : awaitingConfirmation
+        ? "Awaiting Neighbor Confirmation"
+      : isScheduled
+        ? "Availability Confirmed"
+        : "Send Availability";
+  }
+  setBookingStatus(
+    completed
+      ? "Job is completed. Availability is locked."
+      : awaitingConfirmation
+        ? "Work completed. Waiting for Neighbor confirmation."
+      : isScheduled
+        ? "Neighbor confirmed an appointment window."
+        : "",
+  );
+};
+
 const canMessageClientNow = async () => {
   if (!supabase || !providerId || !jobId || !currentJob?.client_id) return false;
   const normalized = normalizeRequestStatus(currentRequestStatus);
-  if (!(normalized === "accepted" || normalized === "completed")) return false;
+  if (!(normalized === "accepted" || normalized === "completed" || normalized === "closed")) return false;
   const { data, error } = await supabase
     .from("job_messages")
     .select("id")
@@ -517,7 +657,7 @@ const refreshReviewEligibility = async () => {
     .eq("job_id", jobId)
     .eq("provider_id", providerId)
     .maybeSingle();
-  const hasCompletedRelationship = requestRow && normalizeRequestStatus(requestRow.status) === "completed";
+  const hasCompletedRelationship = requestRow && normalizeRequestStatus(requestRow.status) === "closed";
   const myReview = await loadMyReview();
   canRateClient = Boolean(hasCompletedRelationship && !myReview && currentJob?.client_id);
   if (reviewToggleButton) reviewToggleButton.classList.toggle("hidden", !canRateClient);
@@ -565,6 +705,62 @@ const submitProviderReview = async () => {
   await refreshReviewEligibility();
 };
 
+const saveBookingAvailability = async () => {
+  if (!supabase || !providerId || !jobId || !currentRequestId || !currentJob?.client_id) return;
+  if (!bookingTableAvailable) {
+    setBookingStatus("Booking is not enabled yet.", "error");
+    return;
+  }
+  if (["completed", "closed"].includes(normalizeRequestStatus(currentRequestStatus))) {
+    setBookingStatus("Booking is locked for completed jobs.", "error");
+    return;
+  }
+  const slots = getProposedSlotsFromProviderInputs();
+  if (!slots.length) {
+    setBookingStatus("Add at least one availability window.", "error");
+    return;
+  }
+  setBookingStatus("Saving availability...", "info");
+  const payload = {
+    job_id: jobId,
+    request_id: currentRequestId,
+    provider_id: providerId,
+    client_id: currentJob.client_id,
+    status: currentAppointment?.status === "scheduled" ? "scheduled" : "proposed",
+    proposed_slots: slots,
+    provider_notes: (bookingNoteInput?.value || "").trim() || null,
+  };
+  let result = null;
+  if (currentAppointment?.id) {
+    result = await supabase
+      .from("job_appointments")
+      .update(payload)
+      .eq("id", currentAppointment.id)
+      .select("*")
+      .maybeSingle();
+  } else {
+    result = await supabase
+      .from("job_appointments")
+      .insert(payload)
+      .select("*")
+      .maybeSingle();
+  }
+  if (result?.error) {
+    if (isMissingTableError(result.error)) {
+      bookingTableAvailable = false;
+      bookingWrap?.classList.add("hidden");
+      setBookingStatus("Booking table is unavailable.", "error");
+      return;
+    }
+    setBookingStatus(result.error.message || "Could not save availability.", "error");
+    return;
+  }
+  currentAppointment = result?.data || currentAppointment;
+  setBookingStatus("Availability sent.", "success");
+  await logJobEvent("appointment_proposed", { request_id: currentRequestId });
+  hydrateBookingEditor();
+};
+
 const requestQuote = async () => {
   if (!supabase || !providerId || !jobId) return;
   if (currentJob?.client_id && providerUserId && currentJob.client_id === providerUserId) {
@@ -577,20 +773,31 @@ const requestQuote = async () => {
 
   if (existing) {
     hydrateProposalForm(currentJob, existing);
-    setProposalLocked(true, existing);
     currentRequestStatus = existing.status || "pending";
+    currentRequestId = existing.id || currentRequestId;
     const normalized = normalizeRequestStatus(existing.status);
-    requestButton.textContent = normalized === "accepted"
-      ? "Accepted"
-      : normalized === "completed"
-        ? "Completed"
-        : normalized === "declined"
-          ? "Declined"
-        : "Proposal Sent";
-    requestButton.disabled = true;
-    setStatus("Proposal already sent.", "success");
-    await updateMessageLinkState();
-    return;
+    if (normalized === "requested") {
+      setProposalLocked(false, existing);
+      requestButton.textContent = "Send Proposal";
+      requestButton.disabled = false;
+      // Continue and convert requested -> pending via provider submission.
+    }
+    if (normalized !== "requested") {
+      setProposalLocked(true, existing);
+      requestButton.textContent = normalized === "accepted"
+        ? "Accepted"
+        : normalized === "completed"
+          ? "Awaiting Confirmation"
+          : normalized === "closed"
+            ? "Completed"
+          : normalized === "declined"
+            ? "Declined"
+            : "Proposal Sent";
+      requestButton.disabled = true;
+      setStatus("Proposal already sent.", "success");
+      await updateMessageLinkState();
+      return;
+    }
   }
 
   const proposalPayload = getProposalPayload();
@@ -603,25 +810,119 @@ const requestQuote = async () => {
     requestButton.disabled = false;
     return;
   }
-  let { error } = await supabase.from("job_requests").insert({
-    job_id: jobId,
-    provider_id: providerId,
+  const upsertPayload = {
     status: "pending",
     ...proposalPayload,
-  });
-  if (error && (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205")) {
-    const fallback = await supabase.from("job_requests").insert({
-      job_id: jobId,
-      provider_id: providerId,
-      status: "pending",
-    });
-    error = fallback.error;
+  };
+  let error = null;
+  let writtenRequestId = currentRequestId || null;
+  let wroteRequest = false;
+  if (currentRequestId && normalizeRequestStatus(currentRequestStatus) === "requested") {
+    let updateResult = await supabase
+      .from("job_requests")
+      .update(upsertPayload)
+      .eq("id", currentRequestId)
+      .eq("provider_id", providerId)
+      .select("id,status");
+    if (!updateResult.error && Array.isArray(updateResult.data)) {
+      updateResult.data = updateResult.data[0] || null;
+    }
+    // Some accounts may have multiple provider records; fall back to request-id only.
+    if (!updateResult.error && !updateResult.data?.id) {
+      updateResult = await supabase
+        .from("job_requests")
+        .update(upsertPayload)
+        .eq("id", currentRequestId)
+        .select("id,status");
+      if (!updateResult.error && Array.isArray(updateResult.data)) {
+        updateResult.data = updateResult.data[0] || null;
+      }
+    }
+    // Older DBs may not yet have proposal-sheet columns; fall back to status-only update.
+    if (updateResult.error && (updateResult.error.code === "42703" || updateResult.error.code === "PGRST204" || updateResult.error.code === "PGRST205")) {
+      updateResult = await supabase
+        .from("job_requests")
+        .update({ status: "pending" })
+        .eq("id", currentRequestId)
+        .eq("provider_id", providerId)
+        .select("id,status");
+      if (!updateResult.error && Array.isArray(updateResult.data)) {
+        updateResult.data = updateResult.data[0] || null;
+      }
+      if (!updateResult.error && !updateResult.data?.id) {
+        updateResult = await supabase
+          .from("job_requests")
+          .update({ status: "pending" })
+          .eq("id", currentRequestId)
+          .select("id,status");
+        if (!updateResult.error && Array.isArray(updateResult.data)) {
+          updateResult.data = updateResult.data[0] || null;
+        }
+      }
+    }
+    wroteRequest = !updateResult.error;
+    error = updateResult.error;
+    if (updateResult?.data?.id) writtenRequestId = updateResult.data.id;
+  } else {
+    const insertResult = await supabase
+      .from("job_requests")
+      .insert({
+        job_id: jobId,
+        provider_id: providerId,
+        ...upsertPayload,
+      })
+      .select("id,status");
+    if (!insertResult.error && Array.isArray(insertResult.data)) {
+      insertResult.data = insertResult.data[0] || null;
+    }
+    wroteRequest = !insertResult.error;
+    error = insertResult.error;
+    if (insertResult?.data?.id) writtenRequestId = insertResult.data.id;
+    if (error && (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205")) {
+      const fallback = await supabase
+        .from("job_requests")
+        .insert({
+          job_id: jobId,
+          provider_id: providerId,
+          status: "pending",
+        })
+        .select("id,status");
+      if (!fallback.error && Array.isArray(fallback.data)) {
+        fallback.data = fallback.data[0] || null;
+      }
+      wroteRequest = !fallback.error;
+      error = fallback.error;
+      if (fallback?.data?.id) writtenRequestId = fallback.data.id;
+    }
   }
 
   if (error) {
+    if (error.code === "42501" || error.status === 401 || error.status === 403) {
+      setStatus("Permission blocked while sending proposal. Run the direct-request provider update SQL fix.", "error");
+      return;
+    }
     setStatus(error.message || "Could not send proposal.", "error");
     return;
   }
+
+  // Verify the write actually persisted (RLS can yield empty updates without throwing).
+  let persisted = null;
+  if (writtenRequestId) {
+    const { data: verifyRow, error: verifyError } = await supabase
+      .from("job_requests")
+      .select("id,status")
+      .eq("id", writtenRequestId)
+      .maybeSingle();
+    if (!verifyError) persisted = verifyRow || null;
+  }
+  if (!persisted) {
+    persisted = await loadLatestRequestForJobProvider();
+  }
+  if (!persisted || normalizeRequestStatus(persisted.status) !== "pending") {
+    setStatus("Proposal was not persisted. Please run provider update policy SQL and retry.", "error");
+    return;
+  }
+  currentRequestId = persisted.id || currentRequestId;
 
   setStatus("Proposal sent.", "success");
   currentRequestStatus = "pending";
@@ -644,9 +945,18 @@ const init = async () => {
   await renderJob();
   if (!providerId || !jobId) return;
   const existing = await loadExistingRequest();
+  currentRequestId = existing?.id || null;
+  currentAppointment = currentRequestId ? await loadAppointment(currentRequestId) : null;
   if (existing) {
+    const normalized = normalizeRequestStatus(existing.status);
     hydrateProposalForm(currentJob, existing);
-    setProposalLocked(true, existing);
+    if (normalized === "requested") {
+      setProposalLocked(false, existing);
+      requestButton.textContent = "Send Proposal";
+      requestButton.disabled = false;
+    } else {
+      setProposalLocked(true, existing);
+    }
   } else {
     setProposalLocked(false, null);
     if (composeMode) {
@@ -658,17 +968,25 @@ const init = async () => {
   currentRequestStatus = existing?.status || null;
   if (existing) {
     const normalized = normalizeRequestStatus(existing.status);
-    requestButton.textContent = normalized === "accepted"
-      ? "Accepted"
-      : normalized === "completed"
-        ? "Completed"
-        : normalized === "declined"
-          ? "Declined"
-        : "Proposal Sent";
-    requestButton.disabled = true;
+    if (normalized === "requested") {
+      requestButton.textContent = "Send Proposal";
+      requestButton.disabled = false;
+    } else {
+      requestButton.textContent = normalized === "accepted"
+        ? "Accepted"
+        : normalized === "completed"
+          ? "Awaiting Confirmation"
+          : normalized === "closed"
+            ? "Completed"
+          : normalized === "declined"
+            ? "Declined"
+            : "Proposal Sent";
+      requestButton.disabled = true;
+    }
   }
   await updateMessageLinkState();
   await refreshReviewEligibility();
+  hydrateBookingEditor();
 };
 
 requestButton?.addEventListener("click", requestQuote);
@@ -682,5 +1000,6 @@ reviewSubmitButton?.addEventListener("click", submitProviderReview);
 proposalToggleView?.addEventListener("click", () => {
   setProposalView(!proposalExpanded);
 });
+bookingSaveButton?.addEventListener("click", saveBookingAvailability);
 
 init();

@@ -22,6 +22,7 @@ const ratingCountEl = document.getElementById("service-rating-count");
 const ratingStarsEl = document.getElementById("service-rating-stars");
 const commentsListEl = document.getElementById("service-comments-list");
 const commentsMoreButton = document.getElementById("service-comments-more");
+const upcomingAppointmentsEl = document.getElementById("provider-upcoming-appointments");
 const primaryProviderKey = "nlink_primary_provider_id";
 const sanitizeAuthMetadata = (metadata = {}) => {
   const next = { ...(metadata || {}) };
@@ -155,6 +156,72 @@ const renderReviewsUi = (reviews) => {
   }
 };
 
+const formatAppointmentDateTime = (value) => {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Time not set";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const renderUpcomingAppointments = async (providerId) => {
+  if (!upcomingAppointmentsEl || !providerId || !profileSupabase) return;
+  const { data: appointmentRows, error: appointmentError } = await profileSupabase
+    .from("job_appointments")
+    .select("id,job_id,request_id,client_id,selected_slot,status,jobs(title,location)")
+    .eq("provider_id", providerId)
+    .eq("status", "scheduled")
+    .order("selected_slot", { ascending: true })
+    .limit(3);
+
+  if (isMissingTableError(appointmentError)) {
+    upcomingAppointmentsEl.innerHTML = "<p class='muted'>Booking is not enabled yet.</p>";
+    return;
+  }
+  if (appointmentError || !Array.isArray(appointmentRows) || !appointmentRows.length) {
+    upcomingAppointmentsEl.innerHTML = "<p class='muted'>No scheduled appointments yet.</p>";
+    return;
+  }
+
+  const clientIds = Array.from(new Set(appointmentRows.map((row) => row.client_id).filter(Boolean)));
+  const clientById = {};
+  if (clientIds.length) {
+    const { data: clients } = await profileSupabase
+      .from("clients")
+      .select("user_id,full_name,avatar_url,location,address")
+      .in("user_id", clientIds);
+    if (Array.isArray(clients)) {
+      clients.forEach((row) => {
+        if (row?.user_id) clientById[row.user_id] = row;
+      });
+    }
+  }
+
+  upcomingAppointmentsEl.innerHTML = "";
+  appointmentRows.forEach((row) => {
+    const client = clientById[row.client_id] || null;
+    const card = document.createElement("article");
+    card.className = "job-card";
+    card.innerHTML = `
+      <img class="job-thumb" src="${client?.avatar_url || "../assets/neighborpp.png"}" alt="${client?.full_name || "Neighbor"}" />
+      <div class="job-card-body">
+        <h4>${row.jobs?.title || "Scheduled Job"}</h4>
+        <p class="muted">${formatAppointmentDateTime(row.selected_slot)}</p>
+        <p class="muted">${client?.full_name || "Neighbor"} • ${toPublicLocation(client?.location || client?.address || row.jobs?.location || "")}</p>
+      </div>
+      <div class="job-actions">
+        <span class="pill">Scheduled</span>
+        <a class="ghost-button" href="../provider/job-detail.html?id=${encodeURIComponent(row.job_id || "")}&from=proposals">View</a>
+      </div>
+    `;
+    upcomingAppointmentsEl.appendChild(card);
+  });
+};
+
 
 const getRolesFromMetadata = (metadata) => {
   const roles = [];
@@ -166,6 +233,14 @@ const getRolesFromMetadata = (metadata) => {
   if (typeof metadata?.role === "string" && metadata.role) roles.push(metadata.role);
   if (!roles.length) roles.push("client");
   return Array.from(new Set(roles));
+};
+
+const toPublicLocation = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  return raw;
 };
 
 const loadProvider = async () => {
@@ -282,34 +357,23 @@ const loadProvider = async () => {
 
   if (ratingValueEl || ratingCountEl || ratingStarsEl || commentsListEl) {
     let reviews = [];
-    const { data: providerReviews, error: providerReviewError } = await profileSupabase
-      .from("provider_reviews")
-      .select("rating,text,comment,reviewer_name,name")
-      .eq("provider_id", providerId);
-
-    if (!providerReviewError && Array.isArray(providerReviews) && providerReviews.length) {
-      reviews = providerReviews.map((row) => ({
-        name: row.reviewer_name || row.name || "Anonymous",
+    const { data: jobReviews, error: jobReviewError } = await profileSupabase
+      .from("job_reviews")
+      .select("rating,review_text,reviewer_role,reviewee_role")
+      .eq("reviewee_role", "provider")
+      .eq("reviewee_user_id", user.id);
+    if (!jobReviewError && Array.isArray(jobReviews)) {
+      reviews = jobReviews.map((row) => ({
+        name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
         rating: Number(row.rating) || 0,
-        text: row.text || row.comment || "",
+        text: row.review_text || "",
       }));
-    } else {
-      const { data: jobReviews, error: jobReviewError } = await profileSupabase
-        .from("job_reviews")
-        .select("rating,review_text,reviewer_role,reviewee_role")
-        .eq("reviewee_role", "provider")
-        .eq("reviewee_user_id", user.id);
-      if (!jobReviewError && Array.isArray(jobReviews)) {
-        reviews = jobReviews.map((row) => ({
-          name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
-          rating: Number(row.rating) || 0,
-          text: row.review_text || "",
-        }));
-      }
     }
 
     renderReviewsUi(reviews);
   }
+
+  await renderUpcomingAppointments(providerId);
 };
 
 commentsMoreButton?.addEventListener("click", openCommentsModal);

@@ -381,6 +381,24 @@ const formatAvailability = (provider) => {
   return provider.availability || (labelCommon.notSet || "Not set");
 };
 
+const getCapacityState = (provider) => {
+  const raw = String(provider?.availability || "").toLowerCase();
+  if (raw.includes("booked")) return "booked";
+  if (raw.includes("limited")) return "limited";
+  if (raw.includes("accepting")) return "accepting";
+  return "";
+};
+
+const getCapacityLabel = (provider) => {
+  const state = getCapacityState(provider);
+  if (state === "booked") return "Booked";
+  if (state === "limited") return "Limited Capacity";
+  if (state === "accepting") return "Accepting Jobs";
+  return "";
+};
+
+const isProviderBookable = (provider) => getCapacityState(provider) !== "booked";
+
 const formatServiceArea = (provider) => (
   provider.serviceAreaZip
     ? `${provider.serviceAreaZip}${provider.serviceRadiusMiles ? ` • ${provider.serviceRadiusMiles} miles` : ""}`
@@ -396,6 +414,7 @@ const createCardMarkup = (provider, expanded = false) => {
       : "★ New";
     const shortDescription = (provider.description || labelProfile.noDescription || "No business description added yet.")
       .slice(0, 88);
+    const capacityLabel = getCapacityLabel(provider);
     return `
       <div class="card-photo-shell">
         <img class="card-photo-image" src="${photos[0] || images.avatar}" alt="${provider.name || "Plug"}" />
@@ -413,6 +432,7 @@ const createCardMarkup = (provider, expanded = false) => {
           <span>${ratingText}</span>
           <span>${provider.location || (labelCommon.notSet || "Not set")}</span>
           <span class="meta-pill">${provider.category || (labelCommon.unavailable || "Not provided")}</span>
+          ${capacityLabel ? `<span class="meta-pill capacity-pill">${capacityLabel}</span>` : ""}
         </div>
         <div class="cta-row compact-actions">
           <button data-action="profile">${labelActions.viewProfile || "View Profile"}</button>
@@ -424,6 +444,7 @@ const createCardMarkup = (provider, expanded = false) => {
 
   const images = getDisplayImages(provider);
   const socialLinks = getSocialLinks(provider);
+  const capacityLabel = getCapacityLabel(provider);
 
   return `
     <div class="profile-banner-wrap">
@@ -450,6 +471,7 @@ const createCardMarkup = (provider, expanded = false) => {
               <span class="rating">${formatRatingLabel(provider)}</span>
               <span>${provider.reviewCount || 0} reviews</span>
             </div>
+            ${capacityLabel ? `<p class="muted"><strong>Capacity:</strong> ${capacityLabel}</p>` : ""}
           </div>
           <button class="ghost-button" data-action="photos">${labelActions.viewPhotos || "View More Photos"}</button>
         </div>
@@ -625,7 +647,7 @@ const openProfileModal = (provider, options = {}) => {
         ` : ""}
         ${renderReviewList(provider)}
         <div class="cta-row">
-          <button data-action="book">${labelActions.book || "Book"}</button>
+          <button data-action="book" ${isProviderBookable(provider) ? "" : "disabled"}>${isProviderBookable(provider) ? (labelActions.book || "Book") : "Booked"}</button>
           <button data-action="contact">${labelActions.contact || "Contact"}</button>
           ${provider.directionsUrl ? `<a href="${provider.directionsUrl}" target="_blank" rel="noreferrer">${labelActions.directions || "Directions"}</a>` : ""}
           <button data-action="review">${labelActions.leaveReview || "Leave Review"}</button>
@@ -649,7 +671,15 @@ const openProfileModal = (provider, options = {}) => {
           return;
         }
         const action = button.getAttribute("data-action");
-        if (action === "book") logProviderEvent(provider?.id, "booking_click");
+        if (action === "book") {
+          if (!isProviderBookable(provider)) {
+            alert("This Plug is currently booked. You can still save the profile or send a message.");
+            return;
+          }
+          logProviderEvent(provider?.id, "booking_click");
+          openDirectRequestModal(provider);
+          return;
+        }
         if (action === "contact") {
           logProviderEvent(provider?.id, "contact_click");
           openClientDirectMessage(provider);
@@ -670,6 +700,50 @@ const openProfileModal = (provider, options = {}) => {
 const closeProfileModal = () => {
   const modal = document.getElementById("profile-modal");
   if (modal) modal.setAttribute("aria-hidden", "true");
+};
+
+const closeDirectRequestModal = () => {
+  document.getElementById("direct-request-modal")?.remove();
+};
+
+const openDirectRequestModal = (provider) => {
+  if (!provider?.id) return;
+  closeDirectRequestModal();
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "direct-request-modal";
+  modal.setAttribute("aria-hidden", "false");
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Direct Request</h3>
+        <button class="ghost-button" type="button" data-action="close">Close</button>
+      </div>
+      <p class="muted">This request goes only to ${provider.name || "this Plug"} and lands in their Proposals tab.</p>
+      <div class="job-actions review-actions">
+        <button class="primary-button" type="button" data-action="continue">Continue</button>
+        <button class="ghost-button" type="button" data-action="cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeDirectRequestModal();
+  });
+  modal.querySelector("[data-action='close']")?.addEventListener("click", closeDirectRequestModal);
+  modal.querySelector("[data-action='cancel']")?.addEventListener("click", closeDirectRequestModal);
+  modal.querySelector("[data-action='continue']")?.addEventListener("click", () => {
+    closeDirectRequestModal();
+    startDirectRequestFlow(provider);
+  });
+};
+
+const startDirectRequestFlow = (provider) => {
+  if (!provider?.id) return;
+  const params = new URLSearchParams();
+  params.set("direct_provider_id", provider.id);
+  if (provider.name) params.set("direct_provider_name", provider.name);
+  window.location.href = `../client/client-jobs.html?${params.toString()}`;
 };
 
 const isSwipePage = () => document.getElementById("card-stack");
@@ -1178,8 +1252,12 @@ const initSwipePage = () => {
 
       card.querySelector("button[data-action='book']")?.addEventListener("click", () => {
         if (requireClientAuth("book services")) return;
+        if (!isProviderBookable(provider)) {
+          alert("This Plug is currently booked. You can still save the profile or send a message.");
+          return;
+        }
         logProviderEvent(provider?.id, "booking_click");
-        alert(labelBeta.action || "This action is coming soon in beta.");
+        openDirectRequestModal(provider);
       });
 
       card.querySelector("button[data-action='contact']")?.addEventListener("click", () => {

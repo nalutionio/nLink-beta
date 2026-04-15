@@ -199,6 +199,10 @@ const providerMetricsTablesAvailable = {
   views: true,
   saves: true,
 };
+const providerReviewsAvailabilityKey = "nlink_provider_reviews_table_available";
+if (localStorage.getItem(providerReviewsAvailabilityKey) === "0") {
+  providerMetricsTablesAvailable.reviews = false;
+}
 
 const isMissingTableError = (error) => (
   Boolean(error)
@@ -748,51 +752,60 @@ const loadProviderMetrics = async () => {
     }
   }
 
-  if (providerMetricsTablesAvailable.reviews) {
-    let reviewRows = [];
-    let reviewError = null;
+  let reviewRows = [];
+  let reviewError = null;
 
+  if (providerMetricsTablesAvailable.reviews) {
     const providerReviewsResult = await supabase
       .from("provider_reviews")
       .select("*")
       .in("provider_id", reviewProviderIds);
+    if (isMissingTableError(providerReviewsResult.error)) {
+      providerMetricsTablesAvailable.reviews = false;
+      localStorage.setItem(providerReviewsAvailabilityKey, "0");
+    }
+    if (!providerReviewsResult.error) {
+      localStorage.removeItem(providerReviewsAvailabilityKey);
+      providerMetricsTablesAvailable.reviews = true;
+    }
     const providerReviewRows = Array.isArray(providerReviewsResult.data) ? providerReviewsResult.data : [];
     if (!providerReviewsResult.error && providerReviewRows.length > 0) {
       reviewRows = providerReviewRows;
-    } else {
-      const jobReviewsResult = await supabase
-        .from("job_reviews")
-        .select("rating,review_text,reviewer_role,reviewee_user_id")
-        .eq("reviewee_role", "provider")
-        .eq("reviewee_user_id", state.user.id);
-      if (!jobReviewsResult.error && Array.isArray(jobReviewsResult.data)) {
-        reviewRows = jobReviewsResult.data.map((row) => ({
-          rating: row.rating,
-          text: row.review_text || "",
-          reviewer_name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
-        }));
-        reviewError = null;
-      } else {
-        reviewError = jobReviewsResult.error || providerReviewsResult.error;
-      }
     }
+  }
 
-    if (!reviewError && Array.isArray(reviewRows)) {
-      state.metrics.reviews = reviewRows.map((row) => ({
-        name: row.reviewer_name || row.name || "Anonymous",
-        rating: Number(row.rating) || 0,
-        text: row.text || row.comment || row.body || "",
+  if (!reviewRows.length) {
+    const jobReviewsResult = await supabase
+      .from("job_reviews")
+      .select("rating,review_text,reviewer_role,reviewee_user_id")
+      .eq("reviewee_role", "provider")
+      .eq("reviewee_user_id", state.user.id);
+    if (!jobReviewsResult.error && Array.isArray(jobReviewsResult.data)) {
+      reviewRows = jobReviewsResult.data.map((row) => ({
+        rating: row.rating,
+        text: row.review_text || "",
+        reviewer_name: row.reviewer_role === "client" ? "Neighbor" : "Anonymous",
       }));
-      state.metrics.reviewCount = state.metrics.reviews.length;
-      state.metrics.ratingAverage = state.metrics.reviewCount > 0
-        ? state.metrics.reviews.reduce((sum, row) => sum + row.rating, 0) / state.metrics.reviewCount
-        : 0;
-    } else if (isMissingTableError(reviewError)) {
-      providerMetricsTablesAvailable.reviews = false;
-      state.metrics.reviews = [];
-      state.metrics.reviewCount = 0;
-      state.metrics.ratingAverage = 0;
+      reviewError = null;
+    } else {
+      reviewError = jobReviewsResult.error;
     }
+  }
+
+  if (!reviewError && Array.isArray(reviewRows)) {
+    state.metrics.reviews = reviewRows.map((row) => ({
+      name: row.reviewer_name || row.name || "Anonymous",
+      rating: Number(row.rating) || 0,
+      text: row.text || row.comment || row.body || "",
+    }));
+    state.metrics.reviewCount = state.metrics.reviews.length;
+    state.metrics.ratingAverage = state.metrics.reviewCount > 0
+      ? state.metrics.reviews.reduce((sum, row) => sum + row.rating, 0) / state.metrics.reviewCount
+      : 0;
+  } else if (isMissingTableError(reviewError)) {
+    state.metrics.reviews = [];
+    state.metrics.reviewCount = 0;
+    state.metrics.ratingAverage = 0;
   }
 
   if (providerMetricsTablesAvailable.views) {

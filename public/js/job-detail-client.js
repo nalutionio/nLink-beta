@@ -29,6 +29,15 @@ const reviewTextInput = document.getElementById("client-review-text");
 const reviewCancelButton = document.getElementById("client-review-cancel");
 const reviewSubmitButton = document.getElementById("client-review-submit");
 const reviewStatusEl = document.getElementById("client-review-status");
+const bookingWrap = document.getElementById("client-booking-wrap");
+const bookingSummaryEl = document.getElementById("client-booking-summary");
+const bookingSlotsEl = document.getElementById("client-booking-slots");
+const bookingNoteInput = document.getElementById("client-booking-note");
+const bookingAddressWrap = document.getElementById("client-booking-address-wrap");
+const bookingAddressInput = document.getElementById("client-booking-address");
+const bookingConfirmButton = document.getElementById("client-booking-confirm");
+const bookingShareAddressButton = document.getElementById("client-booking-share-address");
+const bookingStatusEl = document.getElementById("client-booking-status");
 const editTitleInput = document.getElementById("edit-job-title");
 const editCategoryInput = document.getElementById("edit-job-category");
 const editDescriptionInput = document.getElementById("edit-job-description");
@@ -54,17 +63,23 @@ const normalizeLocation = (value) => (
 let editMode = false;
 let jobEventsTableAvailable = true;
 let jobReviewsTableAvailable = true;
+let bookingTableAvailable = true;
 let reviewTarget = null;
+let currentAppointment = null;
+let currentAcceptedRequest = null;
+let selectedBookingSlot = "";
+let currentClientAddress = "";
 
 const normalizeRequestStatus = (status) => {
   const raw = String(status || "pending").toLowerCase();
-  if (raw === "closed") return "completed";
   return raw;
 };
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "completed") return "Completed";
+  if (normalized === "requested") return "Direct Request";
+  if (normalized === "completed") return "Work Completed";
+  if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
   return "Pending";
@@ -75,7 +90,7 @@ const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
     .map((row) => String(row?.status || "").toLowerCase())
     .filter(Boolean);
   if (statuses.includes("closed")) return "closed";
-  if (statuses.includes("accepted")) return "in_progress";
+  if (statuses.includes("accepted") || statuses.includes("completed")) return "in_progress";
   return String(jobStatus || "open").toLowerCase();
 };
 
@@ -132,6 +147,12 @@ const setReviewStatus = (message, type = "") => {
   if (!reviewStatusEl) return;
   reviewStatusEl.textContent = message;
   reviewStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const setBookingStatus = (message, type = "") => {
+  if (!bookingStatusEl) return;
+  bookingStatusEl.textContent = message;
+  bookingStatusEl.className = `auth-status ${type}`.trim();
 };
 
 const setReviewMode = (target = null) => {
@@ -260,6 +281,135 @@ const loadMyReviews = async (userId) => {
   return [];
 };
 
+const formatSlotLabel = (isoValue) => {
+  if (!isoValue) return "";
+  const date = new Date(isoValue);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const loadAppointment = async (requestId) => {
+  if (!supabase || !bookingTableAvailable || !requestId) return null;
+  const { data, error } = await supabase
+    .from("job_appointments")
+    .select("*")
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (!error) return data || null;
+  if (isMissingTableError(error)) {
+    bookingTableAvailable = false;
+    return null;
+  }
+  return null;
+};
+
+const loadClientAddress = async (userId) => {
+  if (!supabase || !userId) return "";
+  const { data, error } = await supabase
+    .from("clients")
+    .select("address,location")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return "";
+  return String(data.address || data.location || "").trim();
+};
+
+const renderBookingPanel = () => {
+  if (!bookingWrap || !bookingSummaryEl || !bookingSlotsEl || !bookingConfirmButton) return;
+  if (!bookingTableAvailable || !currentAcceptedRequest) {
+    bookingWrap.classList.add("hidden");
+    return;
+  }
+  bookingWrap.classList.remove("hidden");
+  bookingSlotsEl.innerHTML = "";
+  setBookingStatus("");
+
+  const requestStatus = normalizeRequestStatus(currentAcceptedRequest.status);
+  const appointmentStatus = String(currentAppointment?.status || "").toLowerCase();
+  const isCompleted = requestStatus === "completed" || requestStatus === "closed" || appointmentStatus === "completed";
+  const isScheduled = appointmentStatus === "scheduled";
+  const slots = Array.isArray(currentAppointment?.proposed_slots)
+    ? currentAppointment.proposed_slots.filter(Boolean).slice(0, 3)
+    : [];
+
+  if (!currentAppointment || !slots.length) {
+    bookingSummaryEl.textContent = "No appointment availability shared yet.";
+    bookingConfirmButton.classList.add("hidden");
+    bookingConfirmButton.disabled = true;
+    bookingShareAddressButton?.classList.add("hidden");
+    bookingAddressWrap?.classList.add("hidden");
+    if (bookingNoteInput) bookingNoteInput.disabled = true;
+    return;
+  }
+
+  if (isCompleted) {
+    bookingSummaryEl.textContent = "This job is completed. Appointment is locked.";
+  } else if (isScheduled) {
+    bookingSummaryEl.textContent = currentAppointment.selected_slot
+      ? `Scheduled for ${formatSlotLabel(currentAppointment.selected_slot)}`
+      : "Appointment scheduled.";
+  } else {
+    bookingSummaryEl.textContent = "Choose a slot to confirm your appointment.";
+  }
+
+  if (bookingNoteInput) {
+    bookingNoteInput.value = currentAppointment.client_notes || "";
+    bookingNoteInput.disabled = isCompleted;
+  }
+
+  if (bookingAddressInput) {
+    bookingAddressInput.value = String(currentAppointment.client_shared_address || currentClientAddress || "").trim();
+    bookingAddressInput.disabled = isCompleted;
+  }
+
+  selectedBookingSlot = isScheduled ? (currentAppointment.selected_slot || "") : selectedBookingSlot;
+
+  if (isScheduled || isCompleted) {
+    const selectedLabel = document.createElement("article");
+    selectedLabel.className = "settings-item";
+    selectedLabel.innerHTML = `<span>${formatSlotLabel(currentAppointment.selected_slot || selectedBookingSlot) || "Scheduled slot"}</span>`;
+    bookingSlotsEl.appendChild(selectedLabel);
+  } else {
+    slots.forEach((slot, index) => {
+      const option = document.createElement("label");
+      option.className = "settings-item";
+      option.innerHTML = `
+        <span>${formatSlotLabel(slot) || "Invalid slot"}</span>
+        <input type="radio" name="booking-slot" value="${slot}" ${selectedBookingSlot === slot ? "checked" : ""} />
+      `;
+      option.querySelector("input")?.addEventListener("change", () => {
+        selectedBookingSlot = slot;
+        bookingConfirmButton.disabled = false;
+      });
+      bookingSlotsEl.appendChild(option);
+      if (index === 0 && !selectedBookingSlot) {
+        selectedBookingSlot = slot;
+        const input = option.querySelector("input");
+        if (input) input.checked = true;
+      }
+    });
+  }
+
+  if (isCompleted || isScheduled) {
+    bookingConfirmButton.classList.add("hidden");
+    bookingConfirmButton.disabled = true;
+  } else {
+    bookingConfirmButton.classList.remove("hidden");
+    bookingConfirmButton.disabled = !selectedBookingSlot;
+  }
+
+  const showAddressControls = Boolean(isScheduled || isCompleted);
+  bookingAddressWrap?.classList.toggle("hidden", !showAddressControls);
+  bookingShareAddressButton?.classList.toggle("hidden", !showAddressControls);
+  if (bookingShareAddressButton) bookingShareAddressButton.disabled = isCompleted;
+};
+
 const updateJobStatus = async (nextStatus) => {
   if (!supabase || !jobId) return;
   const user = await getSessionUser();
@@ -284,15 +434,20 @@ const updateRequestStatus = async (requestId, nextStatus) => {
       .eq("job_id", jobId);
     if (acceptResult.error) return;
 
-    const { data: siblingPending } = await supabase
+    const { data: siblingRequests } = await supabase
       .from("job_requests")
-      .select("id")
+      .select("id,status")
       .eq("job_id", jobId)
-      .neq("id", requestId)
-      .eq("status", "pending");
+      .neq("id", requestId);
     // Keep the state machine clear: one accepted proposal per job.
-    if (Array.isArray(siblingPending) && siblingPending.length) {
-      const siblingIds = siblingPending.map((row) => row.id).filter(Boolean);
+    if (Array.isArray(siblingRequests) && siblingRequests.length) {
+      const siblingIds = siblingRequests
+        .filter((row) => {
+          const status = String(row?.status || "").toLowerCase();
+          return status === "pending" || status === "requested";
+        })
+        .map((row) => row.id)
+        .filter(Boolean);
       if (siblingIds.length) {
         await supabase
           .from("job_requests")
@@ -324,8 +479,86 @@ const updateRequestStatus = async (requestId, nextStatus) => {
       .from("jobs")
       .update({ status: "closed" })
       .eq("id", jobId);
+    if (bookingTableAvailable) {
+      await supabase
+        .from("job_appointments")
+        .update({ status: "completed" })
+        .eq("request_id", requestId)
+        .eq("job_id", jobId);
+    }
   }
   await render();
+};
+
+const confirmAppointmentSlot = async () => {
+  if (!supabase || !currentAppointment?.id || !selectedBookingSlot) return;
+  if (!bookingTableAvailable) {
+    setBookingStatus("Booking is not enabled yet.", "error");
+    return;
+  }
+  setBookingStatus("Confirming appointment...", "info");
+  const { data, error } = await supabase
+    .from("job_appointments")
+    .update({
+      status: "scheduled",
+      selected_slot: selectedBookingSlot,
+      client_notes: (bookingNoteInput?.value || "").trim() || null,
+    })
+    .eq("id", currentAppointment.id)
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    if (isMissingTableError(error)) {
+      bookingTableAvailable = false;
+      bookingWrap?.classList.add("hidden");
+      setBookingStatus("Booking table is unavailable.", "error");
+      return;
+    }
+    setBookingStatus(error.message || "Could not confirm appointment.", "error");
+    return;
+  }
+  currentAppointment = data || currentAppointment;
+  setBookingStatus("Appointment confirmed.", "success");
+  await logJobEvent("appointment_scheduled", { request_id: currentAcceptedRequest?.id || null });
+  renderBookingPanel();
+};
+
+const shareAppointmentAddress = async () => {
+  if (!supabase || !currentAppointment?.id) return;
+  if (!bookingTableAvailable) {
+    setBookingStatus("Booking is not enabled yet.", "error");
+    return;
+  }
+  const address = String(bookingAddressInput?.value || "").trim();
+  if (!address) {
+    setBookingStatus("Enter an address to share.", "error");
+    return;
+  }
+  setBookingStatus("Sharing address...", "info");
+  const { data, error } = await supabase
+    .from("job_appointments")
+    .update({
+      client_shared_address: address,
+      client_shared_at: new Date().toISOString(),
+      client_notes: (bookingNoteInput?.value || "").trim() || null,
+    })
+    .eq("id", currentAppointment.id)
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    if (isMissingTableError(error)) {
+      bookingTableAvailable = false;
+      bookingWrap?.classList.add("hidden");
+      setBookingStatus("Booking table is unavailable.", "error");
+      return;
+    }
+    setBookingStatus(error.message || "Could not share address.", "error");
+    return;
+  }
+  currentAppointment = data || currentAppointment;
+  setBookingStatus("Address shared with Plug.", "success");
+  await logJobEvent("appointment_address_shared", { request_id: currentAcceptedRequest?.id || null });
+  renderBookingPanel();
 };
 
 const uploadJobPhoto = async (file, index) => {
@@ -497,6 +730,7 @@ const render = async () => {
   if (!supabase) return;
   const user = await getSessionUser();
   if (!user) return;
+  currentClientAddress = await loadClientAddress(user.id);
   const job = await loadJob(user.id);
   if (!job) return;
 
@@ -533,9 +767,11 @@ const render = async () => {
         card.className = "job-card";
         const normalizedStatus = normalizeRequestStatus(request.status);
         const isPending = normalizedStatus === "pending";
+        const isRequested = normalizedStatus === "requested";
         const isAccepted = normalizedStatus === "accepted";
         const isCompleted = normalizedStatus === "completed";
-        const canRate = isCompleted
+        const isClosed = normalizedStatus === "closed";
+        const canRate = isClosed
           && Boolean(request.provider_id)
           && Boolean(request.providers?.owner_id)
           && !reviewedProviderIds.has(request.provider_id);
@@ -543,8 +779,9 @@ const render = async () => {
           <div class="job-card-body">
             <h4>${request.providers?.name || "Plug"}</h4>
             <p class="muted">${new Date(request.created_at).toLocaleDateString()}</p>
-            <p class="muted">${formatProposalType(request.proposal_type)} • ${formatPricingBasis(request.pricing_basis)}</p>
-            <p class="muted">${formatEstimateRange(request.estimated_price_min, request.estimated_price_max)}</p>
+            ${isRequested ? `<p class="muted">Direct request sent. Waiting for this Plug to submit a proposal.</p>` : ""}
+            ${isRequested ? "" : `<p class="muted">${formatProposalType(request.proposal_type)} • ${formatPricingBasis(request.pricing_basis)}</p>`}
+            ${isRequested ? "" : `<p class="muted">${formatEstimateRange(request.estimated_price_min, request.estimated_price_max)}</p>`}
             ${request.inspection_fee ? `<p class="muted">Inspection fee: $${request.inspection_fee}${request.inspection_fee_creditable ? " (credited)" : ""}${request.inspection_fee_waivable ? " • can be waived" : ""}</p>` : ""}
             ${request.proposal_notes ? `<p class="muted">${request.proposal_notes}</p>` : ""}
           </div>
@@ -554,8 +791,8 @@ const render = async () => {
               <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline Proposal</button>
               <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
             ` : ""}
-            ${isAccepted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Mark Completed</button>` : ""}
-            ${(isPending || isAccepted || isCompleted) && request.provider_id && request.providers?.owner_id !== user.id ? `
+            ${isCompleted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Confirm Completion</button>` : ""}
+            ${(isPending || isAccepted || isCompleted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `
               <a
                 class="ghost-button"
                 href="../client/client-messages.html?job=${jobId}&provider=${encodeURIComponent(request.provider_id)}${request.providers?.name ? `&providerName=${encodeURIComponent(request.providers.name)}` : ""}${request.providers?.avatar_url ? `&providerAvatar=${encodeURIComponent(request.providers.avatar_url)}` : ""}"
@@ -588,6 +825,16 @@ const render = async () => {
       });
     }
   }
+
+  currentAcceptedRequest = requests.find((request) => {
+    const normalized = normalizeRequestStatus(request.status);
+    return normalized === "accepted" || normalized === "completed" || normalized === "closed";
+  }) || null;
+  selectedBookingSlot = "";
+  currentAppointment = currentAcceptedRequest?.id
+    ? await loadAppointment(currentAcceptedRequest.id)
+    : null;
+  renderBookingPanel();
 };
 
 const init = () => {
@@ -677,3 +924,5 @@ photoUploadInput?.addEventListener("change", async (event) => {
 
 reviewCancelButton?.addEventListener("click", () => setReviewMode(null));
 reviewSubmitButton?.addEventListener("click", submitClientReview);
+bookingConfirmButton?.addEventListener("click", confirmAppointmentSlot);
+bookingShareAddressButton?.addEventListener("click", shareAppointmentAddress);

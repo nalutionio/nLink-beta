@@ -113,13 +113,13 @@
             <span>Inspection Fee ($)</span>
             <input id="proposal-inspection-fee" type="number" min="0" step="1" placeholder="0" />
           </label>
-          <label class="input-field checkbox-field">
+          <div class="input-field checkbox-field">
             <span>Fee options</span>
             <div class="check-list">
               <label><input id="proposal-inspection-creditable" type="checkbox" /> Apply fee to final invoice</label>
               <label><input id="proposal-inspection-waivable" type="checkbox" /> Fee can be waived</label>
             </div>
-          </label>
+          </div>
         </div>
         <label class="input-field">
           <span>Proposal Notes</span>
@@ -140,6 +140,38 @@
       <button class="primary-button" id="request-quote">Send Proposal</button>
       <a class="ghost-button hidden" id="message-client-link" href="#">Message Neighbor</a>
       <div class="auth-status" id="request-status"></div>
+      <div class="modal-form hidden" id="provider-booking-wrap">
+        <h4>Availability Windows</h4>
+        <p class="muted">Share up to 3 appointment windows for this job.</p>
+        <div class="scope-box hidden" id="provider-booking-confirmed-wrap">
+          <h4>Confirmed Appointment</h4>
+          <p id="provider-booking-confirmed-slot">Waiting for Neighbor confirmation.</p>
+        </div>
+        <label class="input-field">
+          <span>Window 1</span>
+          <input id="provider-slot-1" type="datetime-local" />
+        </label>
+        <label class="input-field">
+          <span>Window 2</span>
+          <input id="provider-slot-2" type="datetime-local" />
+        </label>
+        <label class="input-field">
+          <span>Window 3</span>
+          <input id="provider-slot-3" type="datetime-local" />
+        </label>
+        <label class="input-field">
+          <span>Booking Notes (optional)</span>
+          <textarea id="provider-booking-note" rows="2" placeholder="Arrival window, parking notes, or prep steps."></textarea>
+        </label>
+        <div class="scope-box hidden" id="provider-booking-address-wrap">
+          <h4>Shared Service Address</h4>
+          <p id="provider-booking-address">No address shared yet.</p>
+        </div>
+        <div class="job-actions review-actions">
+          <button class="primary-button" id="provider-booking-save" type="button">Send Availability</button>
+        </div>
+        <div class="auth-status" id="provider-booking-status"></div>
+      </div>
       <div class="modal-form hidden" id="provider-review-form-wrap">
         <h4 id="provider-review-title">Rate Neighbor</h4>
         <label class="input-field">

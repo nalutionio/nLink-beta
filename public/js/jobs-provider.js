@@ -137,6 +137,8 @@ const fetchJobs = async () => {
   if (!user) return [];
   providerUserId = user.id;
   const queries = [
+    "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id,target_provider_id,client_name,client_avatar_url,client_location_public,client_email_verified",
+    "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id,target_provider_id",
     "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id,client_name,client_avatar_url,client_location_public,client_email_verified",
     "id,title,category,location,budget_min,budget_max,sqft,timeline,created_at,status,client_id",
   ];
@@ -147,7 +149,11 @@ const fetchJobs = async () => {
       .eq("status", "open")
       .neq("client_id", user.id)
       .order("created_at", { ascending: false });
-    if (!error && Array.isArray(data)) return data;
+    if (!error && Array.isArray(data)) {
+      // Marketplace discover should only show open public jobs.
+      // Direct requests are handled in the Proposals tab.
+      return data.filter((job) => !job.target_provider_id);
+    }
     if (!(error?.code === "42703" || error?.code === "PGRST204" || error?.code === "PGRST205")) return [];
   }
   return [];
@@ -221,7 +227,8 @@ const renderJobs = async () => {
     const photo = photos.find((item) => item.job_id === job.id);
     const thumb = photo?.url || "../assets/jobrequestpic.png";
     const requestStatus = requestStatusByJobId[job.id];
-    const canMessage = requestStatus === "accepted" && clientInitiatedByJobId[job.id];
+    const canMessage = ["accepted", "completed", "closed"].includes(String(requestStatus || "").toLowerCase())
+      && clientInitiatedByJobId[job.id];
     const card = document.createElement("div");
     card.className = "job-card job-link-card";
     card.dataset.href = `../provider/job-detail.html?id=${job.id}&from=discover`;
@@ -237,7 +244,17 @@ const renderJobs = async () => {
         <span class="pill">Open</span>
         <button class="primary-button" data-job-id="${job.id}">${
           requestStatus
-            ? (requestStatus === "accepted" ? "Accepted" : "Proposal Sent")
+            ? (
+              requestStatus === "accepted"
+                ? "Accepted"
+                : requestStatus === "completed"
+                  ? "Awaiting Confirmation"
+                  : requestStatus === "closed"
+                    ? "Completed"
+                    : requestStatus === "requested"
+                      ? "Open Direct Request"
+                      : "Proposal Sent"
+            )
             : "Build Proposal"
         }</button>
         ${canMessage && job.client_id && job.client_id !== providerUserId ? `
@@ -260,7 +277,7 @@ const renderJobs = async () => {
       window.location.href = `../provider/job-detail.html?id=${jobId}&from=discover&compose=1`;
     });
     const actionButton = card.querySelector("button");
-    if (actionButton && requestStatusByJobId[job.id]) {
+    if (actionButton && requestStatusByJobId[job.id] && requestStatusByJobId[job.id] !== "requested") {
       actionButton.disabled = true;
     }
     feedEl.appendChild(card);

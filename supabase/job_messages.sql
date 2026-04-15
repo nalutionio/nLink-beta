@@ -125,7 +125,7 @@ begin
         from public.job_requests jr
         where jr.job_id = job_messages.job_id
           and jr.provider_id = job_messages.provider_id
-          and jr.status = 'accepted'
+          and jr.status in ('accepted', 'completed', 'closed')
       )
       and exists (
         select 1
@@ -153,7 +153,7 @@ begin
         from public.job_requests jr
         where jr.job_id = job_messages.job_id
           and jr.provider_id = job_messages.provider_id
-          and jr.status = 'accepted'
+          and jr.status in ('accepted', 'completed', 'closed')
       )
       and public.client_started_job_thread(
         job_messages.job_id,
