@@ -20,7 +20,13 @@ where schemaname = 'public'
     'job_messages',
     'direct_messages',
     'job_reviews',
-    'provider_reviews'
+    'job_appointments',
+    'message_thread_reads',
+    'community_posts',
+    'community_comments',
+    'community_reactions',
+    'community_plugs',
+    'community_notifications'
   )
 order by tablename;
 
@@ -48,7 +54,13 @@ where schemaname = 'public'
     'job_messages',
     'direct_messages',
     'job_reviews',
-    'provider_reviews'
+    'job_appointments',
+    'message_thread_reads',
+    'community_posts',
+    'community_comments',
+    'community_reactions',
+    'community_plugs',
+    'community_notifications'
   )
 order by tablename, policyname;
 

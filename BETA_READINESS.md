@@ -74,6 +74,10 @@ Run `supabase/beta_verification.sql` and store output notes.
 - [x] Address privacy is preserved in provider-facing UI. (Mar 6)
 - [x] No test/dummy fallback profile data leaking into real user views. (Mar 6)
 
+Verification refresh (Apr 16, 2026):
+- [x] Sections 1–4 rerun after Phase 8 SQL alignment updates.
+- [x] Volume snapshot: clients=5, providers=5, jobs=19, job_requests=14, job_messages=35, direct_messages=5.
+
 ## 4) Operations + Release Hygiene (Required)
 
 - [x] JS syntax sweep passes (`node --check public/js/*.js`). (Mar 6)
