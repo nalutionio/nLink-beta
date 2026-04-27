@@ -69,6 +69,7 @@ let currentAppointment = null;
 let currentAcceptedRequest = null;
 let selectedBookingSlot = "";
 let currentClientAddress = "";
+let reviewSubmitInFlight = false;
 
 const normalizeRequestStatus = (status) => {
   const raw = String(status || "pending").toLowerCase();
@@ -153,6 +154,21 @@ const setBookingStatus = (message, type = "") => {
   if (!bookingStatusEl) return;
   bookingStatusEl.textContent = message;
   bookingStatusEl.className = `auth-status ${type}`.trim();
+};
+
+const normalizeReviewText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+const validateReviewText = (value) => {
+  const text = normalizeReviewText(value);
+  if (!text) return { ok: true, text: "" };
+  if (text.length > 600) {
+    return { ok: false, text, message: "Review comments must be 600 characters or fewer." };
+  }
+  const bannedPattern = /(https?:\/\/|www\.|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4})/i;
+  if (bannedPattern.test(text)) {
+    return { ok: false, text, message: "Please remove links, email addresses, or phone numbers from the review." };
+  }
+  return { ok: true, text };
 };
 
 const setReviewMode = (target = null) => {
@@ -679,6 +695,7 @@ const saveInlineEdit = async () => {
 
 const submitClientReview = async () => {
   if (!supabase || !jobId || !reviewTarget) return;
+  if (reviewSubmitInFlight) return;
   const user = await getSessionUser();
   if (!user) return;
   if (!jobReviewsTableAvailable) {
@@ -687,7 +704,12 @@ const submitClientReview = async () => {
   }
 
   const rating = Number(reviewRatingInput?.value || 0);
-  const reviewText = reviewTextInput?.value.trim() || "";
+  const reviewValidation = validateReviewText(reviewTextInput?.value || "");
+  if (!reviewValidation.ok) {
+    setReviewStatus(reviewValidation.message || "Review text is invalid.", "error");
+    return;
+  }
+  const reviewText = reviewValidation.text;
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     setReviewStatus("Select a rating between 1 and 5.", "error");
     return;
@@ -698,6 +720,8 @@ const submitClientReview = async () => {
   }
 
   setReviewStatus("Submitting review...", "info");
+  reviewSubmitInFlight = true;
+  if (reviewSubmitButton) reviewSubmitButton.disabled = true;
   const { error } = await supabase.from("job_reviews").insert({
     job_id: jobId,
     job_request_id: reviewTarget.requestId || null,
@@ -712,6 +736,8 @@ const submitClientReview = async () => {
   });
 
   if (error) {
+    reviewSubmitInFlight = false;
+    if (reviewSubmitButton) reviewSubmitButton.disabled = false;
     if (isMissingTableError(error)) {
       jobReviewsTableAvailable = false;
       setReviewStatus("Reviews table is unavailable.", "error");
@@ -721,6 +747,8 @@ const submitClientReview = async () => {
     return;
   }
 
+  reviewSubmitInFlight = false;
+  if (reviewSubmitButton) reviewSubmitButton.disabled = false;
   setReviewStatus("Review submitted.", "success");
   setReviewMode(null);
   await render();
