@@ -12,9 +12,8 @@ const labelRating = labels.rating || {};
 const labelProfile = labels.profile || {};
 const labelPricing = labels.pricing || {};
 const labelActions = labels.actions || {};
-const labelBeta = labels.beta || {};
-const clientLoginUrl = "/shared/login-choice.html?preferred=client";
-const clientSignupUrl = "/shared/signup-choice.html?preferred=client";
+const clientLoginUrl = "/shared/login-client.html";
+const clientSignupUrl = "/shared/signup-client.html";
 let providerReviewsTableAvailable = true;
 let providerProfilesLifecycleAvailable = true;
 let providerEventsTableAvailable = true;
@@ -109,6 +108,10 @@ const closePhotoGalleryModal = () => {
   document.getElementById("photo-gallery-modal")?.remove();
 };
 
+const closeReviewsModal = () => {
+  document.getElementById("provider-reviews-modal")?.remove();
+};
+
 const openClientDirectMessage = (provider) => {
   if (!provider?.id) return;
   const params = new URLSearchParams();
@@ -128,6 +131,41 @@ const fetchProviderPhotos = async (providerId) => {
     .order("created_at", { ascending: false });
   if (error || !Array.isArray(data)) return { photos: [], error };
   return { photos: data.map((row) => ({ url: row.url })), error: null };
+};
+
+const openProviderReviewsModal = (provider) => {
+  if (!provider) return;
+  closeReviewsModal();
+  const reviews = Array.isArray(provider.reviews) ? provider.reviews : [];
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.id = "provider-reviews-modal";
+  modal.setAttribute("aria-hidden", "false");
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Reviews • ${provider.name || "Plug"}</h3>
+        <button class="ghost-button" type="button" data-action="close">Close</button>
+      </div>
+      <p class="muted">${reviews.length ? `${(Number(provider.rating) || 0).toFixed(1)} stars • ${reviews.length} reviews` : "No reviews yet."}</p>
+      <div class="comments-list">
+        ${reviews.length
+          ? reviews.map((review) => `
+              <article class="review-card">
+                <strong>${review.name || "Neighbor"}</strong>
+                <div>${"★".repeat(Math.max(0, Math.min(5, Math.round(Number(review.rating) || 0))))}</div>
+                <p>${review.text || "No written feedback."}</p>
+              </article>
+            `).join("")
+          : `<p class="muted">${labelRating.noReviews || "No reviews yet."}</p>`}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-action='close']")?.addEventListener("click", closeReviewsModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeReviewsModal();
+  });
 };
 
 const hydrateSavedProviders = async (savedProviders) => {
@@ -397,6 +435,18 @@ const getCapacityLabel = (provider) => {
   return "";
 };
 
+const BOOKING_SERVICES = new Set(["barber", "hair stylist", "personal trainer"]);
+
+const supportsScheduledBooking = (provider) => {
+  const primary = toCanonicalService(provider?.category || "").toLowerCase();
+  const serviceCategory = toCanonicalCategory(provider?.serviceCategory || "").toLowerCase();
+  return BOOKING_SERVICES.has(primary) || serviceCategory === "personal services";
+};
+
+const getBookingButtonLabel = (provider) => (
+  supportsScheduledBooking(provider) ? (labelActions.book || "Book") : "Request"
+);
+
 const isProviderBookable = (provider) => getCapacityState(provider) !== "booked";
 
 const formatServiceArea = (provider) => (
@@ -504,7 +554,7 @@ const createCardMarkup = (provider, expanded = false) => {
       ` : ""}
       ${renderReviewList(provider)}
       <div class="cta-row">
-        <button data-action="book">${labelActions.book || "Book"}</button>
+        <button data-action="book">${getBookingButtonLabel(provider)}</button>
         <button data-action="contact">${labelActions.contact || "Contact"}</button>
         ${provider.directionsUrl ? `<a href="${provider.directionsUrl}" target="_blank" rel="noreferrer">${labelActions.directions || "Directions"}</a>` : ""}
         <button data-action="review">${labelActions.leaveReview || "Leave Review"}</button>
@@ -647,7 +697,7 @@ const openProfileModal = (provider, options = {}) => {
         ` : ""}
         ${renderReviewList(provider)}
         <div class="cta-row">
-          <button data-action="book" ${isProviderBookable(provider) ? "" : "disabled"}>${isProviderBookable(provider) ? (labelActions.book || "Book") : "Booked"}</button>
+          <button data-action="book" ${isProviderBookable(provider) ? "" : "disabled"}>${isProviderBookable(provider) ? getBookingButtonLabel(provider) : "Booked"}</button>
           <button data-action="contact">${labelActions.contact || "Contact"}</button>
           ${provider.directionsUrl ? `<a href="${provider.directionsUrl}" target="_blank" rel="noreferrer">${labelActions.directions || "Directions"}</a>` : ""}
           <button data-action="review">${labelActions.leaveReview || "Leave Review"}</button>
@@ -685,7 +735,9 @@ const openProfileModal = (provider, options = {}) => {
           openClientDirectMessage(provider);
           return;
         }
-        alert(labelBeta.action || "This action is coming soon in beta.");
+        if (action === "review") {
+          openProviderReviewsModal(provider);
+        }
       });
     });
   modal.querySelector("[data-action='photos']")?.addEventListener("click", () => {
@@ -1268,7 +1320,7 @@ const initSwipePage = () => {
 
       card.querySelector("button[data-action='review']")?.addEventListener("click", () => {
         if (requireClientAuth("leave a review")) return;
-        alert(labelBeta.action || "This action is coming soon in beta.");
+        openProviderReviewsModal(provider);
       });
 
       if (!isDesktop) {

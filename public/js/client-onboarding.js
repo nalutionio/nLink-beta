@@ -50,11 +50,11 @@ const renderStep = () => {
 };
 
 const validateStep = () => {
-  if (stepIndex === 0 && !nameInput.value.trim()) {
+  if (!nameInput.value.trim()) {
     setStatus("Please enter your name.", "error");
     return false;
   }
-  if (stepIndex === 1 && !locationInput.value.trim()) {
+  if (!locationInput.value.trim()) {
     setStatus("Please add your location.", "error");
     return false;
   }

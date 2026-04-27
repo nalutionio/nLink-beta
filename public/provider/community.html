@@ -53,6 +53,11 @@
           <span>Tags (optional)</span>
           <select id="community-service-tags" multiple size="3"></select>
         </label>
+        <input type="file" id="community-photo-upload" accept="image/*" hidden />
+        <div class="community-photo-preview hidden" id="community-photo-preview">
+          <img id="community-photo-preview-image" src="" alt="Post photo preview" />
+          <button class="ghost-button compact" type="button" id="community-photo-remove">Remove Photo</button>
+        </div>
         <div class="community-compose-actions">
           <button class="ghost-button compact community-quick-action" type="button" data-composer-action="photo" aria-label="Add photo">
             <span class="material-symbols-rounded" aria-hidden="true">image</span>
@@ -80,6 +85,7 @@
   <script src="../js/supabase-config.js"></script>
   <script src="../js/service-tags.js"></script>
   <script src="../js/nav-badges.js"></script>
+  <script src="../js/image-cropper.js"></script>
   <script src="../js/community.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>

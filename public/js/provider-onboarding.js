@@ -152,9 +152,15 @@ const renderStep = () => {
   });
   if (stepCounterEl) stepCounterEl.textContent = `Step ${stepIndex + 1} of ${steps.length}`;
   backButton.hidden = stepIndex === 0;
-  nextButton.hidden = stepIndex === steps.length - 1;
+  nextButton.hidden = stepIndex >= steps.length - 1;
   skipMediaButton.hidden = stepIndex !== steps.length - 1;
-  finishButton.hidden = stepIndex !== steps.length - 1;
+  finishButton.hidden = stepIndex < 1;
+  if (nextButton) {
+    nextButton.textContent = stepIndex === 1 ? "Add Media (Optional)" : "Next";
+  }
+  if (finishButton) {
+    finishButton.textContent = stepIndex === steps.length - 1 ? "Finish" : "Finish Now";
+  }
 };
 
 const validateStep = () => {

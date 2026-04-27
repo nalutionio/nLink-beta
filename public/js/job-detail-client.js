@@ -71,6 +71,17 @@ let selectedBookingSlot = "";
 let currentClientAddress = "";
 let reviewSubmitInFlight = false;
 
+const PERSONAL_BOOKING_SERVICES = new Set(["barber", "hair stylist", "personal trainer"]);
+
+const supportsScheduledBookingByCategory = (categoryValue) => {
+  const normalized = String(
+    window.NLINK_SERVICE_TAGS?.toCanonicalService
+      ? window.NLINK_SERVICE_TAGS.toCanonicalService(categoryValue || "")
+      : (categoryValue || "")
+  ).trim().toLowerCase();
+  return PERSONAL_BOOKING_SERVICES.has(normalized);
+};
+
 const normalizeRequestStatus = (status) => {
   const raw = String(status || "pending").toLowerCase();
   return raw;
@@ -241,9 +252,9 @@ const loadPhotos = async () => {
 
 const loadRequests = async () => {
   const queries = [
-    "id,status,created_at,provider_id,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,providers(name,owner_id,avatar_url)",
-    "id,status,created_at,provider_id,providers(name,owner_id,avatar_url)",
-    "id,status,created_at,provider_id,providers(name,owner_id)",
+    "id,status,created_at,provider_id,proposal_type,estimated_price_min,estimated_price_max,pricing_basis,inspection_fee,inspection_fee_creditable,inspection_fee_waivable,proposal_notes,providers(name,owner_id,avatar_url,category)",
+    "id,status,created_at,provider_id,providers(name,owner_id,avatar_url,category)",
+    "id,status,created_at,provider_id,providers(name,owner_id,category)",
   ];
   for (let i = 0; i < queries.length; i += 1) {
     const { data, error } = await supabase
@@ -338,6 +349,11 @@ const loadClientAddress = async (userId) => {
 
 const renderBookingPanel = () => {
   if (!bookingWrap || !bookingSummaryEl || !bookingSlotsEl || !bookingConfirmButton) return;
+  const bookingCategory = currentAcceptedRequest?.providers?.category || currentJob?.category || "";
+  if (!supportsScheduledBookingByCategory(bookingCategory)) {
+    bookingWrap.classList.add("hidden");
+    return;
+  }
   if (!bookingTableAvailable || !currentAcceptedRequest) {
     bookingWrap.classList.add("hidden");
     return;

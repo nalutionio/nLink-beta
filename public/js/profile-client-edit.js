@@ -72,6 +72,25 @@ const setStatus = (message, type = "") => {
   statusEl.className = `auth-status ${type}`.trim();
 };
 
+const formatUploadFileName = (name) => {
+  const value = String(name || "").trim();
+  if (!value) return "No image chosen";
+  const max = 52;
+  if (value.length <= max) return value;
+  const dot = value.lastIndexOf(".");
+  if (dot <= 0) return `${value.slice(0, max - 1)}…`;
+  const ext = value.slice(dot);
+  const keep = Math.max(12, max - ext.length - 1);
+  return `${value.slice(0, keep)}…${ext}`;
+};
+
+const setUploadLabelText = (node, prefix, fileName) => {
+  if (!node) return;
+  const pretty = formatUploadFileName(fileName);
+  node.textContent = `${prefix}: ${pretty}`;
+  node.title = fileName || "";
+};
+
 const getLocalPropertyProfile = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem("nlink_client_property_profile") || "{}");
@@ -482,14 +501,14 @@ form?.addEventListener("submit", async (event) => {
 bannerUpload?.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (bannerUploadName) bannerUploadName.textContent = `Selected: ${file.name}`;
+  setUploadLabelText(bannerUploadName, "Selected", file.name);
   handleImageUpload(file, "banner");
 });
 
 avatarUpload?.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (avatarUploadName) avatarUploadName.textContent = `Selected: ${file.name}`;
+  setUploadLabelText(avatarUploadName, "Selected", file.name);
   handleImageUpload(file, "avatar");
 });
 
@@ -516,7 +535,9 @@ propertyPhotoUpload?.addEventListener("change", async (event) => {
   }
   const selected = files.slice(0, remainingSlots);
   if (propertyPhotoUploadName) {
-    propertyPhotoUploadName.textContent = `Selected: ${selected.map((file) => file.name).join(", ")}`;
+    const names = selected.map((file) => formatUploadFileName(file.name));
+    propertyPhotoUploadName.textContent = `Selected: ${names.join(", ")}`;
+    propertyPhotoUploadName.title = selected.map((file) => file.name).join(", ");
   }
 
   setStatus("Uploading property photos...", "info");
@@ -525,8 +546,19 @@ propertyPhotoUpload?.addEventListener("change", async (event) => {
       const type = String(file.type || "").toLowerCase();
       const ext = (String(file.name || "").split(".").pop() || "").toLowerCase();
       if (!(type.startsWith("image/") || ALLOWED_IMAGE_EXTS.has(ext))) throw new Error("Unsupported image format.");
+      if (typeof window.nlinkOpenImageCropper !== "function") {
+        throw new Error("Image cropper is unavailable.");
+      }
+      const crop = await window.nlinkOpenImageCropper({
+        file,
+        aspectRatio: 4 / 3,
+        circle: false,
+        title: "Adjust Property Photo",
+        outputWidth: 1200,
+      });
+      if (!crop?.blob || !crop.previewDataUrl) continue;
       const path = `clients/${state.user.id}/property-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-      const url = await uploadImage(file, path);
+      const url = await uploadImage(crop.blob, path);
       if (url) state.propertyPhotos.push({ url, hidden: false });
     } catch (error) {
       setStatus(error.message || "Some photos could not be uploaded. Use JPG/PNG/WEBP photos.", "error");

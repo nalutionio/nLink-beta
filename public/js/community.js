@@ -20,6 +20,10 @@
   const serviceCategoryInput = document.getElementById("community-service-category");
   const serviceNameInput = document.getElementById("community-service-name");
   const serviceTagsInput = document.getElementById("community-service-tags");
+  const composerPhotoInput = document.getElementById("community-photo-upload");
+  const composerPhotoPreview = document.getElementById("community-photo-preview");
+  const composerPhotoPreviewImage = document.getElementById("community-photo-preview-image");
+  const composerPhotoRemove = document.getElementById("community-photo-remove");
   const feedEl = document.getElementById("community-feed");
   const composerAvatarEl = document.getElementById("community-composer-avatar");
   const activityButtonEl = document.getElementById("community-activity-btn");
@@ -44,7 +48,9 @@
     lastPlugAdded: null,
     notifications: [],
     notificationActorRoleById: {},
+    composerPhoto: null,
   };
+  let postImageColumnAvailable = true;
   let notificationChannel = null;
   const fallbackAvatar = "../assets/plugprofilepic.png";
   const clientFallbackAvatar = "../assets/neighborpp.png";
@@ -104,6 +110,62 @@
       return "Network error while connecting to Supabase. Please refresh and try again.";
     }
     return raw;
+  };
+  const isSchemaMissingColumnError = (error) => {
+    if (!error) return false;
+    if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return true;
+    const message = String(error.message || "").toLowerCase();
+    return message.includes("column")
+      && (message.includes("image_url") || message.includes("schema cache"));
+  };
+
+  const formatUploadFileName = (name) => {
+    const value = String(name || "").trim();
+    if (!value) return "image";
+    const max = 52;
+    if (value.length <= max) return value;
+    const dot = value.lastIndexOf(".");
+    if (dot <= 0) return `${value.slice(0, max - 1)}…`;
+    const ext = value.slice(dot);
+    const keep = Math.max(12, max - ext.length - 1);
+    return `${value.slice(0, keep)}…${ext}`;
+  };
+
+  const updateComposerPhotoPreview = () => {
+    if (!composerPhotoPreview || !composerPhotoPreviewImage) return;
+    if (!state.composerPhoto?.previewDataUrl) {
+      composerPhotoPreview.classList.add("hidden");
+      composerPhotoPreviewImage.src = "";
+      return;
+    }
+    composerPhotoPreviewImage.src = state.composerPhoto.previewDataUrl;
+    composerPhotoPreview.classList.remove("hidden");
+  };
+
+  const clearComposerPhoto = () => {
+    state.composerPhoto = null;
+    if (composerPhotoInput) composerPhotoInput.value = "";
+    updateComposerPhotoPreview();
+  };
+
+  const uploadCommunityImage = async (blob, fileName = "photo.jpg") => {
+    const extension = "jpg";
+    let uploadBlob = blob;
+    let contentType = "image/jpeg";
+    if (typeof window.nlinkPrepareImageForUpload === "function") {
+      const prepared = await window.nlinkPrepareImageForUpload(blob, { forceJpeg: true });
+      uploadBlob = prepared.blob;
+      contentType = prepared.type || "image/jpeg";
+    }
+    const basePath = `community/${activeRole}/${state.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${formatUploadFileName(fileName).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]+$/, "")}`;
+    const finalPath = `${basePath}.${extension}`;
+    const { error } = await supabase.storage.from("provider-media").upload(finalPath, uploadBlob, {
+      upsert: true,
+      contentType,
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from("provider-media").getPublicUrl(finalPath);
+    return { url: data?.publicUrl || "", storagePath: finalPath };
   };
   const isTransportError = (error) => {
     const raw = String(error?.message || error || "").trim();
@@ -792,6 +854,7 @@
           </div>
           <p class="community-post-type">${escapeHtml(typeLabel)}</p>
           <p class="community-body" data-body-full="${escapeHtml(rawBody)}" data-body-preview="${escapeHtml(bodyPreview)}">${escapeHtml(bodyPreview)}</p>
+          ${post.image_url ? `<img class="community-post-photo" src="${escapeHtml(post.image_url)}" alt="Community post image" />` : ""}
           ${shouldTruncate ? '<button class="community-see-more" data-action="expand">see more</button>' : ""}
           <div class="community-meta">
             ${post.location_text ? `<span class="pill">${escapeHtml(post.location_text)}</span>` : ""}
@@ -1156,16 +1219,35 @@
 
     try {
       setStatus("Posting to community...", "info");
+      let uploadedImage = null;
+      if (state.composerPhoto?.blob && postImageColumnAvailable) {
+        setStatus("Uploading photo...", "info");
+        uploadedImage = await uploadCommunityImage(state.composerPhoto.blob, state.composerPhoto.fileName || "community-photo.jpg");
+        if (uploadedImage?.url) payload.image_url = uploadedImage.url;
+      }
       const data = await runWithSessionRecovery(async () => {
-        const result = await supabase.from("community_posts").insert(payload).select("id").single();
+        let result = await supabase.from("community_posts").insert(payload).select("id").single();
+        if (result.error && isSchemaMissingColumnError(result.error)) {
+          postImageColumnAvailable = false;
+          if (uploadedImage?.storagePath) {
+            await supabase.storage.from("provider-media").remove([uploadedImage.storagePath]);
+          }
+          delete payload.image_url;
+          result = await supabase.from("community_posts").insert(payload).select("id").single();
+        }
         if (result.error) throw result.error;
         return result.data;
       });
       await logEvent("community_post_created", data?.id || null, { role: activeRole, post_type: payload.post_type });
       postForm.reset();
+      clearComposerPhoto();
       resetCommunityServiceOptions();
       await refreshFeed();
-      setStatus("Post published.", "success");
+      if (!postImageColumnAvailable) {
+        setStatus("Post published. Photo support needs DB migration to enable.", "info");
+      } else {
+        setStatus("Post published.", "success");
+      }
     } catch (error) {
       setStatus(getErrorText(error, "Could not publish post."), "error");
     }
@@ -1175,7 +1257,7 @@
     const { data } = await supabase.auth.getSession();
     const user = data?.session?.user || null;
     if (!user) {
-      window.location.href = "/shared/login-choice.html";
+      window.location.href = "/shared/login-client.html";
       return;
     }
     state.user = user;
@@ -1258,7 +1340,7 @@
     if (!actionButton) return;
     const action = actionButton.dataset.composerAction || "";
     if (action === "photo") {
-      setStatus("Photo uploads for community posts are coming in the next pass.", "info");
+      composerPhotoInput?.click();
       return;
     }
     if (action === "feeling") {
@@ -1269,6 +1351,44 @@
     postTypeChips?.querySelectorAll(".community-type-chip").forEach((node) => {
       node.classList.toggle("active", node.dataset.type === postTypeInput.value);
     });
+  });
+
+  composerPhotoInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (typeof window.nlinkOpenImageCropper !== "function") {
+        throw new Error("Image cropper is unavailable.");
+      }
+      const crop = await window.nlinkOpenImageCropper({
+        file,
+        aspectRatio: 4 / 3,
+        circle: false,
+        title: "Adjust Community Image",
+        outputWidth: 1400,
+      });
+      if (!crop?.blob || !crop.previewDataUrl) {
+        clearComposerPhoto();
+        return;
+      }
+      state.composerPhoto = {
+        blob: crop.blob,
+        previewDataUrl: crop.previewDataUrl,
+        fileName: file.name || "community-photo.jpg",
+      };
+      updateComposerPhotoPreview();
+      setStatus(`Photo ready: ${formatUploadFileName(file.name)}.`, "success");
+    } catch (error) {
+      clearComposerPhoto();
+      setStatus(getErrorText(error, "Could not prepare photo."), "error");
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  composerPhotoRemove?.addEventListener("click", () => {
+    clearComposerPhoto();
+    setStatus("Photo removed.", "info");
   });
 
   postTypeChips?.addEventListener("click", (event) => {

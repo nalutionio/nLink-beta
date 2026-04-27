@@ -20,8 +20,8 @@
 
     <section class="auth-card auth-simple">
       <h1>Quick setup</h1>
-      <p class="muted">Two quick steps, then you can start discovering.</p>
-      <p class="kicker" id="client-step-counter">Step 1 of 2</p>
+      <p class="muted">One quick step, then start discovering.</p>
+      <p class="kicker" id="client-step-counter">Step 1 of 1</p>
 
       <form id="client-onboarding-form" class="modal-form">
         <div class="onboard-step" data-step="1">
@@ -29,9 +29,6 @@
             <span>What is your name?</span>
             <input type="text" id="client-name" placeholder="Your name" required />
           </label>
-        </div>
-
-        <div class="onboard-step hidden" data-step="2">
           <label class="input-field">
             <span>Where are you located?</span>
             <input type="text" id="client-location" placeholder="City, State or ZIP" required />
@@ -41,8 +38,8 @@
 
         <div class="auth-actions">
           <button type="button" class="ghost-button" id="client-back" hidden>Back</button>
-          <button type="button" class="primary-button" id="client-next">Next</button>
-          <button type="submit" class="primary-button" id="client-finish" hidden>Finish</button>
+          <button type="button" class="primary-button hidden" id="client-next" hidden>Next</button>
+          <button type="submit" class="primary-button" id="client-finish">Finish</button>
         </div>
       </form>
 

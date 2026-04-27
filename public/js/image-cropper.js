@@ -24,13 +24,32 @@
   });
 
   const lockPageScroll = () => {
-    const previousOverflow = document.body.style.overflow;
-    const previousOverscroll = document.body.style.overscrollBehavior;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.overscrollBehavior = previousOverscroll;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      window.scrollTo(0, scrollY);
     };
   };
 
@@ -164,7 +183,15 @@
         return;
       }
 
-      const state = { x: 0, y: 0, scale: 1, minScale: 0.4, maxScale: 4 };
+      const state = {
+        x: 0,
+        y: 0,
+        scale: 1,
+        minScale: 0.25,
+        maxScale: 4,
+        baseW: 1,
+        baseH: 1,
+      };
 
       const getFrameMetrics = () => {
         const frameRect = frame.getBoundingClientRect();
@@ -174,22 +201,31 @@
         const naturalH = image.naturalHeight || 1;
         const imageRatio = naturalW / naturalH;
         const frameRatio = frameW / frameH;
-        let baseW = frameW;
-        let baseH = frameH;
+        let containW = frameW;
+        let containH = frameH;
         if (imageRatio > frameRatio) {
-          baseW = frameH * imageRatio;
-          baseH = frameH;
+          containW = frameW;
+          containH = frameW / imageRatio;
         } else {
-          baseW = frameW;
-          baseH = frameW / imageRatio;
+          containH = frameH;
+          containW = frameH * imageRatio;
         }
-        return { frameW, frameH, naturalW, naturalH, baseW, baseH };
+        const coverScale = Math.max(frameW / containW, frameH / containH);
+        return {
+          frameW,
+          frameH,
+          naturalW,
+          naturalH,
+          containW,
+          containH,
+          coverScale,
+        };
       };
 
       const clampPan = () => {
-        const { frameW, frameH, baseW, baseH } = getFrameMetrics();
-        const drawW = baseW * state.scale;
-        const drawH = baseH * state.scale;
+        const { frameW, frameH } = getFrameMetrics();
+        const drawW = state.baseW * state.scale;
+        const drawH = state.baseH * state.scale;
         const maxX = Math.max(0, (drawW - frameW) / 2);
         const maxY = Math.max(0, (drawH - frameH) / 2);
         state.x = Math.max(-maxX, Math.min(maxX, state.x));
@@ -198,6 +234,12 @@
 
       const applyTransform = () => {
         clampPan();
+        image.style.width = `${state.baseW}px`;
+        image.style.height = `${state.baseH}px`;
+        image.style.maxWidth = "none";
+        image.style.maxHeight = "none";
+        image.style.objectFit = "fill";
+        image.style.position = "relative";
         image.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
       };
 
@@ -255,13 +297,15 @@
       });
 
       const initializeScaleBounds = () => {
-        const { frameW, frameH, baseW, baseH } = getFrameMetrics();
-        const containScale = Math.min(frameW / baseW, frameH / baseH);
-        state.minScale = Math.max(0.25, containScale);
-        state.maxScale = 4;
+        const { containW, containH, coverScale } = getFrameMetrics();
+        state.baseW = containW;
+        state.baseH = containH;
+        // Zoom slider minimum shows full image (contain). Default starts at cover.
+        state.minScale = 1;
+        state.maxScale = Math.max(4, coverScale * 4);
         zoomInput.min = String(state.minScale);
         zoomInput.max = String(state.maxScale);
-        state.scale = Math.max(state.minScale, 1);
+        state.scale = Math.max(state.minScale, coverScale || 1);
         zoomInput.value = String(state.scale);
         state.x = 0;
         state.y = 0;
@@ -276,7 +320,9 @@
 
       frame.style.touchAction = "none";
       image.style.touchAction = "none";
+      modal.style.touchAction = "none";
       frame.addEventListener("wheel", (event) => event.preventDefault(), { passive: false });
+      modal.addEventListener("touchmove", (event) => event.preventDefault(), { passive: false });
 
       const previousClose = close;
       const closeWrapped = (value = null) => {
@@ -290,13 +336,13 @@
       modal.querySelector('[data-action="save"]')?.addEventListener("click", async () => {
         try {
           const raw = await loadImage(source);
-          const { naturalW, naturalH, frameW, frameH, baseW, baseH } = getFrameMetrics();
+          const { naturalW, naturalH, frameW, frameH } = getFrameMetrics();
           if (!frameW || !frameH) {
             closeWrapped(null);
             return;
           }
-          const drawWidth = baseW * state.scale;
-          const drawHeight = baseH * state.scale;
+          const drawWidth = state.baseW * state.scale;
+          const drawHeight = state.baseH * state.scale;
           const offsetX = (frameW - drawWidth) / 2 + state.x;
           const offsetY = (frameH - drawHeight) / 2 + state.y;
           const sxCrop = Math.max(0, -offsetX * (naturalW / drawWidth));

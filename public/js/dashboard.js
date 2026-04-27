@@ -66,7 +66,6 @@ const labelRating = labels.rating || {};
 const labelProfile = labels.profile || {};
 const labelPricing = labels.pricing || {};
 const labelActions = labels.actions || {};
-const labelBeta = labels.beta || {};
 const serviceCategories = window.NLINK_SERVICE_TAGS?.categories || [];
 const allServices = window.NLINK_SERVICE_TAGS?.allServices || window.NLINK_SERVICE_TAGS?.allServiceTags || [];
 const toCanonicalCategory = (value) => (
@@ -192,7 +191,12 @@ const providerMetaKey = "nlink_provider_meta";
 const primaryProviderKey = "nlink_primary_provider_id";
 const providerListingStatusKey = "nlink_provider_listing_status";
 const providerListingStatusGlobalKey = "nlink_provider_listing_status_active";
+const providerMetaSchemaModeKey = "nlink_provider_meta_schema_mode";
 let profileMetaBackendAvailable = true;
+const storedProviderMetaSchemaMode = localStorage.getItem(providerMetaSchemaModeKey);
+let providerMetaSchemaMode = storedProviderMetaSchemaMode === "minimal" || storedProviderMetaSchemaMode === "legacy"
+  ? storedProviderMetaSchemaMode
+  : "legacy";
 let providerEventsTableAvailable = true;
 const providerMetricsTablesAvailable = {
   reviews: true,
@@ -203,6 +207,7 @@ const providerReviewsAvailabilityKey = "nlink_provider_reviews_table_available";
 if (localStorage.getItem(providerReviewsAvailabilityKey) === "0") {
   providerMetricsTablesAvailable.reviews = false;
 }
+localStorage.setItem(providerMetaSchemaModeKey, providerMetaSchemaMode);
 
 const isMissingTableError = (error) => (
   Boolean(error)
@@ -263,6 +268,12 @@ const saveGlobalListingStatus = (status) => {
 
 const getGlobalListingStatus = () => localStorage.getItem(providerListingStatusGlobalKey);
 
+const setProviderMetaSchemaMode = (mode) => {
+  if (!mode) return;
+  providerMetaSchemaMode = mode;
+  localStorage.setItem(providerMetaSchemaModeKey, mode);
+};
+
 const normalizeListingStatus = (status) => (
   status === "published" || status === "paused" || status === "draft" ? status : null
 );
@@ -318,6 +329,25 @@ const getErrorText = (error, fallback = "Something went wrong.") => {
   if (!error) return fallback;
   const parts = [error.message, error.details, error.hint].filter(Boolean);
   return parts.length ? parts.join(" • ") : fallback;
+};
+
+const formatUploadFileName = (name) => {
+  const value = String(name || "").trim();
+  if (!value) return "No image chosen";
+  const max = 52;
+  if (value.length <= max) return value;
+  const dot = value.lastIndexOf(".");
+  if (dot <= 0) return `${value.slice(0, max - 1)}…`;
+  const ext = value.slice(dot);
+  const keep = Math.max(12, max - ext.length - 1);
+  return `${value.slice(0, keep)}…${ext}`;
+};
+
+const setUploadLabelText = (node, prefix, fileName) => {
+  if (!node) return;
+  const pretty = formatUploadFileName(fileName);
+  node.textContent = `${prefix}: ${pretty}`;
+  node.title = fileName || "";
 };
 
 const normalizeServices = (value) => value
@@ -457,6 +487,8 @@ const syncMetaFromInputs = () => {
     socialFacebook: socialFacebookInput?.value.trim() || "",
     socialLinkedin: socialLinkedinInput?.value.trim() || "",
     socialTiktok: socialTiktokInput?.value.trim() || "",
+    listingStatus: state.meta?.listingStatus || "draft",
+    profileCompletion: Number(state.meta?.profileCompletion || 0),
   };
 };
 
@@ -534,14 +566,47 @@ const pickBestMetaRow = (rows) => {
   return rows.slice().sort((a, b) => score(b) - score(a))[0];
 };
 
+const getProviderMetaSelectByMode = (mode) => {
+  if (mode === "minimal") {
+    return "tagline,services,availability,address,phone,website";
+  }
+  if (mode === "legacy") {
+    return "tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion";
+  }
+  return "service_category,primary_service,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion";
+};
+
+const getProviderMetaModeChain = (startingMode) => {
+  if (startingMode === "minimal") return ["minimal"];
+  if (startingMode === "legacy") return ["legacy", "minimal"];
+  return ["full", "legacy", "minimal"];
+};
+
 const getPersistedListingStatus = async () => {
   if (!supabase || !state.provider?.id || !profileMetaBackendAvailable) return null;
+  if (providerMetaSchemaMode === "minimal") {
+    return pickPreferredListingStatus(
+      getLocalListingStatus(state.provider.id),
+      getGlobalListingStatus(),
+      getListingStatusFromMetadata(),
+    );
+  }
   const { data, error } = await supabase
     .from("provider_profiles")
     .select("listing_status")
     .eq("provider_id", state.provider.id)
     .limit(25);
-  if (error) return null;
+  if (error) {
+    if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") {
+      setProviderMetaSchemaMode("minimal");
+      return pickPreferredListingStatus(
+        getLocalListingStatus(state.provider.id),
+        getGlobalListingStatus(),
+        getListingStatusFromMetadata(),
+      );
+    }
+    return null;
+  }
   if (!Array.isArray(data) || data.length === 0) return null;
   if (data.some((row) => row?.listing_status === "published")) return "published";
   if (data.some((row) => row?.listing_status === "paused")) return "paused";
@@ -1003,32 +1068,45 @@ const loadProviderMetaFromBackend = async () => {
     return;
   }
 
-  let profileRows = [];
-  const { data, error } = await supabase
-    .from("provider_profiles")
-    .select("service_category,primary_service,tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
-    .eq("provider_id", state.provider.id)
-    .limit(10);
-  profileRows = Array.isArray(data) ? data : [];
+  const isProfileColumnMismatch = (error) => {
+    if (!error) return false;
+    if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return true;
+    const message = String(error.message || "").toLowerCase();
+    return message.includes("schema cache")
+      || message.includes("could not find")
+      || message.includes("primary_service")
+      || message.includes("service_category")
+      || message.includes("listing_status")
+      || message.includes("profile_completion");
+  };
 
-  if (error) {
+  let profileRows = [];
+  let lastError = null;
+  const modeChain = getProviderMetaModeChain(providerMetaSchemaMode);
+  for (const mode of modeChain) {
+    const { data, error } = await supabase
+      .from("provider_profiles")
+      .select(getProviderMetaSelectByMode(mode))
+      .eq("provider_id", state.provider.id)
+      .limit(10);
+    if (!error) {
+      profileRows = Array.isArray(data) ? data : [];
+      setProviderMetaSchemaMode(mode);
+      lastError = null;
+      break;
+    }
     if (error.code === "42P01") {
       profileMetaBackendAvailable = false;
       state.meta = normalizeMeta(localMeta || state.meta);
       return;
     }
-    if (error.code === "42703" || error.code === "PGRST204") {
-      const fallback = await supabase
-        .from("provider_profiles")
-        .select("tagline,services,availability,availability_days,availability_start,availability_end,service_area_zip,service_radius_miles,address,phone,website,pricing_details,social_instagram,social_facebook,social_linkedin,social_tiktok,listing_status,profile_completion")
-        .eq("provider_id", state.provider.id)
-        .limit(10);
-      if (fallback.error) throw fallback.error;
-      profileRows = Array.isArray(fallback.data) ? fallback.data : [];
-    } else {
-      throw error;
+    if (isProfileColumnMismatch(error)) {
+      lastError = error;
+      continue;
     }
+    throw error;
   }
+  if (lastError) throw lastError;
 
   const picked = pickBestMetaRow(profileRows);
   state.meta = normalizeMeta(picked || localMeta || state.meta);
@@ -1050,7 +1128,19 @@ const saveProviderMetaToBackend = async () => {
     return;
   }
 
-  const payload = {
+  const isProfileColumnMismatch = (error) => {
+    if (!error) return false;
+    if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return true;
+    const message = String(error.message || "").toLowerCase();
+    return message.includes("schema cache")
+      || message.includes("could not find")
+      || message.includes("primary_service")
+      || message.includes("service_category")
+      || message.includes("listing_status")
+      || message.includes("profile_completion");
+  };
+
+  const fullPayload = {
     provider_id: state.provider.id,
     owner_id: state.user.id,
     service_category: state.meta.serviceCategory || null,
@@ -1074,73 +1164,87 @@ const saveProviderMetaToBackend = async () => {
     listing_status: state.meta.listingStatus || "draft",
     profile_completion: Number(state.meta.profileCompletion || 0),
   };
+  const legacyPayload = {
+    provider_id: state.provider.id,
+    owner_id: state.user.id,
+    tagline: state.meta.tagline || null,
+    services: Array.isArray(state.meta.services) ? state.meta.services : [],
+    availability: state.meta.availability || null,
+    availability_days: state.meta.availabilityDays || null,
+    availability_start: state.meta.availabilityStart || null,
+    availability_end: state.meta.availabilityEnd || null,
+    service_area_zip: state.meta.serviceAreaZip || null,
+    service_radius_miles: state.meta.serviceRadiusMiles ? Number(state.meta.serviceRadiusMiles) : null,
+    address: state.meta.address || null,
+    phone: state.meta.phone || null,
+    website: state.meta.website || null,
+    pricing_details: state.meta.pricingDetails || null,
+    social_instagram: state.meta.socialInstagram || null,
+    social_facebook: state.meta.socialFacebook || null,
+    social_linkedin: state.meta.socialLinkedin || null,
+    social_tiktok: state.meta.socialTiktok || null,
+    listing_status: state.meta.listingStatus || "draft",
+    profile_completion: Number(state.meta.profileCompletion || 0),
+  };
+  const minimalPayload = {
+    provider_id: state.provider.id,
+    owner_id: state.user.id,
+    tagline: state.meta.tagline || null,
+    services: Array.isArray(state.meta.services) ? state.meta.services : [],
+    availability: state.meta.availability || null,
+    address: state.meta.address || null,
+    phone: state.meta.phone || null,
+    website: state.meta.website || null,
+  };
+  const payloadByMode = {
+    full: fullPayload,
+    legacy: legacyPayload,
+    minimal: minimalPayload,
+  };
 
-  const writeLegacyPayload = async () => {
-    const legacyPayload = {
-      provider_id: state.provider.id,
-      owner_id: state.user.id,
-      tagline: state.meta.tagline || null,
-      services: Array.isArray(state.meta.services) ? state.meta.services : [],
-      availability: state.meta.availability || null,
-      availability_days: state.meta.availabilityDays || null,
-      availability_start: state.meta.availabilityStart || null,
-      availability_end: state.meta.availabilityEnd || null,
-      service_area_zip: state.meta.serviceAreaZip || null,
-      service_radius_miles: state.meta.serviceRadiusMiles ? Number(state.meta.serviceRadiusMiles) : null,
-      address: state.meta.address || null,
-      phone: state.meta.phone || null,
-      website: state.meta.website || null,
-      pricing_details: state.meta.pricingDetails || null,
-      social_instagram: state.meta.socialInstagram || null,
-      social_facebook: state.meta.socialFacebook || null,
-      social_linkedin: state.meta.socialLinkedin || null,
-      social_tiktok: state.meta.socialTiktok || null,
-    };
-    const { data: updatedRows, error: updateLegacyError } = await supabase
+  let lastError = null;
+  const modeChain = getProviderMetaModeChain(providerMetaSchemaMode);
+  for (const mode of modeChain) {
+    const payload = payloadByMode[mode] || minimalPayload;
+    const { data: updatedRows, error: updateError } = await supabase
       .from("provider_profiles")
-      .update(legacyPayload)
+      .update(payload)
       .eq("provider_id", state.provider.id)
       .select("provider_id")
       .limit(1);
-    if (updateLegacyError) throw updateLegacyError;
-    if (Array.isArray(updatedRows) && updatedRows.length > 0) return;
-    const { error: insertLegacyError } = await supabase
+
+    if (updateError) {
+      if (updateError.code === "42P01") {
+        profileMetaBackendAvailable = false;
+        return;
+      }
+      if (isProfileColumnMismatch(updateError)) {
+        lastError = updateError;
+        continue;
+      }
+      throw updateError;
+    }
+
+    if (Array.isArray(updatedRows) && updatedRows.length > 0) {
+      setProviderMetaSchemaMode(mode);
+      return;
+    }
+
+    const { error: insertError } = await supabase
       .from("provider_profiles")
-      .insert(legacyPayload);
-    if (insertLegacyError) throw insertLegacyError;
-  };
-
-  const { data: updatedRows, error: updateError } = await supabase
-    .from("provider_profiles")
-    .update(payload)
-    .eq("provider_id", state.provider.id)
-    .select("provider_id")
-    .limit(1);
-
-  if (updateError) {
-    if (updateError.code === "42P01") {
-      profileMetaBackendAvailable = false;
-      return;
+      .insert(payload);
+    if (insertError) {
+      if (isProfileColumnMismatch(insertError)) {
+        lastError = insertError;
+        continue;
+      }
+      throw insertError;
     }
-    if (updateError.code === "42703") {
-      await writeLegacyPayload();
-      return;
-    }
-    throw updateError;
+    setProviderMetaSchemaMode(mode);
+    return;
   }
 
-  if (Array.isArray(updatedRows) && updatedRows.length > 0) return;
-
-  const { error: insertError } = await supabase
-    .from("provider_profiles")
-    .insert(payload);
-  if (insertError) {
-    if (insertError.code === "42703") {
-      await writeLegacyPayload();
-      return;
-    }
-    throw insertError;
-  }
+  if (lastError) throw lastError;
 };
 
 const parseBudgetRange = (value) => {
@@ -1564,7 +1668,7 @@ const renderFullProfileMarkup = () => {
     : (labelRating.unrated || "Unrated");
   const reviewCount = state.metrics.reviewCount || 0;
   const photoItems = state.gallery.slice(0, 6).map((photo) => `
-    <img src="${photo.url}" alt="Business photo" style="width:100%;height:110px;object-fit:cover;border-radius:10px;" />
+    <img src="${photo.url}" alt="Business photo" style="width:100%;height:110px;object-fit:contain;background:rgba(15,23,42,0.08);border-radius:10px;" />
   `).join("");
 
   const services = state.meta.services?.length
@@ -1698,7 +1802,7 @@ const openProfileGalleryModal = async () => {
       </div>
       <div class="gallery-grid">
         ${state.gallery.length
-          ? state.gallery.map((photo) => `<img src="${photo.url}" alt="Business photo" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />`).join("")
+          ? state.gallery.map((photo) => `<img src="${photo.url}" alt="Business photo" style="width:100%;height:140px;object-fit:contain;background:rgba(15,23,42,0.08);border-radius:12px;" />`).join("")
           : `<p class="muted">${labelProfile.noGallery || "No gallery photos yet."}</p>`}
       </div>
     </div>
@@ -1740,7 +1844,20 @@ const openFullProfileModal = () => {
   });
   modal.querySelectorAll(".cta-row button").forEach((button) => {
     button.addEventListener("click", () => {
-      setStatus(labelBeta.action || "This action is coming soon in beta.", "info");
+      const action = button.getAttribute("data-action");
+      if (action === "book") {
+        setStatus("Preview mode: booking is available to Neighbors in Discover.", "info");
+        return;
+      }
+      if (action === "contact") {
+        setStatus("Preview mode: contact starts a message from the Neighbor side.", "info");
+        return;
+      }
+      if (action === "review") {
+        setStatus("Preview mode: reviews appear after completed jobs.", "info");
+        return;
+      }
+      setStatus("Preview mode active.", "info");
     });
   });
 };
@@ -2073,8 +2190,8 @@ const handleImageUpload = async (file, type) => {
       : { avatar_url: url };
     await updateProviderRow(imageUpdatePayload);
     updatePreview();
-    if (type === "banner" && bannerUploadName) bannerUploadName.textContent = `Uploaded: ${file.name}`;
-    if (type === "avatar" && avatarUploadName) avatarUploadName.textContent = `Uploaded: ${file.name}`;
+    if (type === "banner") setUploadLabelText(bannerUploadName, "Uploaded", file.name);
+    if (type === "avatar") setUploadLabelText(avatarUploadName, "Uploaded", file.name);
     setStatus(`${type === "banner" ? "Banner" : "Logo"} updated.`, "success");
   } catch (error) {
     setStatus(`Upload failed: ${getErrorText(error, "Check storage bucket and policies.")}`, "error");
@@ -2105,7 +2222,7 @@ const applyPresetBannerColor = async (color, triggerButton) => {
 bannerUpload?.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (file) {
-    if (bannerUploadName) bannerUploadName.textContent = `Selected: ${file.name}`;
+    setUploadLabelText(bannerUploadName, "Selected", file.name);
     handleImageUpload(file, "banner");
   }
   event.target.value = "";
@@ -2114,7 +2231,7 @@ bannerUpload?.addEventListener("change", (event) => {
 avatarUpload?.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (file) {
-    if (avatarUploadName) avatarUploadName.textContent = `Selected: ${file.name}`;
+    setUploadLabelText(avatarUploadName, "Selected", file.name);
     handleImageUpload(file, "avatar");
   }
   event.target.value = "";

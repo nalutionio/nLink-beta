@@ -22,17 +22,22 @@
     <section class="panel auth-choice">
       <span class="kicker">plugFeed</span>
       <h1>Get Started</h1>
-      <p class="muted">Log in or create your account.</p>
+      <p class="muted">Choose account type, then continue.</p>
       <p class="muted" id="auth-choice-recent" hidden></p>
 
+      <div class="auth-tabs" id="auth-choice-mode-tabs">
+        <button class="tab active" data-mode="login" type="button">Log In</button>
+        <button class="tab" data-mode="signup" type="button">Create Account</button>
+      </div>
+
       <div class="choice-grid">
-        <a class="choice-card" id="auth-choice-login" href="login-choice.html">
-          <h3>Log In</h3>
-          <p class="muted">Access your existing PlugFeed account.</p>
+        <a class="choice-card" id="auth-choice-neighbor" data-role="client" href="login-client.html">
+          <h3>I'm a Neighbor</h3>
+          <p class="muted">Discover services and manage your requests.</p>
         </a>
-        <a class="choice-card" id="auth-choice-signup" href="signup-choice.html">
-          <h3>Create an Account</h3>
-          <p class="muted">Set up a new account and choose your portal.</p>
+        <a class="choice-card" id="auth-choice-plug" data-role="provider" href="login-provider.html">
+          <h3>I'm a Plug</h3>
+          <p class="muted">Manage business profile and proposals.</p>
         </a>
       </div>
     </section>

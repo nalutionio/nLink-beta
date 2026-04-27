@@ -55,6 +55,7 @@ const bookingSaveButton = document.getElementById("provider-booking-save");
 const bookingStatusEl = document.getElementById("provider-booking-status");
 
 let providerId = null;
+let providerCategory = "";
 let jobId = null;
 let jobEventsTableAvailable = true;
 let jobReviewsTableAvailable = true;
@@ -88,6 +89,17 @@ const HOME_SERVICE_HINTS = [
   "roof", "painting", "paint", "plumbing", "electric", "electrical", "hvac", "cleaning",
   "lawn", "gutters", "handyman", "solar", "contractor", "home improvement",
 ];
+
+const PERSONAL_BOOKING_SERVICES = new Set(["barber", "hair stylist", "personal trainer"]);
+
+const supportsScheduledBookingByCategory = (categoryValue) => {
+  const normalized = String(
+    window.NLINK_SERVICE_TAGS?.toCanonicalService
+      ? window.NLINK_SERVICE_TAGS.toCanonicalService(categoryValue || "")
+      : (categoryValue || "")
+  ).trim().toLowerCase();
+  return PERSONAL_BOOKING_SERVICES.has(normalized);
+};
 
 const setStatus = (message, type = "") => {
   if (!requestStatus) return;
@@ -170,9 +182,10 @@ const loadProviderId = async () => {
   providerUserId = user.id;
   const { data } = await supabase
     .from("providers")
-    .select("id")
+    .select("id,category")
     .eq("owner_id", user.id)
     .maybeSingle();
+  providerCategory = data?.category || "";
   return data?.id || null;
 };
 
@@ -500,6 +513,10 @@ const getProposedSlotsFromProviderInputs = () => {
 
 const hydrateBookingEditor = () => {
   if (!bookingWrap) return;
+  if (!supportsScheduledBookingByCategory(providerCategory)) {
+    bookingWrap.classList.add("hidden");
+    return;
+  }
   if (!bookingTableAvailable || !currentRequestId) {
     bookingWrap.classList.add("hidden");
     return;
@@ -735,6 +752,7 @@ const submitProviderReview = async () => {
 
 const saveBookingAvailability = async () => {
   if (!supabase || !providerId || !jobId || !currentRequestId || !currentJob?.client_id) return;
+  if (!supportsScheduledBookingByCategory(providerCategory)) return;
   if (!bookingTableAvailable) {
     setBookingStatus("Booking is not enabled yet.", "error");
     return;
