@@ -1,5 +1,6 @@
 [build]
   publish = "public"
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/"
@@ -15,3 +16,18 @@
   from = "/saved"
   to = "/client/saved.html"
   status = 301
+
+[[redirects]]
+  from = "/api/create-checkout-session"
+  to = "/.netlify/functions/create-checkout-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/create-billing-portal-session"
+  to = "/.netlify/functions/create-billing-portal-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/stripe-webhook"
+  to = "/.netlify/functions/stripe-webhook"
+  status = 200

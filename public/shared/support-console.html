@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <title>PlugFeed - Support Console</title>
+</head>
+<body class="settings-page admin-console-page support-console-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/discover.html" aria-label="PlugFeed home">
+        <span class="brand-wordmark" aria-label="PlugFeed"><span class="plug">plug</span><span class="feed">Feed</span></span>
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Support</p>
+        <h1>Console</h1>
+      </div>
+      <a class="ghost-button" href="../shared/landing.html">Back</a>
+    </header>
+
+    <div class="auth-status" id="support-status"></div>
+
+    <section class="panel admin-panel">
+      <h3>Support Snapshot</h3>
+      <div class="admin-kpi-grid">
+        <article class="admin-kpi-card"><p>Open Reports</p><strong id="support-kpi-reports">0</strong></article>
+        <article class="admin-kpi-card"><p>Recent Posts</p><strong id="support-kpi-posts">0</strong></article>
+      </div>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Reported Posts</h3>
+        <div class="settings-list" id="support-post-reports-list"></div>
+      </section>
+      <section class="panel admin-panel">
+        <h3>Reported Comments</h3>
+        <div class="settings-list" id="support-comment-reports-list"></div>
+      </section>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Recent Community Posts</h3>
+        <div class="settings-list" id="support-posts-list"></div>
+      </section>
+    </section>
+
+    <section class="panel admin-panel">
+      <h3>Support Assistant</h3>
+      <div class="scope-box" id="support-chat-log"></div>
+      <form class="job-actions" id="support-chat-form">
+        <input class="support-chat-input" id="support-chat-input" type="text" placeholder="Type a support question..." />
+        <button class="primary-button" type="submit">Send</button>
+      </form>
+      <p class="muted">AI support assistant is running in guided beta mode (internal only).</p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/access-control.js"></script>
+  <script src="../js/support-console.js"></script>
+</body>
+</html>

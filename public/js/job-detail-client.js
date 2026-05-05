@@ -4,6 +4,7 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const titleEl = document.getElementById("job-title");
 const statusEl = document.getElementById("job-status");
+const statusTimelineEl = document.getElementById("job-status-timeline");
 const descriptionEl = document.getElementById("job-description");
 const metaLocationEl = document.getElementById("job-meta-location");
 const metaBudgetEl = document.getElementById("job-meta-budget");
@@ -71,15 +72,9 @@ let selectedBookingSlot = "";
 let currentClientAddress = "";
 let reviewSubmitInFlight = false;
 
-const PERSONAL_BOOKING_SERVICES = new Set(["barber", "hair stylist", "personal trainer"]);
-
 const supportsScheduledBookingByCategory = (categoryValue) => {
-  const normalized = String(
-    window.NLINK_SERVICE_TAGS?.toCanonicalService
-      ? window.NLINK_SERVICE_TAGS.toCanonicalService(categoryValue || "")
-      : (categoryValue || "")
-  ).trim().toLowerCase();
-  return PERSONAL_BOOKING_SERVICES.has(normalized);
+  void categoryValue;
+  return true;
 };
 
 const normalizeRequestStatus = (status) => {
@@ -89,12 +84,13 @@ const normalizeRequestStatus = (status) => {
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "requested") return "Direct Request";
-  if (normalized === "completed") return "Work Completed";
+  if (normalized === "requested") return "Request Sent";
+  if (normalized === "pending") return "Proposal Received";
+  if (normalized === "completed") return "Awaiting Confirmation";
   if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
-  return "Pending";
+  return "Awaiting Proposal";
 };
 
 const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
@@ -104,6 +100,33 @@ const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
   if (statuses.includes("closed")) return "closed";
   if (statuses.includes("accepted") || statuses.includes("completed")) return "in_progress";
   return String(jobStatus || "open").toLowerCase();
+};
+
+const getTimelineStage = (requests = [], displayJobStatus = "open") => {
+  const statuses = (Array.isArray(requests) ? requests : [])
+    .map((row) => normalizeRequestStatus(row?.status))
+    .filter(Boolean);
+  if (statuses.includes("closed") || displayJobStatus === "closed") return "complete";
+  if (statuses.includes("completed")) return "scheduled";
+  if (statuses.includes("accepted") || displayJobStatus === "in_progress") return "accepted";
+  if (statuses.includes("pending")) return "proposed";
+  if (statuses.includes("requested")) return "requested";
+  return "requested";
+};
+
+const renderStatusTimeline = (stage = "requested") => {
+  if (!statusTimelineEl) return;
+  const steps = [
+    { key: "requested", label: "Requested" },
+    { key: "proposed", label: "Proposed" },
+    { key: "accepted", label: "Accepted" },
+    { key: "scheduled", label: "Scheduled" },
+    { key: "complete", label: "Complete" },
+  ];
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.key === stage));
+  statusTimelineEl.innerHTML = steps
+    .map((step, index) => `<span class="status-step ${index <= activeIndex ? "active" : ""}">${step.label}</span>`)
+    .join("");
 };
 
 const MAX_JOB_PHOTOS = 6;
@@ -126,6 +149,17 @@ const isMissingTableError = (error) => Boolean(error)
 
 const logJobEvent = async (eventType, metadata = {}) => {
   if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  const allowedEventTypes = new Set([
+    "job_created",
+    "job_updated",
+    "job_closed",
+    "job_reopened",
+    "request_sent",
+    "request_accepted",
+    "request_declined",
+    "request_closed",
+  ]);
+  if (!allowedEventTypes.has(String(eventType || "").trim())) return;
   try {
     const user = await getSessionUser();
     const { error } = await supabase
@@ -785,6 +819,7 @@ const render = async () => {
 
   const requests = await loadRequests();
   const displayJobStatus = deriveDisplayJobStatus(job.status, requests);
+  renderStatusTimeline(getTimelineStage(requests, displayJobStatus));
 
   if (titleEl) titleEl.textContent = job.title;
   if (statusEl) statusEl.textContent = displayJobStatus;
@@ -824,8 +859,10 @@ const render = async () => {
             <h4>${request.providers?.name || "Plug"}</h4>
             <p class="muted">${new Date(request.created_at).toLocaleDateString()}</p>
             ${isRequested ? `<p class="muted">Direct request sent. Waiting for this Plug to submit a proposal.</p>` : ""}
+            ${isRequested ? `<p class="muted">Once a proposal arrives, you can accept and coordinate in Messages.</p>` : ""}
             ${isRequested ? "" : `<p class="muted">${formatProposalType(request.proposal_type)} • ${formatPricingBasis(request.pricing_basis)}</p>`}
             ${isRequested ? "" : `<p class="muted">${formatEstimateRange(request.estimated_price_min, request.estimated_price_max)}</p>`}
+            ${(isPending || isAccepted) ? `<p class="muted">Use Messages if you want to finalize details faster.</p>` : ""}
             ${request.inspection_fee ? `<p class="muted">Inspection fee: $${request.inspection_fee}${request.inspection_fee_creditable ? " (credited)" : ""}${request.inspection_fee_waivable ? " • can be waived" : ""}</p>` : ""}
             ${request.proposal_notes ? `<p class="muted">${request.proposal_notes}</p>` : ""}
           </div>
@@ -834,9 +871,10 @@ const render = async () => {
             ${isPending ? `
               <button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline Proposal</button>
               <button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept Proposal</button>
+              ${request.provider_id && request.providers?.owner_id !== user.id ? `<button class="ghost-button" data-request-action="accept_message" data-request-id="${request.id}">Accept & Message</button>` : ""}
             ` : ""}
             ${isCompleted ? `<button class="ghost-button" data-request-action="close" data-request-id="${request.id}">Confirm Completion</button>` : ""}
-            ${(isPending || isAccepted || isCompleted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id ? `
+            ${((isAccepted || isCompleted || isClosed) && request.provider_id && request.providers?.owner_id !== user.id) ? `
               <a
                 class="ghost-button"
                 href="../client/client-messages.html?job=${jobId}&provider=${encodeURIComponent(request.provider_id)}${request.providers?.name ? `&providerName=${encodeURIComponent(request.providers.name)}` : ""}${request.providers?.avatar_url ? `&providerAvatar=${encodeURIComponent(request.providers.avatar_url)}` : ""}"
@@ -855,6 +893,18 @@ const render = async () => {
           if (action === "accept") await updateRequestStatus(requestId, "accepted");
           if (action === "decline") await updateRequestStatus(requestId, "declined");
           if (action === "close") await updateRequestStatus(requestId, "closed");
+          if (action === "accept_message") {
+            await updateRequestStatus(requestId, "accepted");
+            const request = requests.find((row) => row.id === requestId);
+            if (request?.provider_id) {
+              const params = new URLSearchParams();
+              params.set("job", jobId);
+              params.set("provider", request.provider_id);
+              if (request.providers?.name) params.set("providerName", request.providers.name);
+              if (request.providers?.avatar_url) params.set("providerAvatar", request.providers.avatar_url);
+              window.location.href = `../client/client-messages.html?${params.toString()}`;
+            }
+          }
           if (action === "rate") {
             const request = requests.find((row) => row.id === requestId);
             if (!request?.provider_id) return;

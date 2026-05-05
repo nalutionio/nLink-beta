@@ -271,6 +271,8 @@ const isMissingColumnError = (error) => (
 
 const logProviderEvent = async (providerId, eventType) => {
   if (!supabase || !providerEventsTableAvailable || !providerId || !eventType) return;
+  const allowedEventTypes = new Set(["profile_view", "save_click", "contact_click", "booking_click"]);
+  if (!allowedEventTypes.has(String(eventType || "").trim())) return;
   try {
     const user = await getSessionUser();
     const { error } = await supabase
@@ -280,7 +282,13 @@ const logProviderEvent = async (providerId, eventType) => {
         event_type: eventType,
         actor_user_id: user?.id || null,
       });
-    if (error && (error.code === "42P01" || error.code === "PGRST205" || error.status === 404)) {
+    if (error && (
+      error.code === "42P01"
+      || error.code === "PGRST205"
+      || error.status === 404
+      || error.status === 400
+      || error.code === "23514"
+    )) {
       providerEventsTableAvailable = false;
     }
   } catch (_error) {
@@ -444,7 +452,7 @@ const supportsScheduledBooking = (provider) => {
 };
 
 const getBookingButtonLabel = (provider) => (
-  supportsScheduledBooking(provider) ? (labelActions.book || "Book") : "Request"
+  supportsScheduledBooking(provider) ? (labelActions.book || "Book") : "Get Quote"
 );
 
 const isProviderBookable = (provider) => getCapacityState(provider) !== "booked";
@@ -485,8 +493,8 @@ const createCardMarkup = (provider, expanded = false) => {
           ${capacityLabel ? `<span class="meta-pill capacity-pill">${capacityLabel}</span>` : ""}
         </div>
         <div class="cta-row compact-actions">
+          <button data-action="book">${getBookingButtonLabel(provider)}</button>
           <button data-action="profile">${labelActions.viewProfile || "View Profile"}</button>
-          <button data-action="save">⭐ ${labelActions.save || "Save"}</button>
         </div>
       </div>
     `;
@@ -758,6 +766,56 @@ const closeDirectRequestModal = () => {
   document.getElementById("direct-request-modal")?.remove();
 };
 
+let targetProviderColumnAvailable = null;
+
+const isMissingTargetProviderColumn = (error) => Boolean(error)
+  && (
+    error.code === "42703"
+    || error.code === "PGRST204"
+    || error.code === "PGRST205"
+    || String(error.message || "").toLowerCase().includes("target_provider_id")
+  );
+
+const checkTargetProviderColumn = async () => {
+  if (!supabase) return false;
+  if (targetProviderColumnAvailable !== null) return targetProviderColumnAvailable;
+  const { error } = await supabase
+    .from("jobs")
+    .select("target_provider_id")
+    .limit(1);
+  targetProviderColumnAvailable = !isMissingTargetProviderColumn(error);
+  return targetProviderColumnAvailable;
+};
+
+const toPublicLocation = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  return raw;
+};
+
+const getClientSnapshotForRequest = async (user) => {
+  const fallbackAvatar = "../assets/neighborpp.png";
+  const meta = user?.user_metadata || {};
+  let profile = null;
+  if (supabase && user?.id) {
+    const { data } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    profile = data || null;
+  }
+  return {
+    client_name: profile?.full_name || meta.client_name || user?.email?.split("@")[0] || "Neighbor",
+    client_avatar_url: profile?.avatar_url || meta.client_avatar_url || fallbackAvatar,
+    client_location_public: toPublicLocation(profile?.location || profile?.address || meta.client_location || ""),
+    client_email_verified: Boolean(profile?.email_verified ?? meta.client_email_verified ?? user?.email_confirmed_at),
+    location_hint: normalizeLocationValue(profile?.location || profile?.address || meta.client_location || ""),
+  };
+};
+
 const openDirectRequestModal = (provider) => {
   if (!provider?.id) return;
   closeDirectRequestModal();
@@ -768,12 +826,45 @@ const openDirectRequestModal = (provider) => {
   modal.innerHTML = `
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Direct Request</h3>
+        <h3>Quick Request</h3>
         <button class="ghost-button" type="button" data-action="close">Close</button>
       </div>
-      <p class="muted">This request goes only to ${provider.name || "this Plug"} and lands in their Proposals tab.</p>
+      <p class="muted">Send a request directly to ${provider.name || "this Plug"} in under 20 seconds.</p>
+      <div class="modal-form">
+        <label class="input-field">
+          <span>Service Need</span>
+          <input id="quick-request-title" maxlength="80" value="${(provider.category || "Service request").replace(/"/g, "&quot;")}" />
+        </label>
+        <label class="input-field">
+          <span>Budget Range</span>
+          <select id="quick-request-budget">
+            <option value="100-300">$100 - $300</option>
+            <option value="300-600" selected>$300 - $600</option>
+            <option value="600-1200">$600 - $1,200</option>
+            <option value="1200-3000">$1,200 - $3,000</option>
+            <option value="3000-10000">$3,000 - $10,000</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Needed By</span>
+          <select id="quick-request-timeline">
+            <option value="ASAP">ASAP</option>
+            <option value="This week" selected>This week</option>
+            <option value="Flexible">Flexible</option>
+          </select>
+        </label>
+        <label class="input-field">
+          <span>Note (optional)</span>
+          <textarea id="quick-request-note" rows="3" maxlength="280" placeholder="Any quick details for the Plug..."></textarea>
+        </label>
+        <label class="check-row">
+          <input id="quick-request-marketplace" type="checkbox" />
+          <span>Also post to marketplace</span>
+        </label>
+      </div>
+      <div class="auth-status" id="quick-request-status"></div>
       <div class="job-actions review-actions">
-        <button class="primary-button" type="button" data-action="continue">Continue</button>
+        <button class="primary-button" type="button" data-action="send">Send Request</button>
         <button class="ghost-button" type="button" data-action="cancel">Cancel</button>
       </div>
     </div>
@@ -784,18 +875,112 @@ const openDirectRequestModal = (provider) => {
   });
   modal.querySelector("[data-action='close']")?.addEventListener("click", closeDirectRequestModal);
   modal.querySelector("[data-action='cancel']")?.addEventListener("click", closeDirectRequestModal);
-  modal.querySelector("[data-action='continue']")?.addEventListener("click", () => {
-    closeDirectRequestModal();
-    startDirectRequestFlow(provider);
-  });
-};
+  modal.querySelector("[data-action='send']")?.addEventListener("click", async () => {
+    const sendButton = modal.querySelector("[data-action='send']");
+    const statusEl = modal.querySelector("#quick-request-status");
+    const setStatus = (text, type = "info") => {
+      if (!statusEl) return;
+      statusEl.textContent = text;
+      statusEl.className = `auth-status ${type}`.trim();
+    };
+    if (!supabase) {
+      setStatus("Request service is unavailable right now.", "error");
+      return;
+    }
+    const user = await getSessionUser();
+    if (!user) {
+      setStatus("Please log in again and retry.", "error");
+      return;
+    }
+    const hasTargetProviderColumn = await checkTargetProviderColumn();
+    if (!hasTargetProviderColumn) {
+      setStatus("Direct requests are not enabled yet in database.", "error");
+      return;
+    }
 
-const startDirectRequestFlow = (provider) => {
-  if (!provider?.id) return;
-  const params = new URLSearchParams();
-  params.set("direct_provider_id", provider.id);
-  if (provider.name) params.set("direct_provider_name", provider.name);
-  window.location.href = `../client/client-jobs.html?${params.toString()}`;
+    const titleInput = modal.querySelector("#quick-request-title");
+    const budgetInput = modal.querySelector("#quick-request-budget");
+    const timelineInput = modal.querySelector("#quick-request-timeline");
+    const noteInput = modal.querySelector("#quick-request-note");
+    const marketplaceInput = modal.querySelector("#quick-request-marketplace");
+    const title = String(titleInput?.value || "").trim();
+    const timeline = String(timelineInput?.value || "Flexible").trim();
+    const note = String(noteInput?.value || "").trim();
+    const alsoMarketplace = Boolean(marketplaceInput?.checked);
+    const [budgetMinRaw, budgetMaxRaw] = String(budgetInput?.value || "300-600").split("-");
+    const budgetMin = Number(budgetMinRaw) || 300;
+    const budgetMax = Number(budgetMaxRaw) || 600;
+    if (!title) {
+      setStatus("Add a short service need title.", "error");
+      return;
+    }
+
+    sendButton.disabled = true;
+    setStatus("Sending request...", "info");
+    try {
+      const snapshot = await getClientSnapshotForRequest(user);
+      const fallbackLocation = normalizeLocationValue(snapshot.location_hint || provider.location || "Nearby, NJ");
+      const {
+        location_hint: _locationHint,
+        ...snapshotColumns
+      } = snapshot;
+      const basePayload = {
+        client_id: user.id,
+        title,
+        category: provider.category || "General Service",
+        description: note || `Quick request sent from Discover to ${provider.name || "Plug"}.`,
+        budget_min: budgetMin,
+        budget_max: budgetMax,
+        timeline,
+        location: fallbackLocation,
+        status: "open",
+        ...snapshotColumns,
+      };
+
+      const directPayload = { ...basePayload, target_provider_id: provider.id };
+      const directInsert = await supabase
+        .from("jobs")
+        .insert(directPayload)
+        .select("id")
+        .single();
+      if (directInsert.error || !directInsert.data?.id) {
+        throw directInsert.error || new Error("Could not create direct request job.");
+      }
+
+      const directRequestInsert = await supabase
+        .from("job_requests")
+        .insert({
+          job_id: directInsert.data.id,
+          provider_id: provider.id,
+          status: "requested",
+          proposal_notes: note || "Direct request from Neighbor Discover quick flow.",
+        });
+      if (directRequestInsert.error) throw directRequestInsert.error;
+
+      await logProviderEvent(provider.id, "direct_request_created");
+
+      if (alsoMarketplace) {
+        const publicInsert = await supabase
+          .from("jobs")
+          .insert(basePayload)
+          .select("id")
+          .single();
+        if (publicInsert.error || !publicInsert.data?.id) {
+          setStatus(`Direct request sent to ${provider.name || "Plug"}, but public post failed.`, "success");
+          sendButton.textContent = "Sent";
+          setTimeout(closeDirectRequestModal, 1200);
+          return;
+        }
+      }
+
+      setStatus(`Request sent to ${provider.name || "Plug"}.`, "success");
+      sendButton.textContent = "Sent";
+      setTimeout(closeDirectRequestModal, 1200);
+    } catch (error) {
+      setStatus(error?.message || "Could not send request right now.", "error");
+      sendButton.disabled = false;
+    }
+  });
 };
 
 const isSwipePage = () => document.getElementById("card-stack");
@@ -1295,6 +1480,19 @@ const initSwipePage = () => {
       saveButton?.addEventListener("click", (event) => {
         event.stopPropagation();
         saveProvider(provider);
+      });
+
+      const bookButton = card.querySelector("button[data-action='book']");
+      bookButton?.addEventListener("pointerdown", (event) => event.stopPropagation());
+      bookButton?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (requireClientAuth("book services")) return;
+        if (!isProviderBookable(provider)) {
+          alert("This Plug is currently booked. You can still open the full profile.");
+          return;
+        }
+        logProviderEvent(provider?.id, "booking_click");
+        openDirectRequestModal(provider);
       });
 
       card.querySelector("button[data-action='photos']")?.addEventListener("click", () => {

@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" href="../favicon.ico" />
-  <title>plugFeed - Post a Job</title>
+  <title>plugFeed - Jobs</title>
 </head>
 <body class="jobs-page">
   <main class="screen">
@@ -16,7 +16,7 @@
       <a class="brand-link" href="../client/discover.html" aria-label="PlugFeed dashboard">
         <span class="brand-empty" aria-hidden="true"></span>
       </a>
-      <p class="kicker topbar-kicker">Post a Job</p>
+      <p class="kicker topbar-kicker">Jobs</p>
     </header>
 
     <section class="panel" id="job-form-panel">
@@ -80,7 +80,7 @@
             <span>Upload photos</span>
             <input type="file" id="job-photos" accept="image/*" multiple />
           </label>
-          <button type="submit" class="primary-button" id="job-submit-button">Post Job</button>
+          <button type="submit" class="primary-button" id="job-submit-button">Send Request</button>
         </form>
         <div class="auth-status" id="job-status"></div>
       </div>
@@ -92,6 +92,14 @@
         <span class="badge">Beta</span>
       </div>
       <div class="job-list" id="job-list"></div>
+    </section>
+
+    <section class="panel" id="proposal-inbox-panel">
+      <div class="panel-header">
+        <h3>New Proposals</h3>
+        <span class="badge">Inbox</span>
+      </div>
+      <div class="job-list proposal-inbox-list" id="proposal-inbox-list"></div>
     </section>
   </main>
 

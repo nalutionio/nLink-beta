@@ -103,6 +103,17 @@ const isMissingTableError = (error) => Boolean(error)
 
 const logJobEvent = async (jobId, eventType, metadata = {}) => {
   if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  const allowedEventTypes = new Set([
+    "job_created",
+    "job_updated",
+    "job_closed",
+    "job_reopened",
+    "request_sent",
+    "request_accepted",
+    "request_declined",
+    "request_closed",
+  ]);
+  if (!allowedEventTypes.has(String(eventType || "").trim())) return;
   try {
     const user = await getSessionUser();
     const { error } = await supabase
@@ -227,6 +238,8 @@ const renderJobs = async () => {
     const photo = photos.find((item) => item.job_id === job.id);
     const thumb = photo?.url || "../assets/jobrequestpic.png";
     const requestStatus = requestStatusByJobId[job.id];
+    const normalizedStatus = String(requestStatus || "").toLowerCase();
+    if (["accepted", "completed", "closed"].includes(normalizedStatus)) return;
     const canMessage = ["accepted", "completed", "closed"].includes(String(requestStatus || "").toLowerCase())
       && clientInitiatedByJobId[job.id];
     const card = document.createElement("div");
@@ -252,10 +265,10 @@ const renderJobs = async () => {
                   : requestStatus === "closed"
                     ? "Completed"
                     : requestStatus === "requested"
-                      ? "Open Direct Request"
+                      ? "Respond Request"
                       : "Proposal Sent"
             )
-            : "Build Proposal"
+            : "Send Proposal"
         }</button>
         ${canMessage && job.client_id && job.client_id !== providerUserId ? `
           <a

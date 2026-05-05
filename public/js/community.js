@@ -20,11 +20,15 @@
   const serviceCategoryInput = document.getElementById("community-service-category");
   const serviceNameInput = document.getElementById("community-service-name");
   const serviceTagsInput = document.getElementById("community-service-tags");
+  const moreFieldsWrap = document.getElementById("community-more-fields");
+  const moreFieldsToggle = document.getElementById("community-more-fields-toggle");
   const composerPhotoInput = document.getElementById("community-photo-upload");
   const composerPhotoPreview = document.getElementById("community-photo-preview");
   const composerPhotoPreviewImage = document.getElementById("community-photo-preview-image");
   const composerPhotoRemove = document.getElementById("community-photo-remove");
   const feedEl = document.getElementById("community-feed");
+  const rangeFilterEl = document.getElementById("community-range-filter");
+  const rangeHintEl = document.getElementById("community-range-hint");
   const composerAvatarEl = document.getElementById("community-composer-avatar");
   const activityButtonEl = document.getElementById("community-activity-btn");
   const activityBadgeEl = document.getElementById("community-activity-badge");
@@ -49,6 +53,13 @@
     notifications: [],
     notificationActorRoleById: {},
     composerPhoto: null,
+    localOrigin: {
+      city: "",
+      state: "",
+      county: "",
+      raw: "",
+    },
+    rangeMode: "nearby",
   };
   let postImageColumnAvailable = true;
   let notificationChannel = null;
@@ -207,6 +218,97 @@
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+
+  const LOCATION_CANONICAL_FIXUPS = {
+    "bridgewater, nj,": "bridgewater, nj",
+    "raritan township, nj": "raritan, nj",
+  };
+
+  const NJ_COUNTY_BY_CITY = {
+    "bridgewater, nj": "somerset",
+    "somerville, nj": "somerset",
+    "raritan, nj": "somerset",
+    "bound brook, nj": "somerset",
+    "south bound brook, nj": "somerset",
+    "hillsborough, nj": "somerset",
+    "manville, nj": "somerset",
+    "bedminster, nj": "somerset",
+    "berkeley heights, nj": "union",
+    "new providence, nj": "union",
+    "plainfield, nj": "union",
+    "westfield, nj": "union",
+    "edison, nj": "middlesex",
+    "piscataway, nj": "middlesex",
+    "new brunswick, nj": "middlesex",
+    "highland park, nj": "middlesex",
+    "woodbridge, nj": "middlesex",
+    "perth amboy, nj": "middlesex",
+    "metuchen, nj": "middlesex",
+    "trenton, nj": "mercer",
+    "hamilton, nj": "mercer",
+    "princeton, nj": "mercer",
+    "flemington, nj": "hunterdon",
+    "clinton, nj": "hunterdon",
+    "newark, nj": "essex",
+    "jersey city, nj": "hudson",
+    "hoboken, nj": "hudson",
+  };
+
+  const normalizeLocationText = (value) => String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*,\s*$/, "")
+    .trim();
+
+  const parseCityState = (value) => {
+    const normalized = normalizeLocationText(value);
+    if (!normalized) return { city: "", state: "", key: "", raw: "" };
+    const lowered = LOCATION_CANONICAL_FIXUPS[normalized.toLowerCase()] || normalized.toLowerCase();
+    const parts = lowered.split(",").map((part) => part.trim()).filter(Boolean);
+    const city = parts[0] || "";
+    const state = parts[1] || "";
+    return {
+      city,
+      state,
+      key: city && state ? `${city}, ${state}` : lowered,
+      raw: normalized,
+    };
+  };
+
+  const resolveCounty = (cityStateKey) => NJ_COUNTY_BY_CITY[String(cityStateKey || "").toLowerCase()] || "";
+
+  const getPostLocationKey = (post) => {
+    if (post?.location_text) return parseCityState(post.location_text);
+    const subtitle = String(post?.author_subtitle || "");
+    const tail = subtitle.includes("•") ? subtitle.split("•").pop() : subtitle;
+    return parseCityState(tail);
+  };
+
+  const rankPostByLocalRelevance = (post) => {
+    const origin = state.localOrigin;
+    if (!origin.city || !origin.state) return 0;
+    const postLoc = getPostLocationKey(post);
+    if (!postLoc.city || !postLoc.state) return 0;
+    if (postLoc.city === origin.city && postLoc.state === origin.state) return 300;
+    const postCounty = resolveCounty(postLoc.key);
+    if (postCounty && origin.county && postCounty === origin.county) return 200;
+    if (postLoc.state === origin.state) return 100;
+    return 0;
+  };
+
+  const isPostInScopeByRange = (post) => {
+    const origin = state.localOrigin;
+    if (!origin.city || !origin.state) return true;
+    const postLoc = getPostLocationKey(post);
+    if (!postLoc.city || !postLoc.state) return false;
+    if (state.rangeMode === "statewide") return postLoc.state === origin.state;
+    if (state.rangeMode === "county") {
+      const postCounty = resolveCounty(postLoc.key);
+      return Boolean(postCounty && origin.county && postCounty === origin.county);
+    }
+    if (postLoc.city === origin.city && postLoc.state === origin.state) return true;
+    const postCounty = resolveCounty(postLoc.key);
+    return Boolean(postCounty && origin.county && postCounty === origin.county);
+  };
 
   const allowedTypeByRole = {
     client: [
@@ -565,6 +667,11 @@
       .limit(60);
     if (error) throw error;
     state.feed = Array.isArray(data) ? data : [];
+    state.feed.sort((a, b) => {
+      const scoreDiff = rankPostByLocalRelevance(b) - rankPostByLocalRelevance(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
   };
 
   const hydrateAuthors = async () => {
@@ -808,11 +915,48 @@
     return { ok: true };
   };
 
+  const renderRangeFilter = () => {
+    if (!rangeFilterEl) return;
+    const modes = [
+      { value: "nearby", label: "20 mi" },
+      { value: "county", label: "County" },
+      { value: "statewide", label: "Statewide" },
+    ];
+    rangeFilterEl.innerHTML = `
+      <div class="community-type-chips">
+        ${modes.map((mode) => `
+          <button type="button" class="community-type-chip ${state.rangeMode === mode.value ? "active" : ""}" data-range-mode="${mode.value}">
+            ${mode.label}
+          </button>
+        `).join("")}
+      </div>
+    `;
+    if (rangeHintEl) {
+      const place = state.localOrigin.raw || "your area";
+      const label = state.rangeMode === "nearby"
+        ? "Nearby posts (20 mi beta)"
+        : state.rangeMode === "county"
+          ? "County posts"
+          : "Statewide posts";
+      rangeHintEl.textContent = `Showing: ${label} around ${place}`;
+    }
+  };
+
   const renderFeed = () => {
     if (!feedEl) return;
-    const visibleFeed = state.feed.filter((post) => !state.hiddenPostIds.has(post.id));
+    const visibleFeed = state.feed.filter((post) => !state.hiddenPostIds.has(post.id) && isPostInScopeByRange(post));
     if (!visibleFeed.length) {
-      feedEl.innerHTML = "<p class='muted'>No community posts yet. Start the first one.</p>";
+      feedEl.innerHTML = `
+        <article class="community-empty-state">
+          <h3>No posts yet</h3>
+          <p>Start a quick post, get recommendations, then open a Plug profile when ready.</p>
+          <div class="community-cta-row">
+            <button class="ghost-button compact" data-empty-action="ask">Ask Community</button>
+            <button class="ghost-button compact" data-empty-action="swipe">Swipe Local Plugs</button>
+            <button class="ghost-button compact" data-empty-action="job">${jobsCtaLabel}</button>
+          </div>
+        </article>
+      `;
       return;
     }
 
@@ -1210,7 +1354,7 @@
       author_subtitle: state.currentAuthor?.subtitle || null,
       post_type: postTypeInput?.value || (activeRole === "provider" ? "showcase" : "ask"),
       body,
-      location_text: null,
+      location_text: state.localOrigin.raw || null,
       service_category: selectedServiceCategory || null,
       service_name: selectedServiceName || null,
       tags: selectedComposerTags(),
@@ -1268,16 +1412,24 @@
       if (activeRole === "provider") {
         const { data: providerRow } = await supabase
           .from("providers")
-          .select("name,category,avatar_url")
+          .select("name,category,avatar_url,location")
           .eq("owner_id", user.id)
           .limit(1)
           .maybeSingle();
         const metaAvatar = user.user_metadata?.provider_avatar_url || "";
         const avatar = providerRow?.avatar_url || metaAvatar || "../assets/plugprofilepic.png";
+        const locationLabel = normalizeLocationText(providerRow?.location || "");
+        const locParsed = parseCityState(locationLabel);
         state.currentAuthor = {
           name: providerRow?.name || user.user_metadata?.provider_business_name || "Plug",
           avatarUrl: avatar,
-          subtitle: `${providerRow?.category || "Service"} • Verified Plug`,
+          subtitle: `${providerRow?.category || "Service"} • Verified Plug${locationLabel ? ` • ${locationLabel}` : ""}`,
+        };
+        state.localOrigin = {
+          city: locParsed.city,
+          state: locParsed.state,
+          county: resolveCounty(locParsed.key),
+          raw: locationLabel,
         };
         setSafeAvatar(composerAvatarEl, avatar, "../assets/plugprofilepic.png");
       } else {
@@ -1289,10 +1441,18 @@
           .limit(1)
           .maybeSingle();
         const avatar = clientRow?.avatar_url || metaAvatar || clientFallbackAvatar;
+        const locationLabel = normalizeLocationText(clientRow?.location || "");
+        const locParsed = parseCityState(locationLabel);
         state.currentAuthor = {
           name: clientRow?.full_name || user.user_metadata?.client_name || "Neighbor",
           avatarUrl: avatar,
-          subtitle: "Neighbor",
+          subtitle: locationLabel ? `Neighbor • ${locationLabel}` : "Neighbor",
+        };
+        state.localOrigin = {
+          city: locParsed.city,
+          state: locParsed.state,
+          county: resolveCounty(locParsed.key),
+          raw: locationLabel,
         };
         setSafeAvatar(composerAvatarEl, avatar, clientFallbackAvatar);
       }
@@ -1327,6 +1487,7 @@
     } catch (_error) {
       // Optional for feed browsing; composer plug modal can still open once reloaded.
     }
+    renderRangeFilter();
     await refreshFeed();
     const focusPostId = new URLSearchParams(window.location.search).get("post");
     if (focusPostId) {
@@ -1390,6 +1551,13 @@
     clearComposerPhoto();
     setStatus("Photo removed.", "info");
   });
+  moreFieldsToggle?.addEventListener("click", () => {
+    const expanded = moreFieldsWrap ? !moreFieldsWrap.classList.contains("hidden") : false;
+    moreFieldsWrap?.classList.toggle("hidden", expanded);
+    if (moreFieldsToggle) {
+      moreFieldsToggle.textContent = expanded ? "Add service details" : "Hide service details";
+    }
+  });
 
   postTypeChips?.addEventListener("click", (event) => {
     const chip = event.target.closest(".community-type-chip");
@@ -1401,7 +1569,36 @@
       node.classList.toggle("active", node === chip);
     });
   });
+  rangeFilterEl?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-range-mode]");
+    if (!button) return;
+    const nextMode = String(button.dataset.rangeMode || "");
+    if (!nextMode || nextMode === state.rangeMode) return;
+    state.rangeMode = nextMode;
+    renderRangeFilter();
+    renderFeed();
+  });
   postForm?.addEventListener("submit", onComposerSubmit);
+  feedEl?.addEventListener("click", (event) => {
+    const actionButton = event.target.closest("[data-empty-action]");
+    if (!actionButton) return;
+    const action = actionButton.dataset.emptyAction || "";
+    if (action === "ask") {
+      postTypeInput.value = activeRole === "provider" ? "tip" : "ask";
+      postTypeChips?.querySelectorAll(".community-type-chip").forEach((node) => {
+        node.classList.toggle("active", node.dataset.type === postTypeInput.value);
+      });
+      postBodyInput?.focus();
+      return;
+    }
+    if (action === "swipe") {
+      window.location.href = discoveryHref;
+      return;
+    }
+    if (action === "job") {
+      window.location.href = jobsHref;
+    }
+  });
   feedEl?.addEventListener("click", onFeedClick);
   document.addEventListener("click", (event) => {
     if (!feedEl) return;

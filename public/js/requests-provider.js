@@ -193,12 +193,22 @@ const normalizeRequestStatus = (status) => {
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "requested") return "Direct Request";
+  if (normalized === "requested") return "Needs Proposal";
   if (normalized === "completed") return "Awaiting Confirmation";
   if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
-  return "Pending";
+  return "Awaiting Neighbor";
+};
+
+const requestStatusClass = (status, isScheduled = false) => {
+  if (isScheduled) return "status-accepted";
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "accepted") return "status-accepted";
+  if (normalized === "requested") return "status-requested";
+  if (normalized === "declined") return "status-declined";
+  if (normalized === "completed" || normalized === "closed") return "status-closed";
+  return "status-pending";
 };
 
 const deriveDisplayRequestStatus = (request, acceptedJobIdSet = new Set()) => {
@@ -360,7 +370,7 @@ const renderRequests = async () => {
     if (requestIds.length) {
       const { data: appointmentRows, error: appointmentError } = await supabase
         .from("job_appointments")
-        .select("request_id,status,selected_slot")
+        .select("request_id,status,selected_slot,proposed_slots")
         .in("request_id", requestIds);
       if (isMissingTableError(appointmentError)) {
         appointmentsTableAvailable = false;
@@ -395,7 +405,7 @@ const renderRequests = async () => {
       const renderCard = (req) => {
         const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
         const card = document.createElement("article");
-        card.className = "job-card proposal-card";
+        card.className = "job-card proposal-card proposal-inbox-card";
         const status = deriveDisplayRequestStatus(req, acceptedJobIdSet);
         const appointment = appointmentByRequestId[req.id] || null;
         const isScheduled = String(appointment?.status || "").toLowerCase() === "scheduled";
@@ -416,15 +426,18 @@ const renderRequests = async () => {
           <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
           <div class="job-card-body proposal-body">
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
-            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
-            <p class="muted proposal-meta">Proposed ${formatDate(req.created_at)}</p>
-            ${status === "requested" ? `<p class="muted proposal-meta">Neighbor sent this direct request to your Plug profile.</p>` : ""}
-            ${isScheduled ? `<p class="muted proposal-meta">Appointment: ${formatDateTime(appointment?.selected_slot) || "Scheduled"}</p>` : ""}
-            ${status === "requested" ? "" : `<p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>`}
-            ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
+            <p class="muted proposal-meta proposal-inbox-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta proposal-inbox-meta">Proposed ${formatDate(req.created_at)}</p>
+            ${status === "requested" ? `<p class="muted proposal-meta proposal-inbox-meta">Neighbor sent this direct request to your Plug profile.</p>` : ""}
+            ${(!isScheduled && Array.isArray(appointment?.proposed_slots) && appointment.proposed_slots.length)
+              ? `<p class="muted proposal-meta proposal-inbox-meta">Slots ready: ${appointment.proposed_slots.length} option${appointment.proposed_slots.length > 1 ? "s" : ""} shared.</p>`
+              : ""}
+            ${isScheduled ? `<p class="muted proposal-meta proposal-inbox-meta">Appointment: ${formatDateTime(appointment?.selected_slot) || "Scheduled"}</p>` : ""}
+            ${status === "requested" ? "" : `<p class="muted proposal-meta proposal-inbox-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>`}
+            ${req.inspection_fee ? `<p class="muted proposal-meta proposal-inbox-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
           <div class="job-actions proposal-actions">
-            <span class="pill proposal-status ${status === "accepted" ? "status-accepted" : (status === "completed" || status === "closed") ? "status-closed" : "status-pending"}">${isScheduled ? "Scheduled" : requestStatusLabel(status)}</span>
+            <span class="pill proposal-status ${requestStatusClass(status, isScheduled)}">${isScheduled ? "Scheduled" : requestStatusLabel(status)}</span>
             <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;
@@ -502,15 +515,15 @@ const renderRequests = async () => {
           requestId: req.id,
         });
         const card = document.createElement("article");
-        card.className = "job-card proposal-card job-card-closed";
+        card.className = "job-card proposal-card proposal-inbox-card job-card-closed";
         card.innerHTML = `
           ${overflowMenu ? `<div class="proposal-card-corner">${overflowMenu}</div>` : ""}
           <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
           <div class="job-card-body proposal-body">
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
-            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
-            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
-            ${req.inspection_fee ? `<p class="muted proposal-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
+            <p class="muted proposal-meta proposal-inbox-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta proposal-inbox-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+            ${req.inspection_fee ? `<p class="muted proposal-meta proposal-inbox-meta">Inspection fee: $${req.inspection_fee}${req.inspection_fee_creditable ? " (credited)" : ""}${req.inspection_fee_waivable ? " • waivable" : ""}</p>` : ""}
           </div>
           <div class="job-actions proposal-actions">
             <span class="pill proposal-status status-closed">Completed</span>
@@ -528,16 +541,16 @@ const renderRequests = async () => {
       declined.forEach((req) => {
         const thumb = photosByJobId[req.jobs?.id] || "../assets/jobrequestpic.png";
         const card = document.createElement("article");
-        card.className = "job-card proposal-card job-card-closed";
+        card.className = "job-card proposal-card proposal-inbox-card job-card-closed";
         card.innerHTML = `
           <img class="job-thumb proposal-thumb" src="${thumb}" alt="${req.jobs?.title || "Job"}" />
           <div class="job-card-body proposal-body">
             <h4 class="proposal-title">${req.jobs?.title || "Job"}</h4>
-            <p class="muted proposal-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
-            <p class="muted proposal-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
+            <p class="muted proposal-meta proposal-inbox-meta">${req.jobs?.location || ""} • ${formatBudget(req.jobs?.budget_min, req.jobs?.budget_max)}</p>
+            <p class="muted proposal-meta proposal-inbox-meta">Type: ${formatProposalType(req.proposal_type)} • Estimate: ${formatEstimate(req.estimated_price_min, req.estimated_price_max)}</p>
           </div>
           <div class="job-actions proposal-actions">
-            <span class="pill proposal-status">Declined</span>
+            <span class="pill proposal-status status-declined">Declined</span>
             <a class="ghost-button" href="../provider/job-detail.html?id=${req.jobs?.id || ""}&from=proposals">View</a>
           </div>
         `;

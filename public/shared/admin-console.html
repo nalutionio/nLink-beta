@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <title>PlugFeed - Admin Console</title>
+</head>
+<body class="settings-page admin-console-page">
+  <main class="screen">
+    <header class="topbar">
+      <a class="brand-link" href="../client/discover.html" aria-label="PlugFeed home">
+        <span class="brand-wordmark" aria-label="PlugFeed"><span class="plug">plug</span><span class="feed">Feed</span></span>
+      </a>
+      <div class="topbar-title">
+        <p class="kicker">Admin</p>
+        <h1>Console</h1>
+      </div>
+      <a class="ghost-button" href="../shared/landing.html">Back</a>
+    </header>
+
+    <div class="auth-status" id="admin-status"></div>
+
+    <section class="panel admin-panel">
+      <h3>Platform Snapshot</h3>
+      <div class="admin-kpi-grid">
+        <article class="admin-kpi-card"><p>Open Reports</p><strong id="admin-kpi-reports">0</strong></article>
+        <article class="admin-kpi-card"><p>Active Posts</p><strong id="admin-kpi-posts">0</strong></article>
+        <article class="admin-kpi-card"><p>Neighbors</p><strong id="admin-kpi-clients">0</strong></article>
+        <article class="admin-kpi-card"><p>Plugs</p><strong id="admin-kpi-providers">0</strong></article>
+      </div>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Reported Posts</h3>
+        <div class="settings-list" id="admin-post-reports-list"></div>
+      </section>
+
+      <section class="panel admin-panel">
+        <h3>Reported Comments</h3>
+        <div class="settings-list" id="admin-comment-reports-list"></div>
+      </section>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Recent Community Posts</h3>
+        <div class="settings-list" id="admin-posts-list"></div>
+      </section>
+    </section>
+
+    <section class="panel admin-panel">
+      <h3>Manual Neighbor-To-Plug Match</h3>
+      <form class="modal-form" id="admin-manual-match-form">
+        <label class="input-field">
+          <span>Job ID</span>
+          <input type="text" id="admin-match-job-id" placeholder="Paste job UUID" required />
+        </label>
+        <label class="input-field">
+          <span>Plug Provider ID</span>
+          <input type="text" id="admin-match-provider-id" placeholder="Paste provider UUID" required />
+        </label>
+        <label class="input-field">
+          <span>Reason</span>
+          <input type="text" id="admin-match-reason" placeholder="Support/manual assignment reason" required />
+        </label>
+        <button class="primary-button" type="submit">Create Match Request</button>
+      </form>
+      <div class="auth-status" id="admin-manual-match-status"></div>
+    </section>
+
+    <section class="panel admin-panel">
+      <h3>User Management</h3>
+      <form class="job-actions" id="admin-user-search-form">
+        <input id="admin-user-search-input" type="search" placeholder="Search by name, email, or location" />
+        <button class="ghost-button" type="submit">Search</button>
+      </form>
+      <div class="admin-columns">
+        <section>
+          <h4>Neighbors</h4>
+          <div class="settings-list" id="admin-clients-list"></div>
+        </section>
+        <section>
+          <h4>Plugs</h4>
+          <div class="settings-list" id="admin-providers-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="panel admin-panel">
+      <h3>Role & Verification Controls</h3>
+      <form class="modal-form" id="admin-role-form">
+        <label class="input-field">
+          <span>User ID</span>
+          <input type="text" id="admin-role-user-id" placeholder="auth.users UUID" required />
+        </label>
+        <label class="input-field">
+          <span>Internal Role</span>
+          <select id="admin-role-select" required>
+            <option value="owner_admin">Owner Admin</option>
+            <option value="admin">Admin</option>
+            <option value="support_agent">Support Agent</option>
+            <option value="moderator">Moderator</option>
+          </select>
+        </label>
+        <button class="primary-button" type="submit">Assign Role</button>
+      </form>
+      <form class="modal-form" id="admin-verify-form">
+        <label class="input-field">
+          <span>Plug Provider ID</span>
+          <input type="text" id="admin-verify-provider-id" placeholder="provider UUID" required />
+        </label>
+        <label class="input-field">
+          <span>Featured Status</span>
+          <select id="admin-verify-featured" required>
+            <option value="true">Featured</option>
+            <option value="false">Not Featured</option>
+          </select>
+        </label>
+        <button class="ghost-button" type="submit">Update Featured</button>
+      </form>
+      <div class="auth-status" id="admin-role-status"></div>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Support Tickets</h3>
+        <form class="job-actions" id="admin-ticket-form">
+          <input id="admin-ticket-user-id" type="text" placeholder="Requester user UUID" />
+          <input id="admin-ticket-subject" type="text" placeholder="Ticket subject" />
+          <button class="primary-button" type="submit">Create Ticket</button>
+        </form>
+        <div class="settings-list" id="admin-tickets-list"></div>
+      </section>
+
+      <section class="panel admin-panel">
+        <h3>Audit Log</h3>
+        <div class="settings-list" id="admin-audit-list"></div>
+      </section>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Neighbor Profile Editor</h3>
+        <form class="modal-form" id="admin-client-profile-form">
+          <label class="input-field">
+            <span>User ID</span>
+            <input type="text" id="admin-client-user-id" placeholder="auth.users UUID" required />
+          </label>
+          <button class="ghost-button" type="button" id="admin-client-load">Load Neighbor</button>
+          <label class="input-field">
+            <span>Full Name</span>
+            <input type="text" id="admin-client-name" placeholder="Neighbor name" />
+          </label>
+          <label class="input-field">
+            <span>Email</span>
+            <input type="email" id="admin-client-email" placeholder="neighbor@email.com" />
+          </label>
+          <label class="input-field">
+            <span>Location</span>
+            <input type="text" id="admin-client-location" placeholder="City, ST" />
+          </label>
+          <button class="primary-button" type="submit">Save Neighbor Profile</button>
+        </form>
+      </section>
+      <section class="panel admin-panel">
+        <h3>Plug Profile Editor</h3>
+        <form class="modal-form" id="admin-provider-profile-form">
+          <label class="input-field">
+            <span>Provider ID (optional for new)</span>
+            <input type="text" id="admin-provider-id" placeholder="provider UUID (leave blank to create)" />
+          </label>
+          <button class="ghost-button" type="button" id="admin-provider-load">Load Plug</button>
+          <label class="input-field">
+            <span>Owner User ID</span>
+            <input type="text" id="admin-provider-owner-id" placeholder="auth.users UUID" required />
+          </label>
+          <label class="input-field">
+            <span>Business Name</span>
+            <input type="text" id="admin-provider-name" placeholder="Plug business name" required />
+          </label>
+          <label class="input-field">
+            <span>Category</span>
+            <input type="text" id="admin-provider-category" placeholder="Service category" />
+          </label>
+          <label class="input-field">
+            <span>Location</span>
+            <input type="text" id="admin-provider-location" placeholder="City, ST" />
+          </label>
+          <button class="ghost-button" type="submit">Save Plug Profile</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="admin-columns">
+      <section class="panel admin-panel">
+        <h3>Official Community Broadcast</h3>
+        <form class="modal-form" id="admin-official-post-form">
+          <label class="input-field">
+            <span>Post Type</span>
+            <select id="admin-official-post-type">
+              <option value="tip">Tip</option>
+              <option value="advice">Advice</option>
+              <option value="need_help">Need Help</option>
+              <option value="ask">Ask</option>
+            </select>
+          </label>
+          <label class="input-field">
+            <span>Message</span>
+            <textarea id="admin-official-post-body" rows="4" placeholder="Platform update, safety reminder, or featured guidance..." required></textarea>
+          </label>
+          <button class="primary-button" type="submit">Post As PlugFeedHQ</button>
+        </form>
+      </section>
+      <section class="panel admin-panel">
+        <h3>Official Support Reply</h3>
+        <form class="modal-form" id="admin-support-reply-form">
+          <label class="input-field">
+            <span>Post ID</span>
+            <input type="text" id="admin-support-reply-post-id" placeholder="community post UUID" required />
+          </label>
+          <label class="input-field">
+            <span>Reply</span>
+            <textarea id="admin-support-reply-body" rows="4" placeholder="Support response visible under the post..." required></textarea>
+          </label>
+          <button class="ghost-button" type="submit">Reply As PlugFeedSupport</button>
+        </form>
+      </section>
+    </section>
+    <div class="auth-status" id="admin-community-status"></div>
+
+    <section class="panel admin-panel">
+      <h3>Archived Community Posts</h3>
+      <div class="settings-list" id="admin-archived-posts-list"></div>
+    </section>
+    <div class="auth-status" id="admin-profile-editor-status"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/access-control.js"></script>
+  <script src="../js/admin-console.js"></script>
+</body>
+</html>

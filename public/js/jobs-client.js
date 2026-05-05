@@ -6,6 +6,8 @@ const form = document.getElementById("job-form");
 const statusEl = document.getElementById("job-status");
 const jobList = document.getElementById("job-list");
 const myJobsPanel = document.getElementById("my-jobs-panel");
+const proposalInboxPanel = document.getElementById("proposal-inbox-panel");
+const proposalInboxList = document.getElementById("proposal-inbox-list");
 const jobFormTitleEl = document.getElementById("job-form-title");
 const jobSubmitButton = document.getElementById("job-submit-button");
 const jobFormToggleButton = document.getElementById("job-form-toggle");
@@ -74,6 +76,17 @@ const isMissingTableError = (error) => Boolean(error)
 
 const logJobEvent = async (jobId, eventType, metadata = {}) => {
   if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  const allowedEventTypes = new Set([
+    "job_created",
+    "job_updated",
+    "job_closed",
+    "job_reopened",
+    "request_sent",
+    "request_accepted",
+    "request_declined",
+    "request_closed",
+  ]);
+  if (!allowedEventTypes.has(String(eventType || "").trim())) return;
   try {
     const user = await getSessionUser();
     const { error } = await supabase
@@ -198,6 +211,101 @@ const deriveDisplayJobStatus = (jobStatus, requestRows = []) => {
   return normalizeJobStatus(jobStatus);
 };
 
+const normalizeRequestStatus = (status) => String(status || "").toLowerCase();
+
+const requestStatusLabel = (status) => {
+  const normalized = normalizeRequestStatus(status);
+  if (normalized === "requested") return "Request Sent";
+  if (normalized === "pending") return "Proposal Received";
+  if (normalized === "accepted") return "Accepted";
+  if (normalized === "completed") return "Awaiting Confirmation";
+  if (normalized === "closed") return "Completed";
+  if (normalized === "declined") return "Declined";
+  return "Awaiting Proposal";
+};
+
+const requestStatusClass = (status) => `proposal-status-pill status-${normalizeRequestStatus(status) || "pending"}`;
+
+const updateRequestStatusQuick = async (requestId, nextStatus) => {
+  if (!supabase || !requestId || !nextStatus) return false;
+  const { error } = await supabase
+    .from("job_requests")
+    .update({ status: nextStatus })
+    .eq("id", requestId);
+  if (error) return false;
+  return true;
+};
+
+const renderProposalInbox = async (user) => {
+  if (!proposalInboxList || !proposalInboxPanel || !supabase || !user?.id) return;
+  const { data: requests, error } = await supabase
+    .from("job_requests")
+    .select("id,status,created_at,job_id,provider_id,proposal_type,estimated_price_min,estimated_price_max,providers(id,name,avatar_url,owner_id),jobs(id,title,location,client_id)")
+    .order("created_at", { ascending: false });
+  if (error || !Array.isArray(requests)) {
+    proposalInboxPanel.hidden = true;
+    return;
+  }
+
+  const relevant = requests
+    .filter((row) => row?.jobs?.client_id === user.id)
+    .filter((row) => ["pending", "accepted", "requested", "completed"].includes(normalizeRequestStatus(row.status)));
+
+  if (!relevant.length) {
+    proposalInboxPanel.hidden = true;
+    return;
+  }
+
+  proposalInboxPanel.hidden = false;
+  proposalInboxList.innerHTML = "";
+
+  relevant.slice(0, 6).forEach((request) => {
+    const status = normalizeRequestStatus(request.status);
+    const providerName = request.providers?.name || "Plug";
+    const providerAvatar = request.providers?.avatar_url || "../assets/plugprofilepic.png";
+    const jobTitle = request.jobs?.title || "Job";
+    const estimate = (Number.isFinite(Number(request.estimated_price_min)) || Number.isFinite(Number(request.estimated_price_max)))
+      ? `$${Number(request.estimated_price_min || 0)} - $${Number(request.estimated_price_max || 0)}`
+      : "Custom quote";
+    const canMessage = ["accepted", "completed"].includes(status) && request.provider_id;
+    const card = document.createElement("article");
+    card.className = "job-card proposal-inbox-card";
+    card.innerHTML = `
+      <img class="job-thumb" src="${providerAvatar}" alt="${providerName}" />
+      <div class="job-card-body">
+        <h4>${providerName} • ${jobTitle}</h4>
+        <p class="muted proposal-inbox-meta">${request.jobs?.location || "Location private"} • ${estimate}</p>
+        <p class="muted proposal-inbox-meta">${new Date(request.created_at).toLocaleDateString()}</p>
+        <span class="job-link">View details</span>
+      </div>
+      <div class="job-actions">
+        <span class="pill ${requestStatusClass(request.status)}">${requestStatusLabel(request.status)}</span>
+        <a class="ghost-button" href="../client/client-job-detail.html?id=${encodeURIComponent(request.job_id || "")}">View</a>
+        ${status === "pending" ? `<button class="primary-button" data-request-action="accept" data-request-id="${request.id}">Accept</button>` : ""}
+        ${status === "pending" ? `<button class="ghost-button" data-request-action="decline" data-request-id="${request.id}">Decline</button>` : ""}
+        ${canMessage ? `<a class="ghost-button" href="../client/client-messages.html?job=${encodeURIComponent(request.job_id || "")}&provider=${encodeURIComponent(request.provider_id || "")}${providerName ? `&providerName=${encodeURIComponent(providerName)}` : ""}${providerAvatar ? `&providerAvatar=${encodeURIComponent(providerAvatar)}` : ""}">Message</a>` : ""}
+      </div>
+    `;
+    proposalInboxList.appendChild(card);
+  });
+
+  proposalInboxList.querySelectorAll("button[data-request-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const requestId = button.dataset.requestId;
+      const action = button.dataset.requestAction;
+      if (!requestId || !action) return;
+      button.disabled = true;
+      const ok = await updateRequestStatusQuick(requestId, action === "accept" ? "accepted" : "declined");
+      if (!ok) {
+        setStatus("Could not update proposal status. Try again.", "error");
+        button.disabled = false;
+        return;
+      }
+      await renderJobs();
+    });
+  });
+};
+
 const uploadJobPhoto = async (file, jobId, index) => {
   let uploadBlob = file;
   let contentType = file.type || "image/jpeg";
@@ -313,6 +421,8 @@ const renderJobs = async () => {
     jobList.appendChild(closedTitle);
     closedJobs.forEach((job) => jobList.appendChild(renderJobCard(job)));
   }
+
+  await renderProposalInbox(user);
 };
 
 form?.addEventListener("submit", async (event) => {
@@ -351,7 +461,7 @@ form?.addEventListener("submit", async (event) => {
     return;
   }
 
-  setStatus("Posting job...", "info");
+  setStatus("Sending request...", "info");
 
   const payload = {
     client_id: user.id,
@@ -384,7 +494,7 @@ form?.addEventListener("submit", async (event) => {
   const { data: inserted, error } = insertResult;
 
   if (error || !inserted) {
-    setStatus(error?.message || "Could not post job.", "error");
+    setStatus(error?.message || "Could not send request.", "error");
     return;
   }
 
@@ -399,7 +509,7 @@ form?.addEventListener("submit", async (event) => {
       .from("job_requests")
       .insert(directRequestPayload);
     if (directRequestError) {
-      setStatus(directRequestError.message || "Job posted, but direct request could not be sent.", "error");
+      setStatus(directRequestError.message || "Request posted, but direct request could not be sent.", "error");
       await renderJobs();
       return;
     }
@@ -442,7 +552,7 @@ form?.addEventListener("submit", async (event) => {
         await supabase.from("job_photos").insert(photoRows);
       }
     } catch (error) {
-      setStatus("Job posted, but photo upload failed.", "error");
+      setStatus("Request posted, but photo upload failed.", "error");
       await renderJobs();
       return;
     }
@@ -452,7 +562,7 @@ form?.addEventListener("submit", async (event) => {
   setStatus(
     directProviderId
       ? `Direct request sent${directProviderName ? ` to ${directProviderName}` : ""}.`
-      : "Job posted.",
+      : "Request sent.",
     "success",
   );
   await renderJobs();
@@ -461,8 +571,8 @@ form?.addEventListener("submit", async (event) => {
 const initDirectRequestMode = async () => {
   if (!directProviderId) return;
   if (myJobsPanel) myJobsPanel.classList.add("hidden");
-  if (jobFormTitleEl) jobFormTitleEl.textContent = "Direct Request Details";
-  if (jobSubmitButton) jobSubmitButton.textContent = "Send Direct Request";
+  if (jobFormTitleEl) jobFormTitleEl.textContent = "Quick Request Details";
+  if (jobSubmitButton) jobSubmitButton.textContent = "Send Request";
   if (jobFormContent) jobFormContent.classList.remove("hidden");
   if (jobFormToggleButton) jobFormToggleButton.textContent = "Collapse";
   const hasTargetProviderColumn = await checkTargetProviderColumn();
@@ -484,11 +594,11 @@ const initDirectRequestMode = async () => {
     return;
   }
   if (provider?.name) {
-    setStatus(`Direct request mode: this job will be sent to ${provider.name} only.`, "info");
+    setStatus(`Quick request mode: this request will be sent to ${provider.name} only.`, "info");
   } else if (directProviderName) {
-    setStatus(`Direct request mode: this job will be sent to ${directProviderName} only.`, "info");
+    setStatus(`Quick request mode: this request will be sent to ${directProviderName} only.`, "info");
   } else {
-    setStatus("Direct request mode: this job will be sent to one Plug only.", "info");
+    setStatus("Quick request mode: this request will be sent to one Plug only.", "info");
   }
   if (provider?.category && !serviceNameInput?.value) {
     const inferredCategory = window.NLINK_SERVICE_TAGS?.inferCategoryForService?.(provider.category) || "";

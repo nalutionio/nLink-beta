@@ -4,6 +4,7 @@ const supabase = typeof window.getNlinkSupabaseClient === "function"
 
 const titleEl = document.getElementById("job-title");
 const statusEl = document.getElementById("job-status");
+const statusTimelineEl = document.getElementById("job-status-timeline");
 const descriptionEl = document.getElementById("job-description");
 const metaLocationEl = document.getElementById("job-meta-location");
 const metaBudgetEl = document.getElementById("job-meta-budget");
@@ -51,7 +52,6 @@ const bookingConfirmedWrap = document.getElementById("provider-booking-confirmed
 const bookingConfirmedSlotEl = document.getElementById("provider-booking-confirmed-slot");
 const bookingAddressWrap = document.getElementById("provider-booking-address-wrap");
 const bookingAddressEl = document.getElementById("provider-booking-address");
-const bookingSaveButton = document.getElementById("provider-booking-save");
 const bookingStatusEl = document.getElementById("provider-booking-status");
 
 let providerId = null;
@@ -77,12 +77,44 @@ const normalizeRequestStatus = (status) => {
 
 const requestStatusLabel = (status) => {
   const normalized = normalizeRequestStatus(status);
-  if (normalized === "requested") return "Direct Request";
+  if (normalized === "requested") return "Needs Proposal";
   if (normalized === "completed") return "Awaiting Confirmation";
   if (normalized === "closed") return "Completed";
   if (normalized === "accepted") return "Accepted";
   if (normalized === "declined") return "Declined";
-  return "Pending";
+  return "Awaiting Neighbor";
+};
+
+const renderStatusTimeline = (stage = "requested") => {
+  if (!statusTimelineEl) return;
+  const steps = [
+    { key: "requested", label: "Requested" },
+    { key: "proposed", label: "Proposed" },
+    { key: "accepted", label: "Accepted" },
+    { key: "scheduled", label: "Scheduled" },
+    { key: "complete", label: "Complete" },
+  ];
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.key === stage));
+  statusTimelineEl.innerHTML = steps
+    .map((step, index) => `<span class="status-step ${index <= activeIndex ? "active" : ""}">${step.label}</span>`)
+    .join("");
+};
+
+const getProviderTimelineStage = (jobStatus = "open", requestStatusValue = null, appointment = null) => {
+  const normalizedJob = String(jobStatus || "").toLowerCase();
+  const normalizedRequest = normalizeRequestStatus(requestStatusValue || "");
+  const appointmentStatus = String(appointment?.status || "").toLowerCase();
+  if (normalizedRequest === "closed" || normalizedJob === "closed") return "complete";
+  if (normalizedRequest === "completed") return "scheduled";
+  if (normalizedRequest === "accepted" && appointmentStatus === "scheduled") return "scheduled";
+  if (normalizedRequest === "accepted") return "accepted";
+  if (normalizedRequest === "pending") return "proposed";
+  if (normalizedRequest === "requested") return "requested";
+  return "requested";
+};
+
+const updateProviderTimeline = () => {
+  renderStatusTimeline(getProviderTimelineStage(currentJob?.status || "open", currentRequestStatus, currentAppointment));
 };
 
 const HOME_SERVICE_HINTS = [
@@ -90,15 +122,9 @@ const HOME_SERVICE_HINTS = [
   "lawn", "gutters", "handyman", "solar", "contractor", "home improvement",
 ];
 
-const PERSONAL_BOOKING_SERVICES = new Set(["barber", "hair stylist", "personal trainer"]);
-
 const supportsScheduledBookingByCategory = (categoryValue) => {
-  const normalized = String(
-    window.NLINK_SERVICE_TAGS?.toCanonicalService
-      ? window.NLINK_SERVICE_TAGS.toCanonicalService(categoryValue || "")
-      : (categoryValue || "")
-  ).trim().toLowerCase();
-  return PERSONAL_BOOKING_SERVICES.has(normalized);
+  void categoryValue;
+  return true;
 };
 
 const setStatus = (message, type = "") => {
@@ -122,6 +148,17 @@ const isMissingTableError = (error) => Boolean(error)
 
 const logJobEvent = async (eventType, metadata = {}) => {
   if (!supabase || !jobEventsTableAvailable || !jobId || !eventType) return;
+  const allowedEventTypes = new Set([
+    "job_created",
+    "job_updated",
+    "job_closed",
+    "job_reopened",
+    "request_sent",
+    "request_accepted",
+    "request_declined",
+    "request_closed",
+  ]);
+  if (!allowedEventTypes.has(String(eventType || "").trim())) return;
   try {
     const user = await getSessionUser();
     const { error } = await supabase
@@ -398,6 +435,10 @@ const inferDefaultProposalType = (job) => {
 const hydrateProposalForm = (job, request = null) => {
   if (!proposalTypeInput || !proposalPricingBasisInput) return;
   const defaultType = inferDefaultProposalType(job);
+  const requestStatus = normalizeRequestStatus(request?.status || "");
+  // For direct-request intake, keep Neighbor note in Neighbor Notes section
+  // and start Plug proposal notes blank.
+  const requestProposalNotes = requestStatus === "requested" ? "" : (request?.proposal_notes || "");
   proposalTypeInput.value = request?.proposal_type || defaultType;
   proposalPricingBasisInput.value = request?.pricing_basis || (defaultType === "direct_service" ? "fixed" : "after_inspection");
   if (proposalEstimateMinInput) proposalEstimateMinInput.value = request?.estimated_price_min ?? "";
@@ -405,7 +446,7 @@ const hydrateProposalForm = (job, request = null) => {
   if (proposalInspectionFeeInput) proposalInspectionFeeInput.value = request?.inspection_fee ?? "";
   if (proposalInspectionCreditableInput) proposalInspectionCreditableInput.checked = Boolean(request?.inspection_fee_creditable);
   if (proposalInspectionWaivableInput) proposalInspectionWaivableInput.checked = Boolean(request?.inspection_fee_waivable);
-  if (proposalNotesInput) proposalNotesInput.value = request?.proposal_notes || "";
+  if (proposalNotesInput) proposalNotesInput.value = requestProposalNotes;
 };
 
 const getProposalPayload = () => {
@@ -517,12 +558,17 @@ const hydrateBookingEditor = () => {
     bookingWrap.classList.add("hidden");
     return;
   }
-  if (!bookingTableAvailable || !currentRequestId) {
+  if (!bookingTableAvailable) {
     bookingWrap.classList.add("hidden");
     return;
   }
   const normalizedStatus = normalizeRequestStatus(currentRequestStatus);
-  const canManageBooking = normalizedStatus === "accepted" || normalizedStatus === "completed" || normalizedStatus === "closed";
+  const canManageBooking = !currentRequestId
+    || normalizedStatus === "requested"
+    || normalizedStatus === "pending"
+    || normalizedStatus === "accepted"
+    || normalizedStatus === "completed"
+    || normalizedStatus === "closed";
   bookingWrap.classList.toggle("hidden", !canManageBooking);
   if (!canManageBooking) return;
 
@@ -548,22 +594,13 @@ const hydrateBookingEditor = () => {
   const completed = normalizedStatus === "closed";
   const awaitingConfirmation = normalizedStatus === "completed";
   const lockForScheduled = isScheduled || completed || awaitingConfirmation;
-  [bookingSlot1Input, bookingSlot2Input, bookingSlot3Input, bookingNoteInput, bookingSaveButton].forEach((el) => {
+  [bookingSlot1Input, bookingSlot2Input, bookingSlot3Input, bookingNoteInput].forEach((el) => {
     if (!el) return;
     el.disabled = lockForScheduled;
   });
   [bookingSlot1Input, bookingSlot2Input, bookingSlot3Input].forEach((el) => {
     el?.closest(".input-field")?.classList.toggle("hidden", isScheduled);
   });
-  if (bookingSaveButton) {
-    bookingSaveButton.textContent = completed
-      ? "Completed"
-      : awaitingConfirmation
-        ? "Awaiting Neighbor Confirmation"
-      : isScheduled
-        ? "Availability Confirmed"
-        : "Send Availability";
-  }
   setBookingStatus(
     completed
       ? "Job is completed. Availability is locked."
@@ -571,7 +608,7 @@ const hydrateBookingEditor = () => {
         ? "Work completed. Waiting for Neighbor confirmation."
       : isScheduled
         ? "Neighbor confirmed an appointment window."
-        : "",
+        : "Add 1-3 slots. They will be sent with your proposal.",
   );
 };
 
@@ -617,6 +654,7 @@ const renderJob = async () => {
 
   if (titleEl) titleEl.textContent = job.title;
   if (statusEl) statusEl.textContent = job.status || "open";
+  updateProviderTimeline();
   if (metaLocationEl) metaLocationEl.textContent = job.location || "Not set";
   if (metaBudgetEl) metaBudgetEl.textContent = `$${job.budget_min || 0} - $${job.budget_max || 0}`;
   if (metaSizeEl) metaSizeEl.textContent = job.sqft ? `${job.sqft} sqft` : "Not provided";
@@ -678,6 +716,7 @@ const renderJob = async () => {
       galleryEl.appendChild(img);
     });
   }
+  updateProviderTimeline();
 };
 
 clientViewFullButton?.addEventListener("click", openClientFullProfileModal);
@@ -802,9 +841,57 @@ const saveBookingAvailability = async () => {
     return;
   }
   currentAppointment = result?.data || currentAppointment;
+  updateProviderTimeline();
   setBookingStatus("Availability sent.", "success");
   await logJobEvent("appointment_proposed", { request_id: currentRequestId });
   hydrateBookingEditor();
+};
+
+const upsertProposalSlotsForRequest = async (requestId, clientId) => {
+  if (!supabase || !requestId || !clientId) return { ok: false, reason: "missing_context" };
+  if (!supportsScheduledBookingByCategory(providerCategory)) return { ok: true, skipped: true };
+  if (!bookingTableAvailable) return { ok: false, reason: "booking_unavailable" };
+
+  const slots = getProposedSlotsFromProviderInputs();
+  if (!slots.length) return { ok: false, reason: "missing_slots" };
+
+  const payload = {
+    job_id: jobId,
+    request_id: requestId,
+    provider_id: providerId,
+    client_id: clientId,
+    status: "proposed",
+    proposed_slots: slots,
+    provider_notes: (bookingNoteInput?.value || "").trim() || null,
+  };
+
+  let result = null;
+  if (currentAppointment?.id) {
+    result = await supabase
+      .from("job_appointments")
+      .update(payload)
+      .eq("id", currentAppointment.id)
+      .select("*")
+      .maybeSingle();
+  } else {
+    result = await supabase
+      .from("job_appointments")
+      .insert(payload)
+      .select("*")
+      .maybeSingle();
+  }
+
+  if (result?.error) {
+    if (isMissingTableError(result.error)) {
+      bookingTableAvailable = false;
+      bookingWrap?.classList.add("hidden");
+      return { ok: false, reason: "booking_unavailable" };
+    }
+    return { ok: false, reason: "write_failed", error: result.error };
+  }
+
+  currentAppointment = result?.data || currentAppointment;
+  return { ok: true };
 };
 
 const requestQuote = async () => {
@@ -816,15 +903,17 @@ const requestQuote = async () => {
   setStatus("Submitting proposal...", "info");
 
   const existing = await loadExistingRequest();
+  const requiresSlotWithProposal = supportsScheduledBookingByCategory(providerCategory);
 
   if (existing) {
     hydrateProposalForm(currentJob, existing);
     currentRequestStatus = existing.status || "pending";
     currentRequestId = existing.id || currentRequestId;
+    updateProviderTimeline();
     const normalized = normalizeRequestStatus(existing.status);
     if (normalized === "requested") {
       setProposalLocked(false, existing);
-      requestButton.textContent = "Send Proposal";
+      requestButton.textContent = requiresSlotWithProposal ? "Send Proposal + Slots" : "Send Proposal";
       requestButton.disabled = false;
       // Continue and convert requested -> pending via provider submission.
     }
@@ -847,6 +936,14 @@ const requestQuote = async () => {
   }
 
   const proposalPayload = getProposalPayload();
+  if (requiresSlotWithProposal) {
+    const proposalSlots = getProposedSlotsFromProviderInputs();
+    if (!proposalSlots.length) {
+      setStatus("Add at least one time slot before sending this proposal.", "error");
+      requestButton.disabled = false;
+      return;
+    }
+  }
   if (
     proposalPayload.estimated_price_min
     && proposalPayload.estimated_price_max
@@ -970,8 +1067,25 @@ const requestQuote = async () => {
   }
   currentRequestId = persisted.id || currentRequestId;
 
+  // For personal-booking services, include appointment options with every proposal send.
+  if (requiresSlotWithProposal) {
+    const slotWrite = await upsertProposalSlotsForRequest(currentRequestId, currentJob?.client_id || "");
+    if (!slotWrite.ok) {
+      if (slotWrite.reason === "missing_slots") {
+        setStatus("Add at least one time slot before sending this proposal.", "error");
+      } else if (slotWrite.reason === "booking_unavailable") {
+        setStatus("Proposal sent, but scheduling table is unavailable right now.", "error");
+      } else {
+        setStatus(slotWrite.error?.message || "Proposal sent, but appointment slots could not be saved.", "error");
+      }
+      return;
+    }
+    hydrateBookingEditor();
+  }
+
   setStatus("Proposal sent.", "success");
   currentRequestStatus = "pending";
+  updateProviderTimeline();
   setProposalLocked(true, { ...proposalPayload, status: "pending" });
   requestButton.textContent = "Proposal Sent";
   requestButton.disabled = true;
@@ -990,6 +1104,9 @@ const init = async () => {
   providerId = await loadProviderId();
   await renderJob();
   if (!providerId || !jobId) return;
+  if (supportsScheduledBookingByCategory(providerCategory) && requestButton) {
+    requestButton.textContent = "Send Proposal + Slots";
+  }
   const existing = await loadExistingRequest();
   currentRequestId = existing?.id || null;
   currentAppointment = currentRequestId ? await loadAppointment(currentRequestId) : null;
@@ -998,7 +1115,9 @@ const init = async () => {
     hydrateProposalForm(currentJob, existing);
     if (normalized === "requested") {
       setProposalLocked(false, existing);
-      requestButton.textContent = "Send Proposal";
+      requestButton.textContent = supportsScheduledBookingByCategory(providerCategory)
+        ? "Send Proposal + Slots"
+        : "Send Proposal";
       requestButton.disabled = false;
     } else {
       setProposalLocked(true, existing);
@@ -1012,10 +1131,13 @@ const init = async () => {
     }
   }
   currentRequestStatus = existing?.status || null;
+  updateProviderTimeline();
   if (existing) {
     const normalized = normalizeRequestStatus(existing.status);
     if (normalized === "requested") {
-      requestButton.textContent = "Send Proposal";
+      requestButton.textContent = supportsScheduledBookingByCategory(providerCategory)
+        ? "Send Proposal + Slots"
+        : "Send Proposal";
       requestButton.disabled = false;
     } else {
       requestButton.textContent = normalized === "accepted"
@@ -1046,6 +1168,5 @@ reviewSubmitButton?.addEventListener("click", submitProviderReview);
 proposalToggleView?.addEventListener("click", () => {
   setProposalView(!proposalExpanded);
 });
-bookingSaveButton?.addEventListener("click", saveBookingAvailability);
 
 init();

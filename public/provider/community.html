@@ -26,6 +26,9 @@
     </header>
 
     <div class="auth-status" id="community-status"></div>
+    <section class="panel community-flow-strip" aria-label="Community flow">
+      <p><strong>How it works:</strong> Post → Build trust → Get discovered</p>
+    </section>
 
     <section class="panel community-composer">
       <form id="community-post-form" class="modal-form community-composer-form">
@@ -35,24 +38,27 @@
         </div>
         <input type="hidden" id="community-post-type" value="showcase" />
         <div id="community-post-type-chips" class="community-type-chips"></div>
-        <div class="grid-2">
+        <button class="ghost-button compact" id="community-more-fields-toggle" type="button">Add service details</button>
+        <div class="hidden" id="community-more-fields">
+          <div class="grid-2">
+            <label class="input-field">
+              <span>Service Category (optional)</span>
+              <select id="community-service-category">
+                <option value="">Select category</option>
+              </select>
+            </label>
+            <label class="input-field">
+              <span>Service (optional)</span>
+              <select id="community-service-name">
+                <option value="">Select service</option>
+              </select>
+            </label>
+          </div>
           <label class="input-field">
-            <span>Service Category (optional)</span>
-            <select id="community-service-category">
-              <option value="">Select category</option>
-            </select>
-          </label>
-          <label class="input-field">
-            <span>Service (optional)</span>
-            <select id="community-service-name">
-              <option value="">Select service</option>
-            </select>
+            <span>Tags (optional)</span>
+            <select id="community-service-tags" multiple size="3"></select>
           </label>
         </div>
-        <label class="input-field">
-          <span>Tags (optional)</span>
-          <select id="community-service-tags" multiple size="3"></select>
-        </label>
         <input type="file" id="community-photo-upload" accept="image/*" hidden />
         <div class="community-photo-preview hidden" id="community-photo-preview">
           <img id="community-photo-preview-image" src="" alt="Post photo preview" />
@@ -70,6 +76,8 @@
       </form>
     </section>
 
+    <section class="community-range-filter" id="community-range-filter" aria-label="Community range"></section>
+    <p class="community-range-hint" id="community-range-hint"></p>
     <section class="community-feed" id="community-feed"></section>
   </main>
 

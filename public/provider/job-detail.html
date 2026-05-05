@@ -44,6 +44,7 @@
         <h3>Overview</h3>
         <span class="pill" id="job-status">Open</span>
       </div>
+      <div class="status-timeline" id="job-status-timeline"></div>
       <div class="overview-grid">
         <div class="overview-item">
           <span class="muted">Location</span>
@@ -137,12 +138,9 @@
         </div>
         <div id="proposal-summary-copy" class="muted"></div>
       </div>
-      <button class="primary-button" id="request-quote">Send Proposal</button>
-      <a class="ghost-button hidden" id="message-client-link" href="#">Message Neighbor</a>
-      <div class="auth-status" id="request-status"></div>
       <div class="modal-form hidden" id="provider-booking-wrap">
         <h4>Availability Windows</h4>
-        <p class="muted">Share up to 3 appointment windows for this job.</p>
+        <p class="muted">Share up to 3 windows for an appointment, walkthrough, or inspection.</p>
         <div class="scope-box hidden" id="provider-booking-confirmed-wrap">
           <h4>Confirmed Appointment</h4>
           <p id="provider-booking-confirmed-slot">Waiting for Neighbor confirmation.</p>
@@ -167,11 +165,11 @@
           <h4>Shared Service Address</h4>
           <p id="provider-booking-address">No address shared yet.</p>
         </div>
-        <div class="job-actions review-actions">
-          <button class="primary-button" id="provider-booking-save" type="button">Send Availability</button>
-        </div>
         <div class="auth-status" id="provider-booking-status"></div>
       </div>
+      <button class="primary-button" id="request-quote">Send Proposal + Slots</button>
+      <a class="ghost-button hidden" id="message-client-link" href="#">Message Neighbor</a>
+      <div class="auth-status" id="request-status"></div>
       <div class="modal-form hidden" id="provider-review-form-wrap">
         <h4 id="provider-review-title">Rate Neighbor</h4>
         <label class="input-field">

@@ -25,16 +25,25 @@
 
     <section class="panel">
       <h3>Plan</h3>
-      <p class="muted">You are currently on the beta plan.</p>
-      <button class="primary-button">Upgrade</button>
+      <p class="muted" id="billing-plan-copy">You are currently on the beta plan.</p>
+      <button class="primary-button" id="billing-upgrade">Upgrade</button>
+    </section>
+
+    <section class="panel">
+      <h3>Usage This Month</h3>
+      <div class="settings-list">
+        <div class="settings-item"><span>Proposal Responses</span><span class="pill" id="billing-proposals-used">0</span></div>
+        <div class="settings-item"><span>Direct Requests Responded</span><span class="pill" id="billing-direct-used">0</span></div>
+      </div>
     </section>
 
     <section class="panel">
       <h3>Payment Methods</h3>
       <div class="settings-list">
-        <button class="settings-item">Add payment method</button>
-        <button class="settings-item">Billing history</button>
+        <button class="settings-item" id="billing-add-card">Add payment method</button>
+        <button class="settings-item" id="billing-history">Billing history</button>
       </div>
+      <p class="muted" id="billing-status"></p>
     </section>
   </main>
 
@@ -50,5 +59,6 @@
   <script src="../js/nav-badges.js"></script>
   <script src="../js/auth-required.js"></script>
   <script>requireAuth();</script>
+  <script src="../js/billing-provider.js"></script>
 </body>
 </html>
